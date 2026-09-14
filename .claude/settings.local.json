@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($c = @\\('C:\\\\Program Files\\\\nodejs\\\\node.exe','C:\\\\Program Files \\(x86\\)\\\\nodejs\\\\node.exe',\"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\",\"$env:APPDATA\\\\npm\\\\node.exe\",\"$env:LOCALAPPDATA\\\\nvs\\\\default\\\\node.exe\"\\); foreach \\($p in $c\\) { if \\(Test-Path $p\\) { \"FOUND: $p\" } }; \"--- nvm ---\"; if \\(Test-Path \"$env:APPDATA\\\\nvm\"\\) { Get-ChildItem \"$env:APPDATA\\\\nvm\" -Filter node.exe -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 5 -ExpandProperty FullName }; \"--- python ---\"; try { \\(Get-Command python -ErrorAction Stop\\).Source } catch { \"no python\" }; try { \\(Get-Command py -ErrorAction Stop\\).Source } catch { \"no py\" }; try { \\(Get-Command deno -ErrorAction Stop\\).Source } catch { \"no deno\" }; try { \\(Get-Command bun -ErrorAction Stop\\).Source } catch { \"no bun\" })",
+      "PowerShell($b = @\\('C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe','C:\\\\Program Files\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe','C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe','C:\\\\Program Files \\(x86\\)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe',\"$env:LOCALAPPDATA\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\"\\); foreach \\($p in $b\\) { if \\(Test-Path $p\\) { \"FOUND: $p\" } }; \"--- cscript ---\"; if \\(Test-Path \"$env:SystemRoot\\\\System32\\\\cscript.exe\"\\) { \"FOUND: cscript \\(JScript\\)\" })"
+    ]
+  }
+}

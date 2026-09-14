@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two-Target Game — Pure-Pursuit Heuristic Demo</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #11161d;
+    --panel2: #161c25;
+    --line: #232c38;
+    --text: #e6edf3;
+    --dim: #8b98a9;
+    --dimmer: #5d6875;
+    --p1: #4c8dff;
+    --p2: #ffa53d;
+    --both: #ff5470;
+    --accent: #5fe3c0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 18px 20px 28px;
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; font-weight: 600; letter-spacing: .2px; }
+  .sub { color: var(--dim); font-size: 12.5px; margin: 0 0 16px; }
+  .sub em { color: var(--dimmer); font-style: normal; }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: minmax(380px, 1.25fr) minmax(300px, 1fr) 332px;
+    grid-template-areas:
+      "plan  phase side"
+      "rt    rt    side";
+    gap: 16px;
+    align-items: start;
+    max-width: 1580px;
+  }
+  #planCard  { grid-area: plan; }
+  #phaseCard { grid-area: phase; }
+  #rtCard    { grid-area: rt; }
+  #side      { grid-area: side; }
+  @media (max-width: 1300px) {
+    .wrap {
+      grid-template-columns: minmax(0, 1fr) 332px;
+      grid-template-areas: "plan side" "phase side" "rt side";
+    }
+  }
+  @media (max-width: 900px) {
+    .wrap { grid-template-columns: 1fr; grid-template-areas: "plan" "phase" "rt" "side"; }
+  }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  .card + .card { margin-top: 14px; }
+  .card h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--dim); margin: 0; padding: 10px 13px; border-bottom: 1px solid var(--line); font-weight: 600;
+  }
+  .card h2 .plain { text-transform: none; letter-spacing: 0; color: var(--dimmer); font-weight: 400; }
+  .card .body { padding: 12px 13px; }
+
+  canvas { display: block; width: 100%; border-radius: 6px; }
+  #plan, #plot { aspect-ratio: 1 / 1; }
+  #plan { cursor: default; }
+  #plot { cursor: crosshair; }
+  #rplot { height: 132px; }
+  .capt { color: var(--dimmer); font-size: 11.5px; margin: 8px 2px 0; line-height: 1.45; }
+  .capt b { color: var(--dim); font-weight: 600; }
+
+  .row { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label { color: var(--dim); font-size: 12.5px; min-width: 30px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
+  input[type=number] {
+    width: 74px; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px;
+    font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 6px 11px; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #1d2531; border-color: #33404f; }
+  button:disabled { opacity: .42; cursor: default; }
+  button.primary { border-color: #2f5f52; background: #16302a; color: var(--accent); }
+  button.primary:hover:not(:disabled) { background: #1b3b33; }
+  select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 4px 6px; font-size: 12.5px;
+  }
+  .tval { font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--dim); min-width: 84px; text-align: right; }
+
+  .readout { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .readout dt { color: var(--dim); }
+  .readout dd { margin: 0; text-align: right; }
+
+  #outcome {
+    padding: 9px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--panel2); color: var(--dim);
+  }
+  #outcome.p1 { border-color: var(--p1); color: var(--p1); background: rgba(76,141,255,.10); }
+  #outcome.p2 { border-color: var(--p2); color: var(--p2); background: rgba(255,165,61,.10); }
+  #outcome.mutual { border-color: var(--both); color: var(--both); background: rgba(255,84,112,.10); }
+  #outcome.draw { border-color: #46525f; color: var(--text); }
+  #outcome.numerical, #outcome.terminal0 { border-color: #7a6a2f; color: #e2c268; background: rgba(226,194,104,.08); }
+  #outcome small { display: block; font-weight: 400; font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+
+  .legend { display: grid; gap: 6px; font-size: 12.5px; color: var(--dim); }
+  .legend div { display: flex; align-items: center; gap: 8px; }
+  .legend hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
+  .sw { width: 13px; height: 13px; border-radius: 3px; flex: none; }
+  .sw.t1 { background: rgba(76,141,255,.20); border: 1px solid rgba(76,141,255,.6); }
+  .sw.t2 { background: rgba(255,165,61,.20); border: 1px solid rgba(255,165,61,.6); }
+  .sw.both { background: rgba(255,84,112,.42); border: 1px solid rgba(255,84,112,.85); }
+  .sw.ac1 { background: var(--p1); }
+  .sw.ac2 { background: var(--p2); }
+  .sw.kill { background: transparent; color: var(--both); border-radius: 0; text-align: center; line-height: 13px; font-size: 13px; }
+  .sw.trail { background: var(--accent); }
+  .sw.dash { background: transparent; border-top: 1px dashed rgba(255,255,255,.5); height: 1px; border-radius: 0; }
+
+  .disclosure { font-size: 12.5px; line-height: 1.55; }
+  .disclosure blockquote {
+    margin: 0 0 11px; padding: 9px 12px; border-left: 3px solid var(--dimmer);
+    background: var(--panel2); border-radius: 0 5px 5px 0; color: var(--dim);
+  }
+  .disclosure blockquote:last-child { margin-bottom: 0; border-left-color: #7a6a2f; }
+  .disclosure strong { color: var(--text); }
+  .params { color: var(--dimmer); font: 11.5px ui-monospace, SFMono-Regular, Consolas, monospace; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Two-target game — pure-pursuit heuristic</h1>
+<p class="sub">
+  Reduced state (φ₁, φ₂, R) after Davidovitz &amp; Shinar (1989), <em>JOTA</em> 63(2) 133–165.
+  Click in the phase plot to launch an engagement at the current R₀ and watch it fly.
+</p>
+
+<div class="wrap">
+
+  <!-- ============ plan view (primary) ============ -->
+  <div class="card" id="planCard">
+    <h2>Plan view <span class="plain">— what the two aircraft actually do</span></h2>
+    <div class="body">
+      <canvas id="plan"></canvas>
+      <p class="capt" id="planHint">Drag either aircraft to move it; drag its knob to turn it.</p>
+      <p class="capt">
+        Top-down ground track, both aircraft at equal constant speed. <b>1 grid square = one
+        turn radius ρ = 2200 m.</b> The shaded wedge ahead of each aircraft is its live firing
+        envelope — ±45° boresight, between R̲ and R̄. It brightens when the opponent is inside
+        it. Watch it <b>breathe</b>: your envelope is set by your <b>opponent's</b> aspect
+        angle, so it swells as he turns nose-on to you.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ phase plot ============ -->
+  <div class="card" id="phaseCard">
+    <h2>φ₁–φ₂ phase plot <span class="plain">— click to set the initial state</span></h2>
+    <div class="body">
+      <canvas id="plot"></canvas>
+      <p class="capt" id="hint">Hover to read (φ₁, φ₂); click to set the initial state.</p>
+    </div>
+  </div>
+
+  <!-- ============ R(t) ============ -->
+  <div class="card" id="rtCard">
+    <h2>Range R(t) <span class="plain">— the third coordinate, not visible in the φ₁–φ₂ projection</span></h2>
+    <div class="body" style="padding:8px 10px"><canvas id="rplot"></canvas></div>
+  </div>
+
+  <!-- ============ sidebar ============ -->
+  <div id="side">
+    <div class="card">
+      <h2>Initial condition</h2>
+      <div class="body">
+        <div class="row">
+          <label for="r0slider">R₀</label>
+          <input type="range" id="r0slider" min="0.2" max="12" step="0.05" value="1.75">
+          <input type="number" id="r0num" min="0.2" max="12" step="0.05" value="1.75">
+        </div>
+        <div class="row">
+          <label for="phi1num">φ₁</label>
+          <input type="number" id="phi1num" min="-180" max="180" step="1" value="-120">
+          <label for="phi2num" style="min-width:24px">φ₂</label>
+          <input type="number" id="phi2num" min="-180" max="180" step="1" value="60">
+          <span style="color:var(--dimmer);font-size:12px">deg</span>
+        </div>
+        <div class="row">
+          <button id="fly" class="primary" style="flex:1">Fly this engagement</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Playback</h2>
+      <div class="body">
+        <div class="row">
+          <button id="play" disabled>▶ Play</button>
+          <button id="stepBack" disabled title="one frame back">◀</button>
+          <button id="stepFwd" disabled title="one frame forward">▶</button>
+          <button id="replay" disabled title="back to t = 0">⟲</button>
+          <select id="speed" title="Playback rate in simulated time units per real second. 1 normalized time unit = ρ/V ≈ 6.1 s of real flight, so 1× here is about 15× real time.">
+            <option value="0.1636">real time</option>
+            <option value="0.6">0.25×</option>
+            <option value="1.2">0.5×</option>
+            <option value="2.4" selected>1×</option>
+            <option value="4.8">2×</option>
+            <option value="12">5×</option>
+          </select>
+        </div>
+        <div class="row">
+          <input type="range" id="scrub" min="0" max="0" value="0" disabled>
+          <span class="tval" id="scrubLbl">t 0.00</span>
+        </div>
+        <div class="row">
+          <button id="clear" style="flex:1">Clear past trajectories</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Outcome</h2>
+      <div class="body">
+        <div id="outcome">No run yet</div>
+        <dl class="readout" style="margin:12px 0 0">
+          <dt>t</dt><dd id="rd-t">0.00</dd>
+          <dt>R</dt><dd id="rd-r">1.750</dd>
+          <dt>φ₁</dt><dd id="rd-p1">−120.0°</dd>
+          <dt>φ₂</dt><dd id="rd-p2">60.0°</dd>
+          <dt>σ₁, σ₂</dt><dd id="rd-sig">+1, −1</dd>
+          <dt>R̲(φ₂), R̄(φ₂)</dt><dd id="rd-b1">—</dd>
+          <dt>R̲(φ₁), R̄(φ₁)</dt><dd id="rd-b2">—</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Legend</h2>
+      <div class="body">
+        <div class="legend">
+          <div><span class="sw ac1"></span> Aircraft 1 &nbsp;·&nbsp; its envelope and trail</div>
+          <div><span class="sw ac2"></span> Aircraft 2 &nbsp;·&nbsp; its envelope and trail</div>
+          <div><span class="sw dash"></span> line of sight between them</div>
+          <div><span class="sw kill">✕</span> aircraft killed</div>
+          <hr>
+          <div><span class="sw t1"></span> T₁ — player 1 can kill (|φ₁| ≤ β, R̲(φ₂) ≤ R &lt; R̄(φ₂))</div>
+          <div><span class="sw t2"></span> T₂ — player 2 can kill (|φ₂| ≤ β, R̲(φ₁) ≤ R &lt; R̄(φ₁))</div>
+          <div><span class="sw both"></span> T₁ ∩ T₂ — mutual kill</div>
+          <div><span class="sw trail"></span> phase-plot trajectory (○ start, ✕ kill)</div>
+        </div>
+        <div class="params" id="paramline"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>What this is — and is not</h2>
+      <div class="body disclosure">
+        <blockquote>
+          <strong>Illustrative pursuit heuristic (σᵢ = −sign(φᵢ)).</strong> This is not the paper's
+          proven-optimal control law. Davidovitz &amp; Shinar derive optimal barrier strategies only
+          <em>along constructed barrier trajectories</em>: σᵢ* = −sign(λᵢ) for the pursuer and
+          σⱼ* = +sign(λⱼ) for the evader in each single-target subgame (Eqs. 21–22), with costates
+          seeded by transversality at the BUP and integrated backward via Eqs. (17)–(19). No global
+          feedback law is given.
+        </blockquote>
+        <blockquote>
+          <strong>Regime warning.</strong> At short range this heuristic reproduces the paper's
+          angular-advantage result (the player with smaller |φ| wins). At long range it
+          <em>inverts</em> it, because a player's own no-escape envelope grows as his
+          <strong>opponent</strong> turns nose-on — so mutual pure pursuit produces far more mutual
+          kills than the paper's optimal solution, where the mutual-kill set has measure zero.
+        </blockquote>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="sim.js"></script>
+<script src="render.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var P = Sim.PARAMS;
+  var el = function (id) { return document.getElementById(id); };
+  var plan = el('plan'), plot = el('plot'), rplot = el('rplot');
+
+  var ui = {
+    r0slider: el('r0slider'), r0num: el('r0num'),
+    phi1num: el('phi1num'), phi2num: el('phi2num'),
+    fly: el('fly'),
+    play: el('play'), stepBack: el('stepBack'), stepFwd: el('stepFwd'),
+    replay: el('replay'), scrub: el('scrub'), scrubLbl: el('scrubLbl'),
+    speed: el('speed'), clear: el('clear'),
+    outcome: el('outcome'), hint: el('hint'), planHint: el('planHint'),
+    t: el('rd-t'), r: el('rd-r'), p1: el('rd-p1'), p2: el('rd-p2'), sig: el('rd-sig'),
+    b1: el('rd-b1'), b2: el('rd-b2')
+  };
+
+  var state = {
+    R0: 1.75,
+    phi1: Sim.toRad(-120),
+    phi2: Sim.toRad(60),
+    // Absolute ground pose of the pair before launch. The reduced state carries
+    // no position or orientation, so regenerating this from (R, phi1, phi2)
+    // every frame would snap a dragged arrangement back to the canonical pose.
+    // This is the master while editing; the reduced values are derived from it.
+    setup: null,
+    run: null,        // fully integrated before playback starts
+    cursor: 0,        // index into run.path
+    playing: false,
+    camera: null,     // fixed for the whole run, so the plan view never drifts
+    editCamera: null, // frozen during a drag so the aircraft tracks the cursor
+    drag: null,       // { which: 1|2, mode: 'move'|'turn' }
+    accum: 0,         // fractional step carry-over for rate-based playback
+    lastTs: 0,
+    ghosts: [],
+    hover: null
+  };
+
+  // --- formatting -----------------------------------------------------------
+  function fmt(v, n) {
+    if (!isFinite(v)) return '—';
+    var s = v.toFixed(n);
+    return s.charAt(0) === '-' ? '−' + s.slice(1) : s;   // U+2212 reads better
+  }
+  var deg = function (rad) { return fmt(Sim.toDeg(rad), 1) + '°'; };
+  function sgnStr(s) { return s > 0 ? '+1' : (s < 0 ? '−1' : ' 0'); }
+
+  var R_MIN = 0.2, R_MAX = 12;
+  function clampR(v) { return Math.min(R_MAX, Math.max(R_MIN, v)); }
+
+  // Rebuild the ground pose from the reduced values, preserving whatever the
+  // caller did not change: the midpoint and the line-of-sight direction stay
+  // put, so moving the R0 slider slides the pair apart along the current LOS
+  // and setting phi from the phase plot just rotates the aircraft in place.
+  function setupFromReduced(keepFrame) {
+    var mid = { x: 0, y: 0 }, psi = 0;
+    if (keepFrame && state.setup) {
+      var q = state.setup;
+      mid.x = 0.5 * (q.x1 + q.x2); mid.y = 0.5 * (q.y1 + q.y2);
+      psi = Math.atan2(q.y2 - q.y1, q.x2 - q.x1);
+    }
+    var hx = 0.5 * state.R0 * Math.cos(psi), hy = 0.5 * state.R0 * Math.sin(psi);
+    state.setup = {
+      x1: mid.x - hx, y1: mid.y - hy, th1: psi - state.phi1,
+      x2: mid.x + hx, y2: mid.y + hy, th2: psi + Math.PI - state.phi2
+    };
+  }
+
+  // Inverse direction: the drag moved the aircraft, so read the reduced state
+  // back off the pose. Same inversion the acceptance checks exercise.
+  function reducedFromSetup() {
+    var b = Sim.recoverReduced(state.setup);
+    state.R0 = clampR(b.R);
+    state.phi1 = b.phi1;
+    state.phi2 = b.phi2;
+    ui.r0slider.value = String(state.R0);
+    ui.r0num.value = state.R0.toFixed(2);
+    ui.phi1num.value = Sim.toDeg(state.phi1).toFixed(0);
+    ui.phi2num.value = Sim.toDeg(state.phi2).toFixed(0);
+  }
+
+  // A one-record path, so the plan view can draw the pre-launch arrangement
+  // with exactly the same code that draws a run.
+  function setupPath() {
+    var q = state.setup;
+    return [{
+      t: 0, R: state.R0, phi1: state.phi1, phi2: state.phi2,
+      x1: q.x1, y1: q.y1, th1: q.th1, x2: q.x2, y2: q.y2, th2: q.th2
+    }];
+  }
+
+  function refreshEditCamera() { state.editCamera = Render.fitCamera(setupPath()); }
+
+  // Editable whenever the plan view is showing the initial arrangement.
+  function editable() { return !state.playing && (!state.run || state.cursor === 0); }
+
+  function atEnd() { return state.run && state.cursor >= state.run.path.length - 1; }
+  function current() {
+    if (!state.run) return { t: 0, R: state.R0, phi1: state.phi1, phi2: state.phi2 };
+    return state.run.path[state.cursor];
+  }
+
+  // --- drawing --------------------------------------------------------------
+  function draw() {
+    var run = state.run;
+    var full = run ? run.path : setupPath();
+    var shown = run ? run.path.slice(0, state.cursor + 1) : null;
+    var finalOutcome = run && atEnd() ? run.outcome : null;
+
+    Render.drawPlanView(plan, {
+      path: full,
+      cursor: run ? state.cursor : 0,
+      camera: run ? state.camera : state.editCamera,
+      outcome: finalOutcome,
+      editable: editable()
+    });
+    Render.drawPlot(plot, {
+      R0: state.R0,
+      path: shown,
+      start: run ? null : { phi1: state.phi1, phi2: state.phi2 },
+      outcome: finalOutcome,
+      ghosts: state.ghosts,
+      hover: state.hover
+    });
+    Render.drawRPlot(rplot, { R0: state.R0, path: shown || [] });
+    updateReadout();
+    ui.planHint.textContent = editable()
+      ? 'Drag either aircraft to move it; drag its knob to turn it.'
+      : 'Rewind (⟲) or click the plan view to get back to the setup and reposition.';
+  }
+
+  function updateReadout() {
+    var s = current();
+    ui.t.textContent = fmt(s.t || 0, 2);
+    ui.r.textContent = fmt(s.R, 3);
+    ui.p1.textContent = deg(s.phi1);
+    ui.p2.textContent = deg(s.phi2);
+    var u = Sim.control(s);
+    ui.sig.textContent = sgnStr(u.s1) + ', ' + sgnStr(u.s2);
+    // Player i's range bounds depend on the OPPONENT's angle (Eqs. 7-9).
+    ui.b1.textContent = fmt(Sim.RminOf(s.phi2), 2) + ', ' + fmt(Sim.RmaxOf(s.phi2), 2);
+    ui.b2.textContent = fmt(Sim.RminOf(s.phi1), 2) + ', ' + fmt(Sim.RmaxOf(s.phi1), 2);
+    ui.scrubLbl.textContent = 't ' + fmt(s.t || 0, 2);
+  }
+
+  function setOutcome(cls, text, sub) {
+    ui.outcome.className = cls || '';
+    ui.outcome.textContent = text;
+    if (sub) {
+      var s = document.createElement('small');
+      s.textContent = sub;
+      ui.outcome.appendChild(s);
+    }
+  }
+
+  var OUT_SUB = {
+    p1: 'Player 1 entered T₁ alone: |φ₁| ≤ β and R̲(φ₂) ≤ R < R̄(φ₂).',
+    p2: 'Player 2 entered T₂ alone: |φ₂| ≤ β and R̲(φ₁) ≤ R < R̄(φ₁).',
+    mutual: 'Both target sets entered on the same step (T₁ ∩ T₂ is checked first).',
+    draw: 'No termination within the t = 30 horizon.',
+    numerical: 'R fell below 0.01 with no target set entered. Not a game outcome — R appears in a denominator in φ̇.'
+  };
+
+  function refreshOutcomeLabel() {
+    var run = state.run;
+    if (!run) { setOutcome('', 'No run yet', null); return; }
+    if (run.outcome === Sim.OUTCOMES.TERMINAL0) return;   // set once, in startRun
+    if (atEnd()) setOutcome(run.outcome, Sim.LABELS[run.outcome], OUT_SUB[run.outcome]);
+    else setOutcome('', 'Playing…', 'Outcome hidden until the run reaches its end.');
+  }
+
+  // --- run control ----------------------------------------------------------
+
+  function admissible(phi1, phi2, R) {
+    var s = { R: R, phi1: Sim.wrap(phi1), phi2: Sim.wrap(phi2) };
+    var t1 = Sim.inT1(s), t2 = Sim.inT2(s);
+    return { ok: !(t1 || t2), t1: t1, t2: t2 };
+  }
+
+  function setPlaybackEnabled(on) {
+    ui.play.disabled = !on;
+    ui.stepBack.disabled = !on;
+    ui.stepFwd.disabled = !on;
+    ui.replay.disabled = !on;
+    ui.scrub.disabled = !on;
+  }
+
+  function startRun() {
+    stop();
+    if (state.run && state.run.path.length > 8) {
+      state.ghosts.push(state.run.path);
+      if (state.ghosts.length > 12) state.ghosts.shift();
+    }
+
+    var run = Sim.createRun(state.phi1, state.phi2, state.R0, { phys0: state.setup });
+
+    // §3 admissibility: the click is accepted, but reported immediately.
+    if (run.outcome === Sim.OUTCOMES.TERMINAL0) {
+      var k = run.terminal0Kind;
+      var which = k === Sim.OUTCOMES.MUTUAL ? 'already in T₁ ∩ T₂'
+                : k === Sim.OUTCOMES.P1 ? 'already in T₁' : 'already in T₂';
+      state.run = run;
+      state.cursor = 0;
+      state.camera = Render.fitCamera(run.path);
+      setPlaybackEnabled(false);
+      ui.scrub.max = 0; ui.scrub.value = 0;
+      setOutcome('terminal0', 'Initial state already terminal',
+        'Not an admissible initial condition — ' + which + ' at t = 0. Pick a point outside the shaded regions.');
+      draw();
+      return;
+    }
+
+    // Integrate the whole engagement up front (well under a millisecond). This
+    // keeps the plan view's camera fixed for the run and makes the timeline
+    // scrubbable, which matters when walking an audience through a case.
+    while (!run.done) run.step();
+
+    state.run = run;
+    state.cursor = 0;
+    state.camera = Render.fitCamera(run.path);
+    ui.scrub.max = String(run.path.length - 1);
+    ui.scrub.value = '0';
+    setPlaybackEnabled(true);
+    play(true);
+  }
+
+  function play(on) {
+    state.playing = on && state.run && !atEnd();
+    ui.play.textContent = state.playing ? '❚❚ Pause' : '▶ Play';
+    refreshOutcomeLabel();
+    if (state.playing) {
+      state.lastTs = 0;
+      state.accum = 0;
+      requestAnimationFrame(frame);
+    }
+  }
+
+  function stop() { state.playing = false; ui.play.textContent = '▶ Play'; }
+
+  // Advance by elapsed wall-clock time rather than a fixed number of steps per
+  // frame: a fixed step count runs twice as fast on a 120 Hz display as on a
+  // 60 Hz one. ui.speed.value is simulated time units per real second.
+  function frame(ts) {
+    if (!state.playing || !state.run) return;
+    var now = ts || 0;
+    var dtReal = state.lastTs ? (now - state.lastTs) / 1000 : 1 / 60;
+    state.lastTs = now;
+    if (!(dtReal > 0)) dtReal = 1 / 60;
+    dtReal = Math.min(dtReal, 0.1);          // swallow tab-switch gaps
+
+    state.accum += (parseFloat(ui.speed.value) * dtReal) / P.dt;
+    var n = Math.floor(state.accum);
+    if (n > 0) {
+      state.accum -= n;
+      setCursor(state.cursor + n, false);
+    }
+    if (atEnd()) { stop(); refreshOutcomeLabel(); draw(); return; }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function setCursor(i, redraw) {
+    if (!state.run) return;
+    var last = state.run.path.length - 1;
+    state.cursor = Math.max(0, Math.min(i, last));
+    ui.scrub.value = String(state.cursor);
+    if (redraw) { refreshOutcomeLabel(); draw(); }
+  }
+
+  // --- inputs ---------------------------------------------------------------
+
+  function setR0(v, fromSlider) {
+    v = Math.min(12, Math.max(0.2, isFinite(v) ? v : 1.75));
+    state.R0 = v;
+    if (!fromSlider) ui.r0slider.value = String(v);
+    ui.r0num.value = v.toFixed(2);
+    setupFromReduced(true);
+    refreshEditCamera();
+    // Target-set shading updates live with R0 (spec §5); the old run no longer
+    // belongs to this range, so clear it.
+    stop();
+    state.run = null; state.cursor = 0; state.camera = null;
+    setPlaybackEnabled(false);
+    setOutcome('', 'No run yet', null);
+    draw();
+  }
+
+  function setStart(phi1, phi2, autorun) {
+    state.phi1 = Sim.wrap(phi1);
+    state.phi2 = Sim.wrap(phi2);
+    ui.phi1num.value = Sim.toDeg(state.phi1).toFixed(0);
+    ui.phi2num.value = Sim.toDeg(state.phi2).toFixed(0);
+    setupFromReduced(true);
+    refreshEditCamera();
+    if (autorun) startRun();
+    else {
+      stop();
+      state.run = null; state.cursor = 0; state.camera = null;
+      setPlaybackEnabled(false);
+      setOutcome('', 'No run yet', null);
+      draw();
+    }
+  }
+
+  ui.r0slider.addEventListener('input', function () { setR0(parseFloat(ui.r0slider.value), true); });
+  ui.r0num.addEventListener('change', function () { setR0(parseFloat(ui.r0num.value), false); });
+  ui.phi1num.addEventListener('change', function () {
+    setStart(Sim.toRad(parseFloat(ui.phi1num.value) || 0), state.phi2, false);
+  });
+  ui.phi2num.addEventListener('change', function () {
+    setStart(state.phi1, Sim.toRad(parseFloat(ui.phi2num.value) || 0), false);
+  });
+
+  ui.fly.addEventListener('click', function () { startRun(); });
+  ui.play.addEventListener('click', function () {
+    if (state.playing) { stop(); refreshOutcomeLabel(); }
+    else { if (atEnd()) setCursor(0, false); play(true); }
+  });
+  ui.replay.addEventListener('click', function () { stop(); setCursor(0, true); });
+  ui.stepBack.addEventListener('click', function () { stop(); setCursor(state.cursor - 1, true); });
+  ui.stepFwd.addEventListener('click', function () { stop(); setCursor(state.cursor + 1, true); });
+  ui.scrub.addEventListener('input', function () { stop(); setCursor(parseInt(ui.scrub.value, 10), true); });
+  ui.clear.addEventListener('click', function () { state.ghosts = []; draw(); });
+
+  // --- phase-plot interaction ----------------------------------------------
+
+  function canvasPoint(ev) {
+    var rect = plot.getBoundingClientRect();
+    return { px: ev.clientX - rect.left, py: ev.clientY - rect.top };
+  }
+
+  var HINT = 'Hover to read (φ₁, φ₂); click to set the initial state.';
+
+  plot.addEventListener('mousemove', function (ev) {
+    var g = Render.geom(plot), pt = canvasPoint(ev);
+    if (!g.contains(pt.px, pt.py)) {
+      if (state.hover) { state.hover = null; ui.hint.textContent = HINT; draw(); }
+      return;
+    }
+    state.hover = pt;
+    var phi1 = Sim.wrap(g.invX(pt.px)), phi2 = Sim.wrap(g.invY(pt.py));
+    var adm = admissible(phi1, phi2, state.R0);
+    ui.hint.textContent = 'φ₁ = ' + Sim.toDeg(phi1).toFixed(1) + '°, φ₂ = ' + Sim.toDeg(phi2).toFixed(1) + '°'
+      + (adm.ok ? '  — admissible' : '  — already terminal at t = 0 ('
+          + (adm.t1 && adm.t2 ? 'T₁ ∩ T₂' : adm.t1 ? 'T₁' : 'T₂') + ')');
+    if (!state.playing) draw();
+  });
+
+  plot.addEventListener('mouseleave', function () {
+    state.hover = null;
+    ui.hint.textContent = HINT;
+    if (!state.playing) draw();
+  });
+
+  plot.addEventListener('click', function (ev) {
+    var g = Render.geom(plot), pt = canvasPoint(ev);
+    if (!g.contains(pt.px, pt.py)) return;
+    setStart(g.invX(pt.px), g.invY(pt.py), true);
+  });
+
+  // --- plan-view dragging ---------------------------------------------------
+
+  function planPoint(ev) {
+    var rect = plan.getBoundingClientRect();
+    return { px: ev.clientX - rect.left, py: ev.clientY - rect.top };
+  }
+
+  // Returns { which, mode } for whatever is under the cursor. The rotate knob
+  // wins over the body, since the two overlap at small zoom.
+  function planHit(pt) {
+    var g = Render.planGeom(plan, state.editCamera);
+    var q = state.setup, H = Render.HANDLE_PX;
+    var acs = [
+      { which: 1, x: q.x1, y: q.y1, th: q.th1 },
+      { which: 2, x: q.x2, y: q.y2, th: q.th2 }
+    ];
+    var i, a, cx, cy, kx, ky;
+    for (i = 0; i < 2; i++) {
+      a = acs[i];
+      cx = g.X(a.x); cy = g.Y(a.y);
+      kx = cx + H.stalk * Math.cos(a.th);
+      ky = cy - H.stalk * Math.sin(a.th);
+      if (Math.hypot(pt.px - kx, pt.py - ky) <= H.knob + 6) {
+        return { which: a.which, mode: 'turn' };
+      }
+    }
+    for (i = 0; i < 2; i++) {
+      a = acs[i];
+      cx = g.X(a.x); cy = g.Y(a.y);
+      if (Math.hypot(pt.px - cx, pt.py - cy) <= H.body) {
+        return { which: a.which, mode: 'move' };
+      }
+    }
+    return null;
+  }
+
+  function applyDrag(pt) {
+    var g = Render.planGeom(plan, state.editCamera);
+    var q = state.setup, d = state.drag;
+    var wx = g.invX(pt.px), wy = g.invY(pt.py);
+
+    if (d.mode === 'turn') {
+      var cx = d.which === 1 ? q.x1 : q.x2, cy = d.which === 1 ? q.y1 : q.y2;
+      var th = Math.atan2(wy - cy, wx - cx);
+      if (d.which === 1) q.th1 = th; else q.th2 = th;
+    } else {
+      // Keep the pair inside the frozen frame, and keep R within the range the
+      // R0 control allows, by clamping along the line of sight.
+      var m = state.editCamera.ext * 0.06;
+      var lo = state.editCamera.cx - state.editCamera.ext / 2 + m;
+      var hi = state.editCamera.cx + state.editCamera.ext / 2 - m;
+      var lo2 = state.editCamera.cy - state.editCamera.ext / 2 + m;
+      var hi2 = state.editCamera.cy + state.editCamera.ext / 2 - m;
+      wx = Math.min(hi, Math.max(lo, wx));
+      wy = Math.min(hi2, Math.max(lo2, wy));
+
+      var ox = d.which === 1 ? q.x2 : q.x1, oy = d.which === 1 ? q.y2 : q.y1;
+      var dx = wx - ox, dy = wy - oy, r = Math.hypot(dx, dy);
+      if (r < 1e-9) { dx = 1; dy = 0; r = 1; }
+      var rc = clampR(r);
+      wx = ox + (dx / r) * rc;
+      wy = oy + (dy / r) * rc;
+
+      if (d.which === 1) { q.x1 = wx; q.y1 = wy; } else { q.x2 = wx; q.y2 = wy; }
+    }
+    reducedFromSetup();
+    draw();
+  }
+
+  plan.addEventListener('mousedown', function (ev) {
+    // A run is on screen past its start: rewind to the arrangement first, so
+    // what is drawn is what a drag would actually edit.
+    if (state.run && state.cursor !== 0) {
+      stop();
+      setCursor(0, true);
+    }
+    if (!editable()) return;
+    var pt = planPoint(ev);
+    var hit = planHit(pt);
+    if (!hit) return;
+    ev.preventDefault();
+    // Editing invalidates the flown run; drop it and go back to setup.
+    state.run = null; state.cursor = 0; state.camera = null;
+    setPlaybackEnabled(false);
+    setOutcome('', 'No run yet', null);
+    state.drag = hit;
+    plan.style.cursor = 'grabbing';
+    applyDrag(pt);
+  });
+
+  window.addEventListener('mousemove', function (ev) {
+    if (!state.drag) return;
+    applyDrag(planPoint(ev));
+  });
+
+  window.addEventListener('mouseup', function () {
+    if (!state.drag) return;
+    state.drag = null;
+    plan.style.cursor = 'default';
+    refreshEditCamera();   // reframe once the drag settles
+    draw();
+  });
+
+  plan.addEventListener('mousemove', function (ev) {
+    if (state.drag) return;
+    if (!editable()) { plan.style.cursor = 'default'; return; }
+    var hit = planHit(planPoint(ev));
+    plan.style.cursor = hit ? (hit.mode === 'turn' ? 'crosshair' : 'grab') : 'default';
+  });
+
+  window.addEventListener('resize', function () { draw(); });
+
+  // --- boot -----------------------------------------------------------------
+  el('paramline').textContent =
+    'β = 45° = π/4    R̄₀ = ' + P.Rbar0 + '    a = ' + P.a + '    b = ' + P.b +
+    '    dt = ' + P.dt + '    horizon t = ' + P.tMax;
+  setupFromReduced(false);
+  setR0(1.75, false);
+  refreshEditCamera();
+  draw();
+})();
+</script>
+</body>
+</html>
