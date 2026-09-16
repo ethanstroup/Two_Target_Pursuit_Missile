@@ -1,16 +1,24 @@
 <!DOCTYPE html>
 <!--
-  barrier_explorer.html -- Layer 0: watch the barrier sheet get swept.
+  barrier_explorer.html -- Layer 0: the barrier as a swept surface.
 
   Every point of the boundary of the usable part is a terminal condition.
   Integrate the state-costate system retrograde from it under the paper's own
   barrier strategies and the bundle of those trajectories IS the semipermeable
-  surface.  Scrub tau and the sheet grows off the (BUP)_1 in front of you.
+  surface.  Hold tau at 0 and the picture is the (BUP) alone, drawn over the
+  target-set boundaries and the Table 2 points, for direct comparison with the
+  printed figures; raise tau and the sheet grows off it.
 
-  Maths is layer0/barrier.js -- the same module node test_barrier_js.js checks.
-  Nothing here re-derives anything; it only draws.
+  Maths: ../barrier.js (the reconstruction) and ./bup_curves.js (ordered seed
+  curves).  Nothing here re-derives anything; it only draws.  Both modules are
+  checked by test_viz.py and test_barrier_js.js.
 
-  Open it directly in a browser (file:// is fine).  No build, no server.
+  Open it directly in a browser -- file:// is fine.  No build, no server.
+
+    wheel            zoom, about the cursor
+    drag             pan (rotate, in the 3-D view; shift-drag pans there)
+    click            select a trajectory, in any of the three views
+    double-click     reset that view
 -->
 <html lang="en">
 <head>
@@ -18,7 +26,8 @@
 <title>Layer 0 — barrier sheet explorer</title>
 <style>
   :root {
-    --neg: #1f5fa8;  --pos: #c1442a;  --sw: #8a5cc7;
+    --c0: #1f5fa8;  --c1: #c1442a;  --c2: #8a5cc7;  --sw: #8a5cc7;
+    --ok: #1a7f4b;  --no: #b3261e;
     --ink: #17191c;  --ink2: #4a5058;  --ink3: #838b95;
     --surface: #fcfcfb;  --panel: #ffffff;  --line: #dfe3e8;
   }
@@ -27,57 +36,61 @@
     margin: 0; padding: 16px; background: var(--surface); color: var(--ink);
     font: 13px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
-  h1 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
-  .sub { color: var(--ink2); font-size: 12px; margin-bottom: 12px; max-width: 900px; }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 3px; }
+  .sub { color: var(--ink2); font-size: 12px; margin-bottom: 12px; max-width: 940px; }
   .sub code { background: #eef1f4; padding: 1px 4px; border-radius: 3px; }
 
   .bar {
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px 12px; margin-bottom: 12px;
+    padding: 10px 12px; margin-bottom: 10px;
   }
   .ctl { display: flex; align-items: center; gap: 6px; }
   .ctl label { color: var(--ink2); font-size: 12px; white-space: nowrap; }
-  .ctl output { font-variant-numeric: tabular-nums; min-width: 42px; color: var(--ink);
-                font-size: 12px; }
-  input[type=range] { width: 130px; accent-color: var(--neg); }
+  .ctl output, .num {
+    font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink);
+  }
+  .num { width: 54px; text-align: right; padding: 3px 5px; border-radius: 5px;
+         border: 1px solid var(--line); font-family: inherit; }
+  input[type=range] { width: 150px; accent-color: var(--c0); }
   select, button {
-    font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 6px;
+    font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 6px;
     border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
   }
-  button:hover { background: #f2f5f8; }
-  button.on { background: var(--neg); border-color: var(--neg); color: #fff; }
+  button:hover { background: #f1f4f7; }
+  button.on { background: var(--c0); border-color: var(--c0); color: #fff; }
+  .status { color: var(--ink3); font-size: 12px; font-variant-numeric: tabular-nums; }
 
-  .grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px 10px 6px;
+    padding: 9px 10px 6px;
   }
   .card h2 {
-    font-size: 12px; font-weight: 600; margin: 0 0 6px; color: var(--ink);
+    font-size: 12px; font-weight: 600; margin: 0 0 5px;
     display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   }
-  .card h2 span { font-weight: 400; color: var(--ink3); font-size: 11px; }
-  .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
-  /* explicit CSS height: a canvas sized only in width scales by its intrinsic
-     aspect ratio, which feeds back through fit() and inflates the card */
-  canvas { display: block; width: 100%; cursor: crosshair; }
-  #c3d { height: 430px; cursor: grab; }
+  .card h2 span { font-weight: 400; color: var(--ink3); font-size: 11px;
+                  font-variant-numeric: tabular-nums; }
+  .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; }
+  canvas { display: block; width: 100%; }
+  #c3d { height: 452px; cursor: grab; }
   #c3d:active { cursor: grabbing; }
-  #cA, #cB { height: 185px; }
-  #cG, #cI { height: 220px; }
+  #cA, #cB { height: 196px; cursor: crosshair; }
+  #cG, #cI { height: 214px; }
 
   table.read { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  table.read td { padding: 2px 0; font-size: 12px; }
+  table.read td { padding: 1.5px 0; font-size: 12px; }
   table.read td:first-child { color: var(--ink2); }
   table.read td:last-child { text-align: right; }
-  .ok { color: #1a7f4b; } .no { color: #b3261e; }
-  .key { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink2);
-         margin-top: 6px; }
-  .key i { display: inline-block; width: 18px; height: 3px; border-radius: 2px;
+  .ok { color: var(--ok); } .no { color: var(--no); }
+  .key { display: flex; gap: 11px; flex-wrap: wrap; font-size: 11px; color: var(--ink2);
+         margin-top: 5px; }
+  .key i { display: inline-block; width: 16px; height: 3px; border-radius: 2px;
            vertical-align: middle; margin-right: 4px; }
-  .note { font-size: 11px; color: var(--ink3); margin-top: 6px; }
+  .key i.dot { width: 7px; height: 7px; border-radius: 50%; }
+  .note { font-size: 11px; color: var(--ink3); margin-top: 5px; }
 </style>
 </head>
 <body>
@@ -86,64 +99,62 @@
 <div class="sub">
   The boundary of the usable part is a <b>curve</b>. Every point on it is a terminal
   condition: state on the target-set boundary, costate from transversality (Eq. 20).
-  Integrating the coupled state–costate system <b>backward</b> under
-  σ₁* = −sign λ₁, σ₂* = +sign λ₂ gives one barrier trajectory per point, and the
-  bundle of them is the semipermeable surface. Scrub <code>τ</code> to sweep it.
-  Maths comes from <code>layer0/barrier.js</code>; the invariants |FI−1| and |H*| below are the
-  integration's own error certificate.
-  <br><span style="color:var(--ink3)">The maximum-range seeds are ordered by arclength
-  along the lens, so its bundle is a true (s, τ) sheet. The other two families are
-  seeded by sweeping φ₂, and where Eq. (46) has several roots the black seed polyline
-  zigzags — the trajectories are right, the seed curve's drawing order is not yet.</span>
+  Integrating the coupled state–costate system <b>backward</b> under σ₁* = −sign λ₁,
+  σ₂* = +sign λ₂ gives one barrier trajectory per point, and the bundle of them is the
+  semipermeable surface. At <code>τ = 0</code> only the (BUP) is drawn, over the
+  target-set boundaries and the Table 2 points; raise τ to sweep the sheet.
+  Maths comes from <code>../barrier.js</code> and <code>bup_curves.js</code>;
+  |FI−1| and |H*| are the integration's own error certificate.
 </div>
 
 <div class="bar">
   <div class="ctl">
     <label for="fam">family</label>
-    <select id="fam">
-      <option value="max" selected>maximum range — Eq. (32)</option>
-      <option value="min">minimum range — Eq. (46)</option>
-      <option value="bore">off-boresight φ₁ = +β — Eq. (62)</option>
-      <option value="bore-">off-boresight φ₁ = −β — Eq. (62)</option>
-    </select>
+    <select id="fam"></select>
   </div>
   <div class="ctl">
     <label for="tau">retrograde τ</label>
-    <input type="range" id="tau" min="0" max="600" value="150">
-    <output id="tauOut">1.50</output>
+    <input type="range" id="tau" min="0" max="600" step="1" value="0">
+    <input type="text" class="num" id="tauNum" value="0.00">
   </div>
   <div class="ctl">
-    <label for="ns">seeds</label>
-    <input type="range" id="ns" min="9" max="121" step="2" value="41">
-    <output id="nsOut">41</output>
+    <label for="ns">seeds/branch</label>
+    <input type="range" id="ns" min="9" max="121" step="2" value="45">
+    <output id="nsOut">45</output>
   </div>
-  <button id="play">▶ sweep</button>
+  <button id="play">▶ play</button>
+  <button id="focus">focus</button>
   <button id="showSw" class="on">switches</button>
-  <button id="showSheet" class="on">sheet fill</button>
-  <div class="ctl"><label>drag the 3-D view to rotate</label></div>
-  <div class="ctl" id="status" style="color:var(--ink3)"></div>
+  <button id="showSheet" class="on">sheet</button>
+  <button id="showT2" class="on">Table 2</button>
+  <button id="showMark" class="on">marker</button>
+  <button id="reset">reset views</button>
+  <button id="png">save PNG</button>
 </div>
+<div class="bar" style="padding:7px 12px"><span class="status" id="status"></span></div>
 
 <div class="grid">
   <div class="card">
     <h2>the bundle in (φ₂, φ₁, R) <span id="h3d"></span></h2>
-    <canvas id="c3d" height="430"></canvas>
+    <canvas id="c3d"></canvas>
     <div class="key">
-      <span><i style="background:var(--neg)"></i>φ₂ &lt; 0 lobe</span>
-      <span><i style="background:var(--pos)"></i>φ₂ &gt; 0 lobe</span>
       <span><i style="background:#111"></i>the (BUP) seed curve</span>
-      <span><i style="background:var(--sw)"></i>located control switch</span>
+      <span><i class="dot" style="background:var(--sw)"></i>located control switch</span>
+      <span id="markKey"><i class="dot" style="background:#111"></i>marked point</span>
+      <span id="branchKey"></span>
+      <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ·
+        drag rotates · shift-drag pans · wheel zooms</span>
     </div>
   </div>
 
   <div class="stack">
     <div class="card">
       <h2>face (φ₂, φ₁) <span>φ₂ increases to the left, as printed</span></h2>
-      <canvas id="cA" height="185"></canvas>
+      <canvas id="cA"></canvas>
     </div>
     <div class="card">
       <h2>face (φ₂, R) <span>R increases downward, as printed</span></h2>
-      <canvas id="cB" height="185"></canvas>
+      <canvas id="cB"></canvas>
     </div>
   </div>
 </div>
@@ -151,102 +162,135 @@
 <div class="row2">
   <div class="card">
     <h2>engagement geometry <span>at the marked point</span></h2>
-    <canvas id="cG" height="220"></canvas>
+    <canvas id="cG"></canvas>
     <div class="note" id="gnote"></div>
   </div>
   <div class="card">
     <h2>costates and invariants <span>selected trajectory</span></h2>
-    <canvas id="cI" height="220"></canvas>
+    <canvas id="cI"></canvas>
     <div class="key">
-      <span><i style="background:var(--neg)"></i>λ<sub>R</sub></span>
-      <span><i style="background:var(--pos)"></i>λ₁</span>
-      <span><i style="background:var(--sw)"></i>λ₂</span>
-      <span><i style="background:#1a7f4b"></i>log₁₀|H*|</span>
+      <span><i style="background:var(--c0)"></i>λ<sub>R</sub></span>
+      <span><i style="background:var(--c1)"></i>λ₁</span>
+      <span><i style="background:var(--c2)"></i>λ₂</span>
+      <span><i style="background:var(--ok)"></i>log₁₀|H*|</span>
     </div>
   </div>
   <div class="card">
     <h2>readout <span id="rsub"></span></h2>
     <table class="read" id="read"></table>
     <div class="note">
-      Firing conditions use the index asymmetry of Eq. (7): the boresight bound is on
-      the shooter's own angle, both range bounds on the target's aspect angle.
+      Firing conditions use the index asymmetry of Eq. (7): the boresight bound is on the
+      shooter's own angle, both range bounds on the target's aspect angle.
     </div>
   </div>
 </div>
 
 <script src="../barrier.js"></script>
+<script src="./bup_curves.js"></script>
 <script>
 'use strict';
-var B = window.Barrier;
+var B = window.Barrier, C = window.BupCurves;
+
+/* Both modules arrive as plain <script src> loads, so if either file is not
+   where this page expects it the browser fails the load silently and every
+   later line throws -- which used to leave a blank white page saying nothing
+   about why.  Say it instead. */
+(function requireModules() {
+  var missing = [];
+  if (!B) missing.push(['../barrier.js', 'layer0/barrier.js',
+                        'the reconstruction: dynamics, costates, invariants, BUP seeds']);
+  if (!C) missing.push(['./bup_curves.js', 'layer0/viz/bup_curves.js',
+                        'the ordered seed curves along each (BUP) branch']);
+  if (!missing.length) return;
+  document.body.innerHTML =
+    '<div style="max-width:720px;margin:48px auto;padding:20px 24px;' +
+    'border:1px solid #e6c9c4;border-left:4px solid #b3261e;border-radius:8px;' +
+    'background:#fff;font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;' +
+    'color:#17191c">' +
+    '<div style="font-weight:600;font-size:15px;margin-bottom:8px">' +
+    'This page could not load the modules it draws from.</div>' +
+    '<p style="margin:0 0 10px;color:#4a5058">Nothing here computes anything ' +
+    'itself — the maths lives in those files, so the page has nothing to draw ' +
+    'until they load.</p><ul style="margin:0 0 12px;padding-left:20px">' +
+    missing.map(function (m) {
+      return '<li style="margin-bottom:6px"><code style="background:#f3f5f7;' +
+             'padding:1px 5px;border-radius:3px">' + m[1] + '</code> — ' + m[2] +
+             '<br><span style="color:#838b95;font-size:12.5px">this page loads it as ' +
+             m[0] + ', relative to itself</span></li>';
+    }).join('') +
+    '</ul><p style="margin:0;color:#4a5058">Put the file back and reload. ' +
+    'If it has moved, the <code style="background:#f3f5f7;padding:1px 5px;' +
+    'border-radius:3px">&lt;script src&gt;</code> tags at the foot of this file ' +
+    'are the two paths to change.</p></div>';
+  throw new Error('barrier_explorer: missing ' +
+                  missing.map(function (m) { return m[1]; }).join(', '));
+}());
+
 var D = Math.PI / 180;
-var NEG = '#1f5fa8', POS = '#c1442a', SW = '#8a5cc7', BUP = '#111111';
+var HUE = ['#1f5fa8', '#c1442a', '#8a5cc7'];     // validated for CVD separation
+var SW = '#8a5cc7', BUP = '#111111', OK = '#1a7f4b';
+
+/* Axis furniture. Deliberately dark and weighted: on the 3-D view especially,
+   a hairline tripod in pale grey is unreadable against the sheet. */
+var AX_LINE = '#3f4750';      // frame and 3-D axis lines
+var AX_TICK = '#2c333a';      // tick marks and their numbers
+var AX_GRID = '#e1e6ea';      // gridlines, which stay recessive
+var AX_NAME = '#14171a';      // axis names
+var AX_TICK_FONT = '600 10.5px -apple-system, Segoe UI, sans-serif';
+var AX_NAME_FONT = '600 11.5px -apple-system, Segoe UI, sans-serif';
 var TAU_FULL = 6.0, DT = 2e-3;
 
+/* Table 2, "Coordinates of significant points", p. 155 — [name, R, phi_1, phi_2]
+   with the angles in degrees, exactly as printed. */
+var TABLE2 = [["A_1",3.0,45,180],["B_1",6.142,45,0],["C_1",4.3,113.87,-25.27],
+["D_1",3.724,83.86,23.71],["E_1",2.233,85.45,129.74],["F_1",2.69,69.8,157.07],
+["G_1",3.437,74.5,47.16],["H_1",0.55,128.52,-143.79],["I_1",0.55,-36.21,51.28],
+["J_1",1.7214,45.01,88.87],["K_1",0.7213,45,-55.17],["M_1",0.25,45,180],
+["N_1",0.279,45,-154.6],["O_1",6.1416,0,0],["P_1",2.628,72.75,153.96],
+["Q_1",1.707,45,90],["Qt_1",1.705,45,89.5],["S_1",1.468,47.24,132.76],
+["U_1",1.721,91.14,134.99],["V_1",0.412,45,117.43],["Wt_1",0.148,49.49,130.51],
+["Y_1",3.01,45,174.5],["Z_1",0.85,45,0],["a_1",2.98,49.68,171.4],
+["b_1",2.44,79.58,123.43],["c_1",5.925,18.7,4.78],["d_1",5.808,18.88,-9.56],
+["e_1",6.142,36.07,0],["f_1",6.142,18.5,0],["g_1",0.267,45,-160.9],
+["h_1",0.535,45,92.92],["m_1",0.847,45,8.05],["n_1",0.255,45,179.15],
+["p_1",0.721,-31.81,55.46],["q_1",0.381,45,-124.34],["v_1",0.543,19.31,91.28],
+["alpha",3.29,63.12,69.12],["beta",4.649,45,45],["gamma",1.414,45,45],
+["delta",4.649,45,-45],["zeta_1",5.149,59.19,20.19],["eta",0.762,45,-45],
+["mu_1",4.649,45,24.63],["rho_1",5.686,77.03,-6.86],["nu",0.762,45,45],
+["beta_0",0.85,0,0],["tau",2.495,53.34,53.34]];
+
 // ---------------------------------------------------------------------------
-// seed curves -- ordered so the bundle is a proper (arclength, tau) sheet
+// state
 // ---------------------------------------------------------------------------
 
-/* Locate the fold where two Eq. (32) roots merge: the Table 2 point d_1. */
-function foldPhi2(sgn) {
-  var lo = 0.25, hi = 1e-4;
-  for (var i = 0; i < 80; i++) {
-    var mid = 0.5 * (lo + hi);
-    if (B.bupMaxrange(sgn * mid).length) hi = mid; else lo = mid;
-  }
-  return 0.5 * (lo + hi);
-}
+var S = {
+  family: 'max',
+  tau: 0.0,
+  branches: [],            // [{color, trajs:[...]}]
+  flat: [],                // every trajectory, in draw order
+  sel: 0,
+  pinned: null,            // index of a locked trajectory, or null
+  mark: 1.0,               // fraction of tau at which the marker sits
+  focus: false,
+  showSw: true, showSheet: true, showT2: true, showMark: true,
+  az: -58 * D, el: 22 * D,
+  views: {}                // per-canvas user transform
+};
 
-/* Maximum range: a closed lens.  Walk the inner branch out to the fold, come
-   back along the outer branch, so arclength is monotone and the fold is not a
-   seam. */
-function curveMaxrange(n, sgn) {
-  var fold = foldPhi2(sgn), eps = 2e-4, lower = [], upper = [];
-  for (var i = 0; i < n; i++) {
-    var t = 0.5 * (1 - Math.cos(Math.PI * i / (n - 1)));
-    var q = sgn * (eps + t * (fold * (1 - 1e-3) - eps));
-    var r = B.bupMaxrange(q);
-    if (r.length < 2) continue;
-    r.sort(function (a, b) { return Math.abs(a) - Math.abs(b); });
-    lower.push([r[0], q]);
-    upper.push([r[r.length - 1], q]);
-  }
-  upper.reverse();
-  return lower.concat(upper).map(function (p) {
-    var l = B.lamMaxrange(p[1]);
-    return [B.Rhi(p[1]), p[0], p[1], l[0], l[1], l[2]];
-  });
-}
-
-function curveMinrange(n, sgn) {
-  var out = [];
-  for (var i = 0; i < n; i++) {
-    var q = sgn * (0.03 + (Math.PI - 0.06) * i / (n - 1));
-    B.seedMinrange(q).forEach(function (y) { out.push(y); });
-  }
-  return out;
-}
-
-function curveBoresight(n, sgn) {
-  var out = [];
-  for (var i = 0; i < n; i++) {
-    var q = -Math.PI + 0.02 + (2 * Math.PI - 0.04) * i / (n - 1);
-    B.seedBoresight(q, sgn).forEach(function (y) { out.push(y); });
-  }
-  return out;
-}
-
-function seedCurves(family, n) {
-  if (family === 'max') return [[curveMaxrange(n, -1), NEG], [curveMaxrange(n, +1), POS]];
-  if (family === 'min') return [[curveMinrange(n, -1), NEG], [curveMinrange(n, +1), POS]];
-  var sgn = family === 'bore' ? +1 : -1;
-  return [[curveBoresight(2 * n, sgn), sgn > 0 ? NEG : POS], [[], POS]];
+/* A face's view is either null -- follow the auto-fit, so scrubbing tau keeps
+   the bundle framed -- or an explicit domain rectangle, frozen the moment the
+   user zooms or pans. Keeping the domain itself (rather than a zoom factor)
+   makes zoom-about-the-cursor exact and pan a plain translation. */
+function view(id) {
+  if (!S.views[id]) S.views[id] = { dom: null, k: 1, dx: 0, dy: 0 };
+  return S.views[id];
 }
 
 // ---------------------------------------------------------------------------
-// integrate once, scrub for free
+// build
 // ---------------------------------------------------------------------------
 
-function unwrapInto(Y, col) {
+function unwrapCol(Y, col) {
   var out = [Y[0][col]], acc = Y[0][col];
   for (var i = 1; i < Y.length; i++) {
     var d = Y[i][col] - Y[i - 1][col];
@@ -258,11 +302,10 @@ function unwrapInto(Y, col) {
   return out;
 }
 
-/* barrier.js returns { path: [{tau, y}], switches: [{tau, which}], fiErr, hErr }.
-   Flatten it into column arrays once, here, so nothing downstream reshapes it,
-   and derive |FI-1| and |H*| per point from the module's own functions rather
-   than recomputing the physics. */
-function trajectory(y0) {
+/* barrier.js returns { path:[{tau,y}], switches:[{tau,which}], fiErr, hErr }.
+   Flatten to column arrays once, here, and derive the invariant histories from
+   the module's own functions rather than recomputing any physics. */
+function trajectory(y0, bi, si) {
   var tr = B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: DT });
   var Y = tr.path.map(function (p) { return p.y; });
   var fi = [], h = [];
@@ -274,43 +317,69 @@ function trajectory(y0) {
   return {
     tau: tr.path.map(function (p) { return p.tau; }),
     R: Y.map(function (q) { return q[0]; }),
-    a1: unwrapInto(Y, 1),
-    a2: unwrapInto(Y, 2),
-    Y: Y, switches: tr.switches,
-    fi: fi, h: h, fiErr: tr.fiErr, hErr: tr.hErr,
-    seed: y0
+    a1: unwrapCol(Y, 1), a2: unwrapCol(Y, 2),
+    Y: Y, switches: tr.switches, fi: fi, h: h,
+    fiErr: tr.fiErr, hErr: tr.hErr, seed: y0, bi: bi, si: si
   };
 }
 
-/* Eq. (7).  Not exported by barrier.js, and computed here rather than added to
-   it: the index asymmetry is that the boresight bound is on the shooter's OWN
-   angle while both range bounds depend on the TARGET's aspect angle. */
-function canFire(pOwn, pTgt, R) {
-  return Math.abs(pOwn) <= B.PARAMS.beta && R >= B.Rlo(pTgt) && R < B.Rhi(pTgt);
+/* Eq. (7).  Computed here rather than added to barrier.js, which does not
+   export it: the boresight bound is on the shooter's OWN angle, both range
+   bounds on the TARGET's aspect angle. */
+function canFire(own, tgt, R) {
+  return Math.abs(own) <= B.PARAMS.beta && R >= B.Rlo(tgt) && R < B.Rhi(tgt);
 }
-
-var STATE = { lobes: [], family: 'max', tau: 1.5, sel: 0, selLobe: 0, frac: 1.0,
-              az: -58 * D, el: 22 * D, showSw: true, showSheet: true };
 
 function rebuild() {
   var t0 = performance.now();
   var n = +document.getElementById('ns').value;
-  STATE.family = document.getElementById('fam').value;
-  STATE.lobes = seedCurves(STATE.family, n).map(function (pair) {
-    return { color: pair[1], trajs: pair[0].map(trajectory) };
+  S.family = document.getElementById('fam').value;
+  var res = C.seeds(S.family, n);
+  S.branches = res.branches.map(function (seeds, bi) {
+    return { color: HUE[bi % HUE.length],
+             trajs: seeds.map(function (y, si) { return trajectory(y, bi, si); }) };
   });
-  var nt = 0, nsw = 0, fi = 0, h = 0;
-  STATE.lobes.forEach(function (L) {
-    L.trajs.forEach(function (t) {
-      nt++; nsw += t.switches.length;
-      fi = Math.max(fi, t.fiErr); h = Math.max(h, t.hErr);
-    });
+  S.flat = [];
+  S.branches.forEach(function (b) { b.trajs.forEach(function (t) { S.flat.push(t); }); });
+  S.sel = Math.min(S.sel, Math.max(S.flat.length - 1, 0));
+  S.pinned = null;
+  classifyTable2();
+
+  var fi = 0, h = 0, nsw = 0;
+  S.flat.forEach(function (t) {
+    fi = Math.max(fi, t.fiErr); h = Math.max(h, t.hErr); nsw += t.switches.length;
   });
-  STATE.sel = Math.min(STATE.sel, Math.max(nt - 1, 0));
   document.getElementById('status').textContent =
-    nt + ' trajectories · ' + nsw + ' switches · max |FI−1| ' + fi.toExponential(1) +
-    ' · max |H*| ' + h.toExponential(1) + ' · ' + Math.round(performance.now() - t0) + ' ms';
+    res.label + ' · ' + S.branches.length + ' branch' +
+    (S.branches.length > 1 ? 'es' : '') + ' of the (BUP) · ' + S.flat.length +
+    ' trajectories · ' + nsw + ' switches located · max |FI−1| ' + fi.toExponential(1) +
+    ' · max |H*| ' + h.toExponential(1) + ' · built in ' +
+    Math.round(performance.now() - t0) + ' ms';
+
+  document.getElementById('branchKey').innerHTML = S.branches.map(function (b, i) {
+    return '<i style="background:' + b.color + '"></i>branch ' + (i + 1);
+  }).join(' &nbsp; ');
+
+  Object.keys(S.views).forEach(function (k) { S.views[k] = null; });
+  S.views = {};
   draw();
+}
+
+/* Mark the Table 2 points that lie on the family now shown, so the overlay
+   distinguishes "this curve reproduces the published point" from "this point
+   belongs to some other part of the construction". */
+var T2ON = [];
+function classifyTable2() {
+  T2ON = TABLE2.map(function (p) {
+    var best = 1e9;
+    S.flat.forEach(function (t) {
+      var d = Math.max(Math.abs(t.seed[0] - p[1]),
+                       Math.abs(B.wrap(t.seed[1] - p[2] * D)),
+                       Math.abs(B.wrap(t.seed[2] - p[3] * D)));
+      if (d < best) best = d;
+    });
+    return best < 0.02;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -319,8 +388,8 @@ function rebuild() {
 
 function fit(cv) {
   var r = window.devicePixelRatio || 1;
-  var w = cv.clientWidth, h = cv.clientHeight || +cv.getAttribute('height');
-  cv.width = w * r; cv.height = h * r;
+  var w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = Math.round(w * r); cv.height = Math.round(h * r);
   var g = cv.getContext('2d');
   g.setTransform(r, 0, 0, r, 0, 0);
   g.clearRect(0, 0, w, h);
@@ -329,195 +398,381 @@ function fit(cv) {
 
 function Frame(g, w, h, pad) {
   this.g = g; this.w = w; this.h = h;
-  this.p = pad || { l: 42, r: 10, t: 16, b: 26 };
+  this.p = pad || { l: 46, r: 12, t: 17, b: 31 };
 }
 Frame.prototype.setDomain = function (x0, x1, y0, y1) {
   this.x0 = x0; this.x1 = x1; this.y0 = y0; this.y1 = y1;
 };
+Frame.prototype.applyView = function (v) {
+  if (v.dom) this.setDomain(v.dom[0], v.dom[1], v.dom[2], v.dom[3]);
+};
+Frame.prototype.domain = function () { return [this.x0, this.x1, this.y0, this.y1]; };
 Frame.prototype.X = function (x) {
   return this.p.l + (x - this.x0) / (this.x1 - this.x0) * (this.w - this.p.l - this.p.r);
 };
 Frame.prototype.Y = function (y) {
   return this.p.t + (y - this.y0) / (this.y1 - this.y0) * (this.h - this.p.t - this.p.b);
 };
+Frame.prototype.invX = function (px) {
+  return this.x0 + (px - this.p.l) / (this.w - this.p.l - this.p.r) * (this.x1 - this.x0);
+};
+Frame.prototype.invY = function (py) {
+  return this.y0 + (py - this.p.t) / (this.h - this.p.t - this.p.b) * (this.y1 - this.y0);
+};
+Frame.prototype.clip = function () {
+  this.g.save();
+  this.g.beginPath();
+  this.g.rect(this.p.l, this.p.t, this.w - this.p.l - this.p.r,
+              this.h - this.p.t - this.p.b);
+  this.g.clip();
+};
+Frame.prototype.unclip = function () { this.g.restore(); };
+/* Grid lines stay recessive; the frame, the ticks and the names are the axis
+   and are drawn to be read at a glance. */
 Frame.prototype.axes = function (xl, yl) {
-  var g = this.g;
-  g.strokeStyle = '#eceff2'; g.lineWidth = 1;
-  g.fillStyle = '#838b95'; g.font = '10px -apple-system, Segoe UI, sans-serif';
-  var i, v;
+  var g = this.g, i, v;
+  var L = this.p.l, R = this.w - this.p.r, T = this.p.t, Bm = this.h - this.p.b;
+
+  g.strokeStyle = AX_GRID; g.lineWidth = 1;
   for (i = 0; i <= 4; i++) {
     v = this.x0 + (this.x1 - this.x0) * i / 4;
-    g.beginPath(); g.moveTo(this.X(v), this.p.t); g.lineTo(this.X(v), this.h - this.p.b);
-    g.stroke();
-    g.textAlign = 'center';
-    g.fillText(fmt(v), this.X(v), this.h - this.p.b + 12);
+    g.beginPath(); g.moveTo(this.X(v), T); g.lineTo(this.X(v), Bm); g.stroke();
   }
   for (i = 0; i <= 4; i++) {
     v = this.y0 + (this.y1 - this.y0) * i / 4;
-    g.beginPath(); g.moveTo(this.p.l, this.Y(v)); g.lineTo(this.w - this.p.r, this.Y(v));
-    g.stroke();
-    g.textAlign = 'right';
-    g.fillText(fmt(v), this.p.l - 5, this.Y(v) + 3);
+    g.beginPath(); g.moveTo(L, this.Y(v)); g.lineTo(R, this.Y(v)); g.stroke();
   }
-  g.strokeStyle = '#c9cfd6';
-  g.strokeRect(this.p.l, this.p.t, this.w - this.p.l - this.p.r, this.h - this.p.t - this.p.b);
-  g.fillStyle = '#4a5058';
+
+  g.strokeStyle = AX_LINE; g.lineWidth = 1.6;
+  g.strokeRect(L, T, R - L, Bm - T);
+
+  g.lineWidth = 1.4;
+  g.font = AX_TICK_FONT;
+  g.fillStyle = AX_TICK;
+  for (i = 0; i <= 4; i++) {
+    v = this.x0 + (this.x1 - this.x0) * i / 4;
+    g.beginPath(); g.moveTo(this.X(v), Bm); g.lineTo(this.X(v), Bm + 5); g.stroke();
+    g.textAlign = 'center';
+    g.fillText(fmt(v), this.X(v), Bm + 16);
+  }
+  for (i = 0; i <= 4; i++) {
+    v = this.y0 + (this.y1 - this.y0) * i / 4;
+    g.beginPath(); g.moveTo(L, this.Y(v)); g.lineTo(L - 5, this.Y(v)); g.stroke();
+    g.textAlign = 'right';
+    g.fillText(fmt(v), L - 8, this.Y(v) + 3.5);
+  }
+
+  g.font = AX_NAME_FONT; g.fillStyle = AX_NAME;
   g.textAlign = 'right';
-  g.fillText(xl, this.w - this.p.r, this.h - 4);
+  g.fillText(xl, R, this.h - 3);
   g.textAlign = 'left';
-  g.fillText(yl, this.p.l, this.p.t - 5);
+  g.fillText(yl, L, T - 5);
 };
 Frame.prototype.poly = function (xs, ys, color, lw, alpha) {
-  var g = this.g;
-  g.strokeStyle = color; g.lineWidth = lw; g.globalAlpha = alpha === undefined ? 1 : alpha;
+  var g = this.g, i;
+  g.strokeStyle = color; g.lineWidth = lw;
+  g.globalAlpha = alpha === undefined ? 1 : alpha;
   g.beginPath();
-  for (var i = 0; i < xs.length; i++) {
-    var X = this.X(xs[i]), Y = this.Y(ys[i]);
-    if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y);
+  for (i = 0; i < xs.length; i++) {
+    if (i === 0) g.moveTo(this.X(xs[i]), this.Y(ys[i]));
+    else g.lineTo(this.X(xs[i]), this.Y(ys[i]));
   }
   g.stroke(); g.globalAlpha = 1;
 };
-Frame.prototype.dot = function (x, y, color, r) {
+Frame.prototype.dot = function (x, y, color, r, ring) {
   var g = this.g;
-  g.fillStyle = color;
-  g.beginPath(); g.arc(this.X(x), this.Y(y), r || 2, 0, 2 * Math.PI); g.fill();
+  g.beginPath(); g.arc(this.X(x), this.Y(y), r || 2, 0, 2 * Math.PI);
+  if (ring) { g.strokeStyle = color; g.lineWidth = 1.2; g.stroke(); }
+  else { g.fillStyle = color; g.fill(); }
 };
 
 function fmt(v) {
-  if (Math.abs(v) >= 100) return v.toFixed(0);
-  if (Math.abs(v) >= 10) return v.toFixed(1);
-  return v.toFixed(2);
+  var a = Math.abs(v);
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 10) return v.toFixed(1);
+  if (a >= 1) return v.toFixed(2);
+  return v.toFixed(3);
 }
 
+/* Light at the start of the seed curve, dark at its end, so position along the
+   (BUP) is readable inside a branch's own hue. */
 function shade(base, k, n) {
-  // lighten toward the start of the seed curve so position along the BUP reads
   var f = 0.55 - 0.5 * (k / Math.max(n - 1, 1));
-  var r = parseInt(base.slice(1, 3), 16), gg = parseInt(base.slice(3, 5), 16),
+  var r = parseInt(base.slice(1, 3), 16), g = parseInt(base.slice(3, 5), 16),
       b = parseInt(base.slice(5, 7), 16);
   function mix(c) { return Math.round(c + (255 - c) * Math.max(f, 0)); }
-  return 'rgb(' + mix(r) + ',' + mix(gg) + ',' + mix(b) + ')';
+  return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
 }
 
+/* Index of the last sample at or before tau.  At tau = 0 this is 0, so the
+   trajectory collapses to its seed and only the (BUP) is drawn. */
 function cut(t, tau) {
-  var i = 0;
-  while (i < t.tau.length - 1 && t.tau[i + 1] <= tau) i++;
-  return i;
+  var lo = 0, hi = t.tau.length - 1;
+  if (tau <= 0) return 0;
+  if (tau >= t.tau[hi]) return hi;
+  while (lo < hi - 1) {
+    var mid = (lo + hi) >> 1;
+    if (t.tau[mid] <= tau) lo = mid; else hi = mid;
+  }
+  return lo;
 }
 
-function bounds(getx, gety, tau) {
-  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  STATE.lobes.forEach(function (L) {
-    L.trajs.forEach(function (t) {
-      var m = cut(t, tau);
-      for (var i = 0; i <= m; i++) {
-        var x = getx(t, i), y = gety(t, i);
-        if (x < x0) x0 = x; if (x > x1) x1 = x;
-        if (y < y0) y0 = y; if (y > y1) y1 = y;
-      }
+function selected() { return S.flat[S.sel]; }
+
+function visible(t) { return !S.focus || t === selected(); }
+
+// ---------------------------------------------------------------------------
+// reference geometry drawn under the bundle -- what the printed figures show
+// ---------------------------------------------------------------------------
+
+function drawReference(F, kind) {
+  var g = F.g, i, xs = [], ys = [], q;
+  g.setLineDash([5, 4]);
+  if (kind === 'p1') {
+    [B.PARAMS.beta, -B.PARAMS.beta].forEach(function (b) {
+      F.poly([F.x0, F.x1], [b / D, b / D], '#9aa3ad', 1, 0.9);
     });
+  } else {
+    for (i = 0; i <= 400; i++) {
+      q = -Math.PI + 2 * Math.PI * i / 400;
+      xs.push(q / D); ys.push(B.Rhi(q));
+    }
+    F.poly(xs, ys, '#9aa3ad', 1, 0.9);
+    xs = []; ys = [];
+    for (i = 0; i <= 400; i++) {
+      q = -Math.PI + 2 * Math.PI * i / 400;
+      xs.push(q / D); ys.push(B.Rlo(q));
+    }
+    F.poly(xs, ys, '#9aa3ad', 1, 0.9);
+  }
+  g.setLineDash([]);
+}
+
+function drawTable2(F, xk, yk) {
+  if (!S.showT2) return;
+  var g = F.g;
+  g.font = '9px -apple-system, Segoe UI, sans-serif';
+  TABLE2.forEach(function (p, i) {
+    var val = { R: p[1], phi1: p[2], phi2: p[3] };
+    var x = val[xk], y = val[yk];
+    if (x < Math.min(F.x0, F.x1) || x > Math.max(F.x0, F.x1)) return;
+    if (y < Math.min(F.y0, F.y1) || y > Math.max(F.y0, F.y1)) return;
+    var on = T2ON[i];
+    F.dot(x, y, on ? '#111' : '#b8c0c9', on ? 3.2 : 2.2, !on);
+    if (on) {
+      g.fillStyle = '#111'; g.textAlign = 'left';
+      g.fillText(p[0].replace('_', ''), F.X(x) + 5, F.Y(y) - 3);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// the two faces
+// ---------------------------------------------------------------------------
+
+var FACES = {
+  cA: { x: function (t, i) { return t.a2[i] / D; },
+        y: function (t, i) { return t.a1[i] / D; },
+        xl: 'φ₂ [deg]', yl: 'φ₁ [deg]', xk: 'phi2', yk: 'phi1',
+        flipX: true, flipY: false, ref: 'p1' },
+  cB: { x: function (t, i) { return t.a2[i] / D; },
+        y: function (t, i) { return t.R[i]; },
+        xl: 'φ₂ [deg]', yl: 'R', xk: 'phi2', yk: 'R',
+        flipX: true, flipY: true, ref: 'R' }
+};
+
+function autoBounds(fx, fy) {
+  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  S.flat.forEach(function (t) {
+    if (!visible(t)) return;
+    var m = cut(t, S.tau), i;
+    for (i = 0; i <= m; i++) {
+      var x = fx(t, i), y = fy(t, i);
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
   });
   if (!isFinite(x0)) return [0, 1, 0, 1];
-  var mx = 0.06 * (x1 - x0) + 1e-6, my = 0.06 * (y1 - y0) + 1e-6;
+  var mx = 0.07 * (x1 - x0) + 0.5, my = 0.07 * (y1 - y0) + 0.02;
   return [x0 - mx, x1 + mx, y0 - my, y1 + my];
 }
 
-// ---------------------------------------------------------------------------
-// the three views
-// ---------------------------------------------------------------------------
+/* Build a face's frame.
+ *
+ * `c` is the result of fit(), for the drawing path.  Passing null gives a
+ * measure-only frame with no drawing context and, critically, WITHOUT calling
+ * fit() -- fit() sets canvas.width, which clears the canvas.  Hit-testing runs
+ * on every mousemove, so a pick that quietly wiped the pixels and then decided
+ * nothing had changed left the view blank until the next redraw: the canvas
+ * flickered under the cursor. */
+function faceFrame(id, cv, c) {
+  var f = FACES[id];
+  var F = new Frame(c ? c.g : null,
+                    c ? c.w : cv.clientWidth,
+                    c ? c.h : cv.clientHeight);
+  var b = autoBounds(f.x, f.y);
+  F.setDomain(f.flipX ? b[1] : b[0], f.flipX ? b[0] : b[1],
+              f.flipY ? b[2] : b[3], f.flipY ? b[3] : b[2]);
+  F.applyView(view(id));
+  return F;
+}
 
-function drawFace(cv, getx, gety, xl, yl, flipX, flipY) {
-  var c = fit(cv), F = new Frame(c.g, c.w, c.h);
-  var b = bounds(getx, gety, STATE.tau);
-  F.setDomain(flipX ? b[1] : b[0], flipX ? b[0] : b[1],
-              flipY ? b[2] : b[3], flipY ? b[3] : b[2]);
-  F.axes(xl, yl);
+function drawFace(id) {
+  var cv = document.getElementById(id), f = FACES[id];
+  var F = faceFrame(id, cv, fit(cv));
+  F.axes(f.xl, f.yl);
+  F.clip();
+  drawReference(F, f.ref);
 
-  var idx = 0;
-  STATE.lobes.forEach(function (L, li) {
-    L.trajs.forEach(function (t, k) {
-      var m = cut(t, STATE.tau), xs = [], ys = [];
-      for (var i = 0; i <= m; i++) { xs.push(getx(t, i)); ys.push(gety(t, i)); }
-      var on = (idx === STATE.sel);
-      F.poly(xs, ys, on ? '#000' : shade(L.color, k, L.trajs.length),
-             on ? 1.8 : 0.8, on ? 1 : 0.75);
-      idx++;
+  S.branches.forEach(function (br) {
+    br.trajs.forEach(function (t, k) {
+      if (!visible(t)) return;
+      var m = cut(t, S.tau), xs = [], ys = [], i;
+      if (m === 0) return;
+      for (i = 0; i <= m; i++) { xs.push(f.x(t, i)); ys.push(f.y(t, i)); }
+      var on = (t === selected());
+      F.poly(xs, ys, on ? '#000' : shade(br.color, k, br.trajs.length),
+             on ? 2.0 : 0.8, on ? 1 : 0.7);
     });
-    // the seed curve itself
+    // the seed curve itself, always drawn -- at tau = 0 it is the whole picture
     var bx = [], by = [];
-    L.trajs.forEach(function (t) { bx.push(getx(t, 0)); by.push(gety(t, 0)); });
-    if (bx.length) F.poly(bx, by, BUP, 2.0, 1);
+    br.trajs.forEach(function (t) {
+      if (S.focus && !visible(t)) return;
+      bx.push(f.x(t, 0)); by.push(f.y(t, 0));
+    });
+    if (bx.length > 1) F.poly(bx, by, BUP, 2.0, 1);
   });
 
-  if (STATE.showSw) {
-    STATE.lobes.forEach(function (L) {
-      L.trajs.forEach(function (t) {
-        t.switches.forEach(function (s) {
-          if (s.tau > STATE.tau) return;
-          var i = cut(t, s.tau);
-          F.dot(getx(t, i), gety(t, i), SW, 1.8);
-        });
+  if (S.showSw) {
+    S.flat.forEach(function (t) {
+      if (!visible(t)) return;
+      t.switches.forEach(function (s) {
+        if (s.tau > S.tau) return;
+        var i = cut(t, s.tau);
+        F.dot(f.x(t, i), f.y(t, i), SW, 1.9);
       });
     });
   }
-  // the marked point on the selected trajectory
+
+  drawTable2(F, f.xk, f.yk);
+
   var sel = selected();
-  if (sel) {
-    var i = cut(sel, STATE.tau * STATE.frac);
-    F.dot(getx(sel, i), gety(sel, i), '#000', 3.5);
+  if (sel && S.showMark) {
+    var i = cut(sel, S.tau * S.mark);
+    if (S.pinned !== null) F.dot(f.x(sel, i), f.y(sel, i), '#000', 7.5, true);
+    F.dot(f.x(sel, i), f.y(sel, i), '#000', 4);
+    F.dot(f.x(sel, 0), f.y(sel, 0), '#fff', 2.4);
   }
+  F.unclip();
 }
 
-/* orthographic 3-D: rotate (phi2, phi1, R) into the screen plane */
-function project(x, y, z, sc) {
-  var ca = Math.cos(STATE.az), sa = Math.sin(STATE.az);
-  var ce = Math.cos(STATE.el), se = Math.sin(STATE.el);
-  var X = x * ca - y * sa;
-  var Y = (x * sa + y * ca) * se - z * ce;
-  return [X * sc.x, Y * sc.y];
-}
+// ---------------------------------------------------------------------------
+// the 3-D view
+// ---------------------------------------------------------------------------
 
-function draw3d(cv) {
-  var c = fit(cv), g = c.g;
-  var bx = bounds(function (t, i) { return t.a2[i] / D; },
-                  function (t, i) { return t.a1[i] / D; }, STATE.tau);
-  var bz = bounds(function (t, i) { return t.a2[i] / D; },
-                  function (t, i) { return t.R[i]; }, STATE.tau);
-  var cx = 0.5 * (bx[0] + bx[1]), cy = 0.5 * (bx[2] + bx[3]), cz = 0.5 * (bz[2] + bz[3]);
+function make3d(c) {
+  var bx = autoBounds(function (t, i) { return t.a2[i] / D; },
+                      function (t, i) { return t.a1[i] / D; });
+  var bz = autoBounds(function (t, i) { return t.a2[i] / D; },
+                      function (t, i) { return t.R[i]; });
+  var cx = 0.5 * (bx[0] + bx[1]), cy = 0.5 * (bx[2] + bx[3]),
+      cz = 0.5 * (bz[2] + bz[3]);
   var sx = Math.max(bx[1] - bx[0], 1e-6), sy = Math.max(bx[3] - bx[2], 1e-6),
       sz = Math.max(bz[3] - bz[2], 1e-6);
-  var norm = function (t, i) {
-    return [(t.a2[i] / D - cx) / sx, (t.a1[i] / D - cy) / sy, (t.R[i] - cz) / sz];
+  var v = view('c3d');
+  var sc = { x: 0.40 * c.w * v.k, y: 0.40 * c.h * v.k };
+  var ox = c.w / 2 + v.dx * c.w, oy = c.h / 2 + v.dy * c.h;
+  var ca = Math.cos(S.az), sa = Math.sin(S.az);
+  var ce = Math.cos(S.el), se = Math.sin(S.el);
+  return {
+    // centre and span per axis, so a normalized coordinate u maps back to the
+    // data value c + u*s -- which is what the 3-D tick labels print
+    box: { c: [cx, cy, cz], s: [sx, sy, sz] },
+    norm: function (t, i) {
+      return [(t.a2[i] / D - cx) / sx, (t.a1[i] / D - cy) / sy, (t.R[i] - cz) / sz];
+    },
+    at: function (p) {
+      var X = p[0] * ca - p[1] * sa;
+      var Y = (p[0] * sa + p[1] * ca) * se - p[2] * ce;
+      return [ox + X * sc.x, oy + Y * sc.y];
+    }
   };
-  var sc = { x: 0.42 * c.w, y: 0.42 * c.h };
-  var ox = c.w / 2, oy = c.h / 2;
-  var put = function (p) { return [ox + p[0], oy + p[1]]; };
+}
 
-  // axis tripod
-  g.strokeStyle = '#d6dbe1'; g.lineWidth = 1;
-  [[[-0.6, -0.6, -0.6], [0.6, -0.6, -0.6], 'φ₂'],
-   [[-0.6, -0.6, -0.6], [-0.6, 0.6, -0.6], 'φ₁'],
-   [[-0.6, -0.6, -0.6], [-0.6, -0.6, 0.6], 'R']].forEach(function (a) {
-    var p = put(project(a[0][0], a[0][1], a[0][2], sc));
-    var q = put(project(a[1][0], a[1][1], a[1][2], sc));
-    g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
-    g.fillStyle = '#838b95'; g.font = '11px -apple-system, Segoe UI, sans-serif';
-    g.fillText(a[2], q[0] + 4, q[1] + 4);
+/* Three labelled axes rather than a bare tripod.  Each carries tick marks and
+   the data value at each tick (degrees, or R), which the view had no way of
+   showing before -- so a shape in it could be seen but not read. */
+function drawAxes3d(g, P) {
+  var A = -0.62, Z = 0.62, NT = 4;
+  var axes = [
+    { d: 0, off: [0, -1, 0], name: 'φ₂ [deg]' },
+    { d: 1, off: [-1, 0, 0], name: 'φ₁ [deg]' },
+    { d: 2, off: [-1, 0, 0], name: 'R' }
+  ];
+
+  axes.forEach(function (ax) {
+    function at(u, grow) {
+      var p = [A, A, A];
+      p[ax.d] = u;
+      if (grow) {
+        p[0] += ax.off[0] * grow;
+        p[1] += ax.off[1] * grow;
+        p[2] += ax.off[2] * grow;
+      }
+      return P.at(p);
+    }
+
+    var p0 = at(A, 0), p1 = at(Z, 0);
+    g.strokeStyle = AX_LINE; g.lineWidth = 1.8; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke();
+
+    // Rotating the view foreshortens an axis, and four labels on forty pixels
+    // of screen are unreadable.  Thin the ticks to what the projected length
+    // can actually carry, and drop them entirely once it cannot carry one.
+    var len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    var nt = Math.min(NT, Math.floor(len / 58));
+
+    if (nt >= 1) {
+      g.font = AX_TICK_FONT; g.fillStyle = AX_TICK; g.strokeStyle = AX_TICK;
+      g.lineWidth = 1.4; g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (var i = 1; i <= nt; i++) {    // i = 0 is the corner the three axes
+        var u = A + (Z - A) * i / nt;    // share: their labels would stack
+        var a = at(u, 0), b = at(u, 0.05), lab = at(u, 0.135);
+        g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+        g.fillText(fmt(P.box.c[ax.d] + u * P.box.s[ax.d]), lab[0], lab[1]);
+      }
+    }
+
+    // The name goes past the far end ALONG the axis; tick labels are offset
+    // across it, so the two cannot collide at any viewing angle.
+    var ux = len > 1e-6 ? (p1[0] - p0[0]) / len : 0;
+    var uy = len > 1e-6 ? (p1[1] - p0[1]) / len : -1;
+    g.font = AX_NAME_FONT; g.fillStyle = AX_NAME;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(ax.name, p1[0] + ux * 50, p1[1] + uy * 50);
+    g.textBaseline = 'alphabetic';
   });
+  g.lineCap = 'butt';
+}
 
-  // sheet fill: quad strip between neighbouring trajectories
-  if (STATE.showSheet) {
-    STATE.lobes.forEach(function (L) {
-      for (var k = 0; k + 1 < L.trajs.length; k++) {
-        var A = L.trajs[k], C2 = L.trajs[k + 1];
-        var mA = cut(A, STATE.tau), mC = cut(C2, STATE.tau);
-        var m = Math.min(mA, mC), step = Math.max(1, Math.floor(m / 60));
-        g.globalAlpha = 0.5;
-        g.fillStyle = shade(L.color, k, L.trajs.length);
+function draw3d() {
+  var cv = document.getElementById('c3d'), c = fit(cv), g = c.g;
+  var P = make3d(c);
+  var put = function (t, i) { return P.at(P.norm(t, i)); };
+
+  drawAxes3d(g, P);
+
+  if (S.showSheet && !S.focus && S.tau > 0) {
+    S.branches.forEach(function (br) {
+      for (var k = 0; k + 1 < br.trajs.length; k++) {
+        var A = br.trajs[k], Z = br.trajs[k + 1];
+        var m = Math.min(cut(A, S.tau), cut(Z, S.tau));
+        if (m < 1) continue;
+        var step = Math.max(1, Math.floor(m / 60));
+        g.globalAlpha = 0.5; g.fillStyle = shade(br.color, k, br.trajs.length);
         for (var i = 0; i + step <= m; i += step) {
-          var p1 = put(project.apply(null, norm(A, i).concat([sc])));
-          var p2 = put(project.apply(null, norm(A, i + step).concat([sc])));
-          var p3 = put(project.apply(null, norm(C2, i + step).concat([sc])));
-          var p4 = put(project.apply(null, norm(C2, i).concat([sc])));
+          var p1 = put(A, i), p2 = put(A, i + step),
+              p3 = put(Z, i + step), p4 = put(Z, i);
           g.beginPath();
           g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
           g.lineTo(p3[0], p3[1]); g.lineTo(p4[0], p4[1]);
@@ -528,80 +783,90 @@ function draw3d(cv) {
     });
   }
 
-  // trajectories
-  var idx = 0;
-  STATE.lobes.forEach(function (L) {
-    L.trajs.forEach(function (t, k) {
-      var m = cut(t, STATE.tau);
-      var on = (idx === STATE.sel);
-      g.strokeStyle = on ? '#000' : shade(L.color, k, L.trajs.length);
-      g.lineWidth = on ? 1.8 : 0.6;
-      g.globalAlpha = on ? 1 : (STATE.showSheet ? 0.5 : 0.85);
+  S.branches.forEach(function (br) {
+    br.trajs.forEach(function (t, k) {
+      if (!visible(t)) return;
+      var m = cut(t, S.tau);
+      if (m === 0) return;
+      var on = (t === selected());
+      g.strokeStyle = on ? '#000' : shade(br.color, k, br.trajs.length);
+      g.lineWidth = on ? 2.0 : 0.6;
+      g.globalAlpha = on ? 1 : (S.showSheet && !S.focus ? 0.5 : 0.85);
       g.beginPath();
       for (var i = 0; i <= m; i++) {
-        var p = put(project.apply(null, norm(t, i).concat([sc])));
+        var p = put(t, i);
         if (i === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
       }
       g.stroke(); g.globalAlpha = 1;
-      idx++;
     });
-    // seed curve
     g.strokeStyle = BUP; g.lineWidth = 2.2;
     g.beginPath();
-    L.trajs.forEach(function (t, k) {
-      var p = put(project.apply(null, norm(t, 0).concat([sc])));
-      if (k === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
+    var started = false;
+    br.trajs.forEach(function (t) {
+      if (S.focus && !visible(t)) return;
+      var p = put(t, 0);
+      if (!started) { g.moveTo(p[0], p[1]); started = true; } else g.lineTo(p[0], p[1]);
     });
     g.stroke();
   });
 
-  if (STATE.showSw) {
+  if (S.showSw) {
     g.fillStyle = SW;
-    STATE.lobes.forEach(function (L) {
-      L.trajs.forEach(function (t) {
-        t.switches.forEach(function (s) {
-          if (s.tau > STATE.tau) return;
-          var p = put(project.apply(null, norm(t, cut(t, s.tau)).concat([sc])));
-          g.beginPath(); g.arc(p[0], p[1], 1.9, 0, 2 * Math.PI); g.fill();
-        });
+    S.flat.forEach(function (t) {
+      if (!visible(t)) return;
+      t.switches.forEach(function (s) {
+        if (s.tau > S.tau) return;
+        var p = put(t, cut(t, s.tau));
+        g.beginPath(); g.arc(p[0], p[1], 2.0, 0, 2 * Math.PI); g.fill();
       });
     });
   }
 
   var sel = selected();
-  if (sel) {
-    var p = put(project.apply(null, norm(sel, cut(sel, STATE.tau * STATE.frac)).concat([sc])));
+  if (sel && S.showMark) {
+    var p = put(sel, cut(sel, S.tau * S.mark));
+    if (S.pinned !== null) {
+      g.strokeStyle = '#000'; g.lineWidth = 1.4;
+      g.beginPath(); g.arc(p[0], p[1], 8, 0, 2 * Math.PI); g.stroke();
+    }
     g.fillStyle = '#000';
-    g.beginPath(); g.arc(p[0], p[1], 4, 0, 2 * Math.PI); g.fill();
+    g.beginPath(); g.arc(p[0], p[1], 4.5, 0, 2 * Math.PI); g.fill();
+    g.fillStyle = '#fff';
+    var q = put(sel, 0);
+    g.beginPath(); g.arc(q[0], q[1], 2.6, 0, 2 * Math.PI); g.fill();
   }
 
   document.getElementById('h3d').textContent =
-    'τ ≤ ' + STATE.tau.toFixed(2) + '   az ' + Math.round(STATE.az / D) +
-    '°  el ' + Math.round(STATE.el / D) + '°';
+    'τ ≤ ' + S.tau.toFixed(2) + '   az ' + Math.round(S.az / D) +
+    '°  el ' + Math.round(S.el / D) + '°   zoom ×' + view('c3d').k.toFixed(2);
 }
 
-/* Relative geometry, Eqs. (1)-(3): A1 at the origin, A2 down the LOS at range R.
-   phi_i is each aircraft's own velocity direction measured off the LOS toward
-   the other, which is what makes Rdot = -(cos phi_1 + cos phi_2). */
-function drawGeometry(cv) {
-  var c = fit(cv), g = c.g;
+// ---------------------------------------------------------------------------
+// lower row
+// ---------------------------------------------------------------------------
+
+/* Relative geometry of Eqs. (1)-(3): A1 at the origin, A2 down the line of
+   sight at range R.  Each phi_i is that aircraft's own velocity direction
+   measured off the LOS toward the other, which is what makes
+   Rdot = -(cos phi_1 + cos phi_2). */
+function drawGeometry() {
+  var c = fit(document.getElementById('cG')), g = c.g;
   var sel = selected();
   document.getElementById('gnote').textContent = '';
   if (!sel) return;
-  var i = cut(sel, STATE.tau * STATE.frac);
+  var i = cut(sel, S.tau * S.mark);
   var R = sel.R[i], p1 = sel.Y[i][1], p2 = sel.Y[i][2];
 
-  var pad = 34, sc = (c.w - 2 * pad) / Math.max(R, 1e-3);
-  sc = Math.min(sc, (c.h - 2 * pad) / 2.2);
-  var ax = c.w / 2 - 0.5 * R * sc, ay = c.h / 2;
-  var bx = ax + R * sc, by = ay;
+  var pad = 40, sc = (c.w - 2 * pad) / Math.max(R, 1e-3);
+  sc = Math.min(sc, (c.h - 2 * pad) / 2.0);
+  var ax = c.w / 2 - 0.5 * R * sc, ay = c.h / 2, bx = ax + R * sc;
 
-  g.strokeStyle = '#c9cfd6'; g.lineWidth = 1; g.setLineDash([4, 4]);
-  g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+  g.strokeStyle = '#8d959e'; g.lineWidth = 1.2; g.setLineDash([4, 4]);
+  g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, ay); g.stroke();
   g.setLineDash([]);
 
-  function arrow(x, y, ang, color, label) {
-    var len = Math.min(52, 0.30 * c.w);
+  function arrow(x, y, ang, color, label, lbly) {
+    var len = Math.min(54, 0.28 * c.w);
     var dx = Math.cos(ang) * len, dy = -Math.sin(ang) * len;
     g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 2;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx, y + dy); g.stroke();
@@ -611,88 +876,92 @@ function drawGeometry(cv) {
     g.lineTo(x + dx - 8 * Math.cos(ang + 0.4), y + dy + 8 * Math.sin(ang + 0.4));
     g.closePath(); g.fill();
     g.beginPath(); g.arc(x, y, 4.5, 0, 2 * Math.PI); g.fill();
-    g.font = '11px -apple-system, Segoe UI, sans-serif';
-    g.fillText(label, x - 4, y + 18);
+    g.font = '11px -apple-system, Segoe UI, sans-serif'; g.textAlign = 'center';
+    g.fillText(label, x, y + lbly);
   }
-  arrow(ax, ay, p1, NEG, 'A₁');
-  arrow(bx, by, Math.PI - p2, POS, 'A₂');
+  arrow(ax, ay, p1, HUE[0], 'A₁', 20);
+  arrow(bx, ay, Math.PI - p2, HUE[1], 'A₂', 20);
 
-  g.fillStyle = '#4a5058'; g.font = '11px -apple-system, Segoe UI, sans-serif';
-  g.textAlign = 'center';
-  g.fillText('R = ' + R.toFixed(3), (ax + bx) / 2, ay - 8);
+  g.fillStyle = '#4a5058'; g.textAlign = 'center';
+  g.fillText('R = ' + R.toFixed(3), (ax + bx) / 2, ay - 9);
   g.textAlign = 'left';
 
   var f12 = canFire(p1, p2, R), f21 = canFire(p2, p1, R);
   document.getElementById('gnote').innerHTML =
-    '1→2 firing conditions: <b class="' + (f12 ? 'ok' : 'no') + '">' + (f12 ? 'met' : 'not met') +
-    '</b> &nbsp;·&nbsp; 2→1: <b class="' + (f21 ? 'ok' : 'no') + '">' + (f21 ? 'met' : 'not met') + '</b>';
+    '1→2 firing conditions: <b class="' + (f12 ? 'ok' : 'no') + '">' +
+    (f12 ? 'met' : 'not met') + '</b> &nbsp;·&nbsp; 2→1: <b class="' +
+    (f21 ? 'ok' : 'no') + '">' + (f21 ? 'met' : 'not met') + '</b>';
 }
 
-function drawInvariants(cv) {
-  var c = fit(cv), F = new Frame(c.g, c.w, c.h, { l: 34, r: 34, t: 16, b: 24 });
+function drawInvariants() {
+  var c = fit(document.getElementById('cI'));
+  var F = new Frame(c.g, c.w, c.h, { l: 36, r: 36, t: 17, b: 24 });
   var sel = selected();
   if (!sel) return;
-  var m = cut(sel, STATE.tau);
-  var lo = Infinity, hi = -Infinity, i;
+  var m = cut(sel, S.tau), i;
+  if (m === 0) {
+    c.g.fillStyle = '#838b95';
+    c.g.font = '12px -apple-system, Segoe UI, sans-serif';
+    c.g.textAlign = 'center';
+    c.g.fillText('τ = 0 — the trajectory has not been integrated yet',
+                 c.w / 2, c.h / 2);
+    return;
+  }
+  var lo = Infinity, hi = -Infinity;
   for (i = 0; i <= m; i++) {
-    [sel.Y[i][3], sel.Y[i][4], sel.Y[i][5]].forEach(function (v) {
+    [3, 4, 5].forEach(function (k) {
+      var v = sel.Y[i][k];
       if (v < lo) lo = v; if (v > hi) hi = v;
     });
   }
-  var pad = 0.1 * (hi - lo) + 1e-6;
+  if (!isFinite(lo)) { lo = -1; hi = 1; }
+  var pad = 0.12 * (hi - lo) + 1e-3;
   F.setDomain(0, Math.max(sel.tau[m], 1e-3), hi + pad, lo - pad);
   F.axes('τ', 'λ');
+  F.clip();
 
   var g = c.g;
-  g.strokeStyle = '#c9cfd6'; g.lineWidth = 1;
+  g.strokeStyle = '#7d858e'; g.lineWidth = 1.2;
   g.beginPath(); g.moveTo(F.p.l, F.Y(0)); g.lineTo(c.w - F.p.r, F.Y(0)); g.stroke();
 
-  [[3, NEG], [4, POS], [5, SW]].forEach(function (s) {
+  [[3, HUE[0]], [4, HUE[1]], [5, HUE[2]]].forEach(function (s) {
     var xs = [], ys = [];
-    for (var i2 = 0; i2 <= m; i2++) { xs.push(sel.tau[i2]); ys.push(sel.Y[i2][s[0]]); }
+    for (var j = 0; j <= m; j++) { xs.push(sel.tau[j]); ys.push(sel.Y[j][s[0]]); }
     F.poly(xs, ys, s[1], 1.6);
   });
 
   sel.switches.forEach(function (s) {
-    if (s.tau > STATE.tau) return;
+    if (s.tau > S.tau) return;
     g.strokeStyle = SW; g.lineWidth = 1; g.setLineDash([2, 3]);
-    g.beginPath(); g.moveTo(F.X(s.tau), F.p.t); g.lineTo(F.X(s.tau), c.h - F.p.b); g.stroke();
-    g.setLineDash([]);
+    g.beginPath(); g.moveTo(F.X(s.tau), F.p.t); g.lineTo(F.X(s.tau), c.h - F.p.b);
+    g.stroke(); g.setLineDash([]);
   });
 
-  // |H*| on its own log decade axis, right side
-  var G = new Frame(c.g, c.w, c.h, { l: 34, r: 34, t: 16, b: 24 });
+  // |H*| on its own log decade axis
+  var G = new Frame(c.g, c.w, c.h, { l: 36, r: 36, t: 17, b: 24 });
   G.setDomain(0, Math.max(sel.tau[m], 1e-3), -8, -18);
   var xs2 = [], ys2 = [];
   for (i = 0; i <= m; i++) {
-    xs2.push(sel.tau[i]);
-    ys2.push(Math.log10(Math.max(sel.h[i], 1e-18)));
+    xs2.push(sel.tau[i]); ys2.push(Math.log10(Math.max(sel.h[i], 1e-18)));
   }
-  G.poly(xs2, ys2, '#1a7f4b', 1.2, 0.9);
-  g.fillStyle = '#1a7f4b'; g.font = '10px -apple-system, Segoe UI, sans-serif';
-  g.textAlign = 'left';
-  g.fillText('10⁻⁸', c.w - 30, G.Y(-8) + 3);
-  g.fillText('10⁻¹⁸', c.w - 32, G.Y(-18) + 3);
-}
+  G.poly(xs2, ys2, OK, 1.2, 0.9);
+  F.unclip();
 
-function selected() {
-  var idx = 0, found = null;
-  STATE.lobes.forEach(function (L) {
-    L.trajs.forEach(function (t) {
-      if (idx === STATE.sel) found = t;
-      idx++;
-    });
-  });
-  return found;
+  // the marker's own position in tau
+  g.strokeStyle = '#111'; g.lineWidth = 1;
+  var tm = S.tau * S.mark;
+  g.beginPath(); g.moveTo(F.X(tm), F.p.t); g.lineTo(F.X(tm), c.h - F.p.b); g.stroke();
+
+  g.fillStyle = OK; g.font = '10px -apple-system, Segoe UI, sans-serif';
+  g.textAlign = 'left';
+  g.fillText('10⁻⁸', c.w - 32, G.Y(-8) + 3);
+  g.fillText('10⁻¹⁸', c.w - 34, G.Y(-18) + 3);
 }
 
 function drawReadout() {
-  var sel = selected();
-  var el = document.getElementById('read');
+  var el = document.getElementById('read'), sel = selected();
   if (!sel) { el.innerHTML = ''; return; }
-  var i = cut(sel, STATE.tau * STATE.frac);
-  var y = sel.Y[i];
-  var s = B.controls(y);
+  var i = cut(sel, S.tau * S.mark), y = sel.Y[i], s = B.controls(y);
   var fi = Math.abs(B.firstIntegral(y[0], y[3], y[4], y[5]) - 1);
   var hs = Math.abs(B.hamiltonianStar(y[0], y[1], y[2], y[3], y[4], y[5]));
   var rows = [
@@ -707,27 +976,27 @@ function drawReadout() {
     ['|FI − 1|', fi.toExponential(2)],
     ['|H*|', hs.toExponential(2)],
     ['switches on this path', sel.switches.length],
-    ['seed R̄₁(φ₂)', sel.seed[0].toFixed(5)],
-    ['seed φ₁, φ₂', (sel.seed[1] / D).toFixed(3) + '°, ' + (sel.seed[2] / D).toFixed(3) + '°']
+    ['seed R', sel.seed[0].toFixed(5)],
+    ['seed φ₁, φ₂', (sel.seed[1] / D).toFixed(3) + '°, ' +
+                    (sel.seed[2] / D).toFixed(3) + '°']
   ];
   el.innerHTML = rows.map(function (r) {
     return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
   }).join('');
-  document.getElementById('rsub').textContent = 'trajectory ' + (STATE.sel + 1);
+  document.getElementById('rsub').innerHTML =
+    'branch ' + (sel.bi + 1) + ', seed ' + (sel.si + 1) +
+    (S.pinned === null ? ''
+      : ' · <b style="color:#17191c">pinned</b> <span style="color:#838b95">' +
+        '(click it again or press Esc)</span>');
 }
 
 function draw() {
-  draw3d(document.getElementById('c3d'));
-  drawFace(document.getElementById('cA'),
-           function (t, i) { return t.a2[i] / D; },
-           function (t, i) { return t.a1[i] / D; },
-           'φ₂ [deg]', 'φ₁ [deg]', true, false);
-  drawFace(document.getElementById('cB'),
-           function (t, i) { return t.a2[i] / D; },
-           function (t, i) { return t.R[i]; },
-           'φ₂ [deg]', 'R', true, true);
-  drawGeometry(document.getElementById('cG'));
-  drawInvariants(document.getElementById('cI'));
+  document.getElementById('markKey').style.display = S.showMark ? '' : 'none';
+  draw3d();
+  drawFace('cA');
+  drawFace('cB');
+  drawGeometry();
+  drawInvariants();
   drawReadout();
 }
 
@@ -735,81 +1004,264 @@ function draw() {
 // interaction
 // ---------------------------------------------------------------------------
 
-var tauEl = document.getElementById('tau'), tauOut = document.getElementById('tauOut');
-tauEl.oninput = function () {
-  STATE.tau = Math.max(+this.value / 100, 0.01);
-  tauOut.textContent = STATE.tau.toFixed(2);
+function setTau(v) {
+  S.tau = Math.min(Math.max(v, 0), TAU_FULL);
+  document.getElementById('tau').value = Math.round(S.tau * 100);
+  document.getElementById('tauNum').value = S.tau.toFixed(2);
+  draw();
+}
+
+document.getElementById('tau').oninput = function () { setTau(+this.value / 100); };
+document.getElementById('tauNum').onchange = function () {
+  var v = parseFloat(this.value);
+  setTau(isFinite(v) ? v : 0);
+};
+var nsEl = document.getElementById('ns');
+nsEl.oninput = function () { document.getElementById('nsOut').textContent = this.value; };
+nsEl.onchange = rebuild;
+document.getElementById('fam').onchange = rebuild;
+
+function toggle(id, key) {
+  document.getElementById(id).onclick = function () {
+    S[key] = !S[key];
+    this.classList.toggle('on', S[key]);
+    draw();
+  };
+}
+toggle('showSw', 'showSw');
+toggle('showSheet', 'showSheet');
+toggle('showT2', 'showT2');
+toggle('showMark', 'showMark');   // the marked point on the selected trajectory
+toggle('focus', 'focus');
+
+document.getElementById('reset').onclick = function () {
+  S.views = {};
+  S.az = -58 * D; S.el = 22 * D;
   draw();
 };
-var nsEl = document.getElementById('ns'), nsOut = document.getElementById('nsOut');
-nsEl.onchange = function () { nsOut.textContent = this.value; rebuild(); };
-nsEl.oninput = function () { nsOut.textContent = this.value; };
-document.getElementById('fam').onchange = rebuild;
-document.getElementById('showSw').onclick = function () {
-  STATE.showSw = !STATE.showSw; this.classList.toggle('on', STATE.showSw); draw();
-};
-document.getElementById('showSheet').onclick = function () {
-  STATE.showSheet = !STATE.showSheet; this.classList.toggle('on', STATE.showSheet); draw();
-};
 
+/* Play sweeps tau from 0 up. The bundle grows and, because the marker sits at
+   tau * mark, the selected trajectory is travelled at the same time; with focus
+   on, the bundle is hidden and it is only that trajectory being watched. */
 var playing = null;
 document.getElementById('play').onclick = function () {
   var btn = this;
-  if (playing) { clearInterval(playing); playing = null; btn.textContent = '▶ sweep';
-                 btn.classList.remove('on'); return; }
-  btn.textContent = '❚❚ pause'; btn.classList.add('on');
-  var v = 1;
-  playing = setInterval(function () {
-    v += 6;
-    if (v > +tauEl.max) v = 1;
-    tauEl.value = v;
-    tauEl.oninput.call(tauEl);
-  }, 40);
-};
-
-/* pick the nearest trajectory in the (φ₂, φ₁) face */
-document.getElementById('cA').onmousemove = function (e) {
-  var r = this.getBoundingClientRect();
-  var c = { w: r.width, h: r.height };
-  var b = bounds(function (t, i) { return t.a2[i] / D; },
-                 function (t, i) { return t.a1[i] / D; }, STATE.tau);
-  var F = new Frame(null, c.w, c.h);
-  F.setDomain(b[1], b[0], b[3], b[2]);
-  var mx = e.clientX - r.left, my = e.clientY - r.top;
-  var best = -1, bestD = Infinity, idx = 0, bestFrac = 1;
-  STATE.lobes.forEach(function (L) {
-    L.trajs.forEach(function (t) {
-      var m = cut(t, STATE.tau);
-      var step = Math.max(1, Math.floor(m / 80));
-      for (var i = 0; i <= m; i += step) {
-        var dx = F.X(t.a2[i] / D) - mx, dy = F.Y(t.a1[i] / D) - my;
-        var d = dx * dx + dy * dy;
-        if (d < bestD) { bestD = d; best = idx; bestFrac = m ? i / m : 1; }
-      }
-      idx++;
-    });
-  });
-  if (best >= 0 && bestD < 900) {
-    STATE.sel = best; STATE.frac = bestFrac; draw();
+  if (playing) {
+    clearInterval(playing); playing = null;
+    btn.textContent = '▶ play'; btn.classList.remove('on');
+    return;
   }
+  btn.textContent = '❚❚ pause'; btn.classList.add('on');
+  if (S.tau >= TAU_FULL - 1e-9) setTau(0);
+  playing = setInterval(function () {
+    var next = S.tau + 0.05;
+    if (next > TAU_FULL) { next = 0; }
+    setTau(next);
+  }, 45);
 };
 
-/* drag to rotate the 3-D view */
-(function () {
-  var cv = document.getElementById('c3d'), down = false, lx = 0, ly = 0;
-  cv.onmousedown = function (e) { down = true; lx = e.clientX; ly = e.clientY; };
-  window.addEventListener('mouseup', function () { down = false; });
-  cv.onmousemove = function (e) {
-    if (!down) return;
-    STATE.az += (e.clientX - lx) * 0.008;
-    STATE.el = Math.max(-1.4, Math.min(1.4, STATE.el + (e.clientY - ly) * 0.006));
-    lx = e.clientX; ly = e.clientY;
+/* Nearest trajectory to a click, in a face. */
+/* Nearest trajectory sample to a screen point.  With `only` given, the search
+   is confined to that one trajectory, which is what lets a pinned curve be
+   scrubbed along without the cursor wandering onto a neighbour. */
+function pickFace(id, mx, my, only) {
+  var cv = document.getElementById(id), f = FACES[id], F = faceFrame(id, cv, null);
+  var best = -1, bestD = Infinity, bestFrac = 1;
+  S.flat.forEach(function (t, idx) {
+    if (!visible(t) || (only && t !== only)) return;
+    var m = Math.max(cut(t, S.tau), 0);
+    var step = Math.max(1, Math.floor(m / 90));
+    for (var i = 0; i <= m; i += step) {
+      var dx = F.X(f.x(t, i)) - mx, dy = F.Y(f.y(t, i)) - my;
+      var d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = idx; bestFrac = m ? i / m : 1; }
+    }
+  });
+  return bestD < (only ? 1e9 : 2500) ? [best, bestFrac] : null;
+}
+
+function pick3d(mx, my, only) {
+  var c = { w: document.getElementById('c3d').clientWidth,
+            h: document.getElementById('c3d').clientHeight };
+  var P = make3d(c);
+  var best = -1, bestD = Infinity, bestFrac = 1;
+  S.flat.forEach(function (t, idx) {
+    if (!visible(t) || (only && t !== only)) return;
+    var m = Math.max(cut(t, S.tau), 0);
+    var step = Math.max(1, Math.floor(m / 90));
+    for (var i = 0; i <= m; i += step) {
+      var p = P.at(P.norm(t, i));
+      var dx = p[0] - mx, dy = p[1] - my, d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = idx; bestFrac = m ? i / m : 1; }
+    }
+  });
+  return bestD < (only ? 1e9 : 2500) ? [best, bestFrac] : null;
+}
+
+function localXY(cv, e) {
+  var r = cv.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+/* Wheel zoom about the cursor, on every view showing trajectories. */
+['cA', 'cB', 'c3d'].forEach(function (id) {
+  var cv = document.getElementById(id);
+  cv.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var v = view(id);
+    var f = Math.exp(-e.deltaY * 0.0022);
+    var k2 = Math.min(Math.max(v.k * f, 0.15), 250);
+    var xy = localXY(cv, e);
+    if (id === 'c3d') {
+      // hold the point under the cursor while scaling about the view centre
+      var ux = (xy[0] - cv.clientWidth / 2) / cv.clientWidth - v.dx;
+      var uy = (xy[1] - cv.clientHeight / 2) / cv.clientHeight - v.dy;
+      v.dx -= ux * (k2 / v.k - 1);
+      v.dy -= uy * (k2 / v.k - 1);
+      v.k = k2;
+    } else {
+      // zoom about the data point under the cursor: it stays put, exactly
+      var F = faceFrame(id, cv, null);
+      var bx = F.invX(xy[0]), by = F.invY(xy[1]);
+      v.dom = [bx + (F.x0 - bx) / f, bx + (F.x1 - bx) / f,
+               by + (F.y0 - by) / f, by + (F.y1 - by) / f];
+    }
     draw();
-  };
-}());
+  }, { passive: false });
+
+  cv.addEventListener('dblclick', function () {
+    S.views[id] = null;
+    if (id === 'c3d') { S.az = -58 * D; S.el = 22 * D; }
+    draw();
+  });
+});
+
+/* Redraw at most once per frame while the cursor moves: a hover redraws every
+   panel, and the 3-D sheet fill is not cheap. */
+var hoverQueued = false;
+function onNextFrame(fn) {
+  if (hoverQueued) return;
+  hoverQueued = true;
+  requestAnimationFrame(function () { hoverQueued = false; fn(); });
+}
+
+function pickAt(id, xy, only) {
+  return id === 'c3d' ? pick3d(xy[0], xy[1], only) : pickFace(id, xy[0], xy[1], only);
+}
+
+/* Moving the cursor over a view scrubs: the nearest trajectory is selected and
+   the marked point follows the cursor along it, so dragging the pointer down a
+   curve walks the readout, the geometry and the costates with it.  Clicking
+   pins a trajectory — hover then scrubs along that one only, and never jumps to
+   a neighbour — and clicking it again releases. */
+function hoverScrub(id, cv, e) {
+  var xy = localXY(cv, e);
+  onNextFrame(function () {
+    var pin = S.pinned === null ? null : S.flat[S.pinned];
+    var hit = pickAt(id, xy, pin);
+    if (!hit) return;
+    if (hit[0] === S.sel && Math.abs(hit[1] - S.mark) < 1e-4) return;
+    S.sel = hit[0];
+    S.mark = hit[1];
+    draw();
+  });
+}
+
+/* Drag: pan on the faces, rotate (shift-pan) in 3-D.  A press that does not
+   move is a click, and pins. */
+['cA', 'cB', 'c3d'].forEach(function (id) {
+  var cv = document.getElementById(id);
+  var down = false, moved = 0, lx = 0, ly = 0;
+  cv.addEventListener('mousedown', function (e) {
+    down = true; moved = 0;
+    lx = e.clientX; ly = e.clientY;
+  });
+  window.addEventListener('mouseup', function (e) {
+    if (!down) return;
+    down = false;
+    if (moved > 3) return;
+    var xy = localXY(cv, e);
+    var hit = pickAt(id, xy, null);
+    if (!hit) return;
+    if (S.pinned === hit[0]) {
+      S.pinned = null;                       // click the pinned curve to release
+    } else {
+      S.pinned = hit[0];
+      S.sel = hit[0];
+      S.mark = hit[1];
+    }
+    draw();
+  });
+  cv.addEventListener('mousemove', function (e) {
+    if (!down) { hoverScrub(id, cv, e); return; }
+    var dx = e.clientX - lx, dy = e.clientY - ly;
+    moved += Math.abs(dx) + Math.abs(dy);
+    lx = e.clientX; ly = e.clientY;
+    var v = view(id);
+    if (id === 'c3d' && !e.shiftKey) {
+      S.az += dx * 0.008;
+      S.el = Math.max(-1.45, Math.min(1.45, S.el + dy * 0.006));
+    } else if (id === 'c3d') {
+      v.dx += dx / cv.clientWidth; v.dy += dy / cv.clientHeight;
+    } else {
+      var F = faceFrame(id, cv, null);
+      var kx = (F.x1 - F.x0) / (cv.clientWidth - F.p.l - F.p.r);
+      var ky = (F.y1 - F.y0) / (cv.clientHeight - F.p.t - F.p.b);
+      v.dom = [F.x0 - dx * kx, F.x1 - dx * kx, F.y0 - dy * ky, F.y1 - dy * ky];
+    }
+    draw();
+  });
+});
+
+/* Stitch the three trajectory views into one image, for the deck. */
+document.getElementById('png').onclick = function () {
+  var ids = ['c3d', 'cA', 'cB'], titles = ['(φ₂, φ₁, R)', 'face (φ₂, φ₁)', 'face (φ₂, R)'];
+  var src = ids.map(function (i) { return document.getElementById(i); });
+  var pad = 14, head = 26;
+  var w = src[0].width + src[1].width + pad * 3;
+  var h = Math.max(src[0].height, src[1].height + src[2].height + pad) + head + pad * 2;
+  var out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  var g = out.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#17191c';
+  g.font = '600 15px -apple-system, Segoe UI, sans-serif';
+  g.fillText(document.getElementById('status').textContent.split(' · ')[0] +
+             ' — τ ≤ ' + S.tau.toFixed(2), pad, 18);
+  g.drawImage(src[0], pad, head + pad);
+  g.drawImage(src[1], src[0].width + pad * 2, head + pad);
+  g.drawImage(src[2], src[0].width + pad * 2, head + pad + src[1].height + pad);
+  g.fillStyle = '#4a5058'; g.font = '12px -apple-system, Segoe UI, sans-serif';
+  titles.forEach(function (t, i) {
+    var x = i === 0 ? pad : src[0].width + pad * 2;
+    var y = i === 2 ? head + pad + src[1].height + pad - 4 : head + pad - 4;
+    g.fillText(t, x, y);
+  });
+  var a = document.createElement('a');
+  a.download = 'layer0_' + S.family.replace('+', 'p').replace('-', 'm') +
+               '_tau' + S.tau.toFixed(2) + '.png';
+  a.href = out.toDataURL('image/png');
+  a.click();
+};
+
+window.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && S.pinned !== null) { S.pinned = null; draw(); }
+});
 
 window.addEventListener('resize', draw);
-rebuild();
+
+// ---------------------------------------------------------------------------
+
+(function init() {
+  var sel = document.getElementById('fam');
+  ['max', 'min', 'bore+', 'bore-'].forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = C.FAMILIES[k].label;
+    sel.appendChild(o);
+  });
+  sel.value = 'max';
+  rebuild();
+}());
 </script>
 </body>
 </html>
