@@ -8,7 +8,7 @@
  */
 'use strict';
 
-var Bar = require('./barrier.js');
+var Bar = require('../layer1/barrier.js');
 
 var nPass = 0, nFail = 0;
 function pass(ok, msg) {
