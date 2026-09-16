@@ -27,7 +27,12 @@
  */
 ;(function (root, factory) {
   'use strict';
-  var Barrier = factory(typeof require === 'function' ? require('./sim.js') : root.Sim);
+  // NOTE: this module does not use sim.js -- the injected Sim was never
+  // referenced.  Requiring it made barrier.js loadable only from a directory
+  // that has sim.js as a sibling, which is why `node test_barrier_js.js` broke
+  // once barrier.js settled in layer0/.  Dropped, so the module loads from
+  // anywhere in node and standalone in the browser.
+  var Barrier = factory();
   if (typeof module === 'object' && module.exports) module.exports = Barrier;
   else root.Barrier = Barrier;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Sim) {

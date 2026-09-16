@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<!--
+  barrier_explorer.html -- Layer 0: watch the barrier sheet get swept.
+
+  Every point of the boundary of the usable part is a terminal condition.
+  Integrate the state-costate system retrograde from it under the paper's own
+  barrier strategies and the bundle of those trajectories IS the semipermeable
+  surface.  Scrub tau and the sheet grows off the (BUP)_1 in front of you.
+
+  Maths is layer0/barrier.js -- the same module node test_barrier_js.js checks.
+  Nothing here re-derives anything; it only draws.
+
+  Open it directly in a browser (file:// is fine).  No build, no server.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Layer 0 — barrier sheet explorer</title>
+<style>
+  :root {
+    --neg: #1f5fa8;  --pos: #c1442a;  --sw: #8a5cc7;
+    --ink: #17191c;  --ink2: #4a5058;  --ink3: #838b95;
+    --surface: #fcfcfb;  --panel: #ffffff;  --line: #dfe3e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--surface); color: var(--ink);
+    font: 13px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: var(--ink2); font-size: 12px; margin-bottom: 12px; max-width: 900px; }
+  .sub code { background: #eef1f4; padding: 1px 4px; border-radius: 3px; }
+
+  .bar {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  .ctl { display: flex; align-items: center; gap: 6px; }
+  .ctl label { color: var(--ink2); font-size: 12px; white-space: nowrap; }
+  .ctl output { font-variant-numeric: tabular-nums; min-width: 42px; color: var(--ink);
+                font-size: 12px; }
+  input[type=range] { width: 130px; accent-color: var(--neg); }
+  select, button {
+    font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button:hover { background: #f2f5f8; }
+  button.on { background: var(--neg); border-color: var(--neg); color: #fff; }
+
+  .grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 10px 6px;
+  }
+  .card h2 {
+    font-size: 12px; font-weight: 600; margin: 0 0 6px; color: var(--ink);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .card h2 span { font-weight: 400; color: var(--ink3); font-size: 11px; }
+  .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
+  /* explicit CSS height: a canvas sized only in width scales by its intrinsic
+     aspect ratio, which feeds back through fit() and inflates the card */
+  canvas { display: block; width: 100%; cursor: crosshair; }
+  #c3d { height: 430px; cursor: grab; }
+  #c3d:active { cursor: grabbing; }
+  #cA, #cB { height: 185px; }
+  #cG, #cI { height: 220px; }
+
+  table.read { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.read td { padding: 2px 0; font-size: 12px; }
+  table.read td:first-child { color: var(--ink2); }
+  table.read td:last-child { text-align: right; }
+  .ok { color: #1a7f4b; } .no { color: #b3261e; }
+  .key { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink2);
+         margin-top: 6px; }
+  .key i { display: inline-block; width: 18px; height: 3px; border-radius: 2px;
+           vertical-align: middle; margin-right: 4px; }
+  .note { font-size: 11px; color: var(--ink3); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<h1>Layer 0 — the barrier as a swept surface</h1>
+<div class="sub">
+  The boundary of the usable part is a <b>curve</b>. Every point on it is a terminal
+  condition: state on the target-set boundary, costate from transversality (Eq. 20).
+  Integrating the coupled state–costate system <b>backward</b> under
+  σ₁* = −sign λ₁, σ₂* = +sign λ₂ gives one barrier trajectory per point, and the
+  bundle of them is the semipermeable surface. Scrub <code>τ</code> to sweep it.
+  Maths comes from <code>layer0/barrier.js</code>; the invariants |FI−1| and |H*| below are the
+  integration's own error certificate.
+  <br><span style="color:var(--ink3)">The maximum-range seeds are ordered by arclength
+  along the lens, so its bundle is a true (s, τ) sheet. The other two families are
+  seeded by sweeping φ₂, and where Eq. (46) has several roots the black seed polyline
+  zigzags — the trajectories are right, the seed curve's drawing order is not yet.</span>
+</div>
+
+<div class="bar">
+  <div class="ctl">
+    <label for="fam">family</label>
+    <select id="fam">
+      <option value="max" selected>maximum range — Eq. (32)</option>
+      <option value="min">minimum range — Eq. (46)</option>
+      <option value="bore">off-boresight φ₁ = +β — Eq. (62)</option>
+      <option value="bore-">off-boresight φ₁ = −β — Eq. (62)</option>
+    </select>
+  </div>
+  <div class="ctl">
+    <label for="tau">retrograde τ</label>
+    <input type="range" id="tau" min="0" max="600" value="150">
+    <output id="tauOut">1.50</output>
+  </div>
+  <div class="ctl">
+    <label for="ns">seeds</label>
+    <input type="range" id="ns" min="9" max="121" step="2" value="41">
+    <output id="nsOut">41</output>
+  </div>
+  <button id="play">▶ sweep</button>
+  <button id="showSw" class="on">switches</button>
+  <button id="showSheet" class="on">sheet fill</button>
+  <div class="ctl"><label>drag the 3-D view to rotate</label></div>
+  <div class="ctl" id="status" style="color:var(--ink3)"></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>the bundle in (φ₂, φ₁, R) <span id="h3d"></span></h2>
+    <canvas id="c3d" height="430"></canvas>
+    <div class="key">
+      <span><i style="background:var(--neg)"></i>φ₂ &lt; 0 lobe</span>
+      <span><i style="background:var(--pos)"></i>φ₂ &gt; 0 lobe</span>
+      <span><i style="background:#111"></i>the (BUP) seed curve</span>
+      <span><i style="background:var(--sw)"></i>located control switch</span>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h2>face (φ₂, φ₁) <span>φ₂ increases to the left, as printed</span></h2>
+      <canvas id="cA" height="185"></canvas>
+    </div>
+    <div class="card">
+      <h2>face (φ₂, R) <span>R increases downward, as printed</span></h2>
+      <canvas id="cB" height="185"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row2">
+  <div class="card">
+    <h2>engagement geometry <span>at the marked point</span></h2>
+    <canvas id="cG" height="220"></canvas>
+    <div class="note" id="gnote"></div>
+  </div>
+  <div class="card">
+    <h2>costates and invariants <span>selected trajectory</span></h2>
+    <canvas id="cI" height="220"></canvas>
+    <div class="key">
+      <span><i style="background:var(--neg)"></i>λ<sub>R</sub></span>
+      <span><i style="background:var(--pos)"></i>λ₁</span>
+      <span><i style="background:var(--sw)"></i>λ₂</span>
+      <span><i style="background:#1a7f4b"></i>log₁₀|H*|</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>readout <span id="rsub"></span></h2>
+    <table class="read" id="read"></table>
+    <div class="note">
+      Firing conditions use the index asymmetry of Eq. (7): the boresight bound is on
+      the shooter's own angle, both range bounds on the target's aspect angle.
+    </div>
+  </div>
+</div>
+
+<script src="../barrier.js"></script>
+<script>
+'use strict';
+var B = window.Barrier;
+var D = Math.PI / 180;
+var NEG = '#1f5fa8', POS = '#c1442a', SW = '#8a5cc7', BUP = '#111111';
+var TAU_FULL = 6.0, DT = 2e-3;
+
+// ---------------------------------------------------------------------------
+// seed curves -- ordered so the bundle is a proper (arclength, tau) sheet
+// ---------------------------------------------------------------------------
+
+/* Locate the fold where two Eq. (32) roots merge: the Table 2 point d_1. */
+function foldPhi2(sgn) {
+  var lo = 0.25, hi = 1e-4;
+  for (var i = 0; i < 80; i++) {
+    var mid = 0.5 * (lo + hi);
+    if (B.bupMaxrange(sgn * mid).length) hi = mid; else lo = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+/* Maximum range: a closed lens.  Walk the inner branch out to the fold, come
+   back along the outer branch, so arclength is monotone and the fold is not a
+   seam. */
+function curveMaxrange(n, sgn) {
+  var fold = foldPhi2(sgn), eps = 2e-4, lower = [], upper = [];
+  for (var i = 0; i < n; i++) {
+    var t = 0.5 * (1 - Math.cos(Math.PI * i / (n - 1)));
+    var q = sgn * (eps + t * (fold * (1 - 1e-3) - eps));
+    var r = B.bupMaxrange(q);
+    if (r.length < 2) continue;
+    r.sort(function (a, b) { return Math.abs(a) - Math.abs(b); });
+    lower.push([r[0], q]);
+    upper.push([r[r.length - 1], q]);
+  }
+  upper.reverse();
+  return lower.concat(upper).map(function (p) {
+    var l = B.lamMaxrange(p[1]);
+    return [B.Rhi(p[1]), p[0], p[1], l[0], l[1], l[2]];
+  });
+}
+
+function curveMinrange(n, sgn) {
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var q = sgn * (0.03 + (Math.PI - 0.06) * i / (n - 1));
+    B.seedMinrange(q).forEach(function (y) { out.push(y); });
+  }
+  return out;
+}
+
+function curveBoresight(n, sgn) {
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var q = -Math.PI + 0.02 + (2 * Math.PI - 0.04) * i / (n - 1);
+    B.seedBoresight(q, sgn).forEach(function (y) { out.push(y); });
+  }
+  return out;
+}
+
+function seedCurves(family, n) {
+  if (family === 'max') return [[curveMaxrange(n, -1), NEG], [curveMaxrange(n, +1), POS]];
+  if (family === 'min') return [[curveMinrange(n, -1), NEG], [curveMinrange(n, +1), POS]];
+  var sgn = family === 'bore' ? +1 : -1;
+  return [[curveBoresight(2 * n, sgn), sgn > 0 ? NEG : POS], [[], POS]];
+}
+
+// ---------------------------------------------------------------------------
+// integrate once, scrub for free
+// ---------------------------------------------------------------------------
+
+function unwrapInto(Y, col) {
+  var out = [Y[0][col]], acc = Y[0][col];
+  for (var i = 1; i < Y.length; i++) {
+    var d = Y[i][col] - Y[i - 1][col];
+    if (d > Math.PI) d -= 2 * Math.PI;
+    if (d < -Math.PI) d += 2 * Math.PI;
+    acc += d;
+    out.push(acc);
+  }
+  return out;
+}
+
+/* barrier.js returns { path: [{tau, y}], switches: [{tau, which}], fiErr, hErr }.
+   Flatten it into column arrays once, here, so nothing downstream reshapes it,
+   and derive |FI-1| and |H*| per point from the module's own functions rather
+   than recomputing the physics. */
+function trajectory(y0) {
+  var tr = B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: DT });
+  var Y = tr.path.map(function (p) { return p.y; });
+  var fi = [], h = [];
+  for (var i = 0; i < Y.length; i++) {
+    var q = Y[i];
+    fi.push(Math.abs(B.firstIntegral(q[0], q[3], q[4], q[5]) - 1));
+    h.push(Math.abs(B.hamiltonianStar(q[0], q[1], q[2], q[3], q[4], q[5])));
+  }
+  return {
+    tau: tr.path.map(function (p) { return p.tau; }),
+    R: Y.map(function (q) { return q[0]; }),
+    a1: unwrapInto(Y, 1),
+    a2: unwrapInto(Y, 2),
+    Y: Y, switches: tr.switches,
+    fi: fi, h: h, fiErr: tr.fiErr, hErr: tr.hErr,
+    seed: y0
+  };
+}
+
+/* Eq. (7).  Not exported by barrier.js, and computed here rather than added to
+   it: the index asymmetry is that the boresight bound is on the shooter's OWN
+   angle while both range bounds depend on the TARGET's aspect angle. */
+function canFire(pOwn, pTgt, R) {
+  return Math.abs(pOwn) <= B.PARAMS.beta && R >= B.Rlo(pTgt) && R < B.Rhi(pTgt);
+}
+
+var STATE = { lobes: [], family: 'max', tau: 1.5, sel: 0, selLobe: 0, frac: 1.0,
+              az: -58 * D, el: 22 * D, showSw: true, showSheet: true };
+
+function rebuild() {
+  var t0 = performance.now();
+  var n = +document.getElementById('ns').value;
+  STATE.family = document.getElementById('fam').value;
+  STATE.lobes = seedCurves(STATE.family, n).map(function (pair) {
+    return { color: pair[1], trajs: pair[0].map(trajectory) };
+  });
+  var nt = 0, nsw = 0, fi = 0, h = 0;
+  STATE.lobes.forEach(function (L) {
+    L.trajs.forEach(function (t) {
+      nt++; nsw += t.switches.length;
+      fi = Math.max(fi, t.fiErr); h = Math.max(h, t.hErr);
+    });
+  });
+  STATE.sel = Math.min(STATE.sel, Math.max(nt - 1, 0));
+  document.getElementById('status').textContent =
+    nt + ' trajectories · ' + nsw + ' switches · max |FI−1| ' + fi.toExponential(1) +
+    ' · max |H*| ' + h.toExponential(1) + ' · ' + Math.round(performance.now() - t0) + ' ms';
+  draw();
+}
+
+// ---------------------------------------------------------------------------
+// canvas plumbing
+// ---------------------------------------------------------------------------
+
+function fit(cv) {
+  var r = window.devicePixelRatio || 1;
+  var w = cv.clientWidth, h = cv.clientHeight || +cv.getAttribute('height');
+  cv.width = w * r; cv.height = h * r;
+  var g = cv.getContext('2d');
+  g.setTransform(r, 0, 0, r, 0, 0);
+  g.clearRect(0, 0, w, h);
+  return { g: g, w: w, h: h };
+}
+
+function Frame(g, w, h, pad) {
+  this.g = g; this.w = w; this.h = h;
+  this.p = pad || { l: 42, r: 10, t: 16, b: 26 };
+}
+Frame.prototype.setDomain = function (x0, x1, y0, y1) {
+  this.x0 = x0; this.x1 = x1; this.y0 = y0; this.y1 = y1;
+};
+Frame.prototype.X = function (x) {
+  return this.p.l + (x - this.x0) / (this.x1 - this.x0) * (this.w - this.p.l - this.p.r);
+};
+Frame.prototype.Y = function (y) {
+  return this.p.t + (y - this.y0) / (this.y1 - this.y0) * (this.h - this.p.t - this.p.b);
+};
+Frame.prototype.axes = function (xl, yl) {
+  var g = this.g;
+  g.strokeStyle = '#eceff2'; g.lineWidth = 1;
+  g.fillStyle = '#838b95'; g.font = '10px -apple-system, Segoe UI, sans-serif';
+  var i, v;
+  for (i = 0; i <= 4; i++) {
+    v = this.x0 + (this.x1 - this.x0) * i / 4;
+    g.beginPath(); g.moveTo(this.X(v), this.p.t); g.lineTo(this.X(v), this.h - this.p.b);
+    g.stroke();
+    g.textAlign = 'center';
+    g.fillText(fmt(v), this.X(v), this.h - this.p.b + 12);
+  }
+  for (i = 0; i <= 4; i++) {
+    v = this.y0 + (this.y1 - this.y0) * i / 4;
+    g.beginPath(); g.moveTo(this.p.l, this.Y(v)); g.lineTo(this.w - this.p.r, this.Y(v));
+    g.stroke();
+    g.textAlign = 'right';
+    g.fillText(fmt(v), this.p.l - 5, this.Y(v) + 3);
+  }
+  g.strokeStyle = '#c9cfd6';
+  g.strokeRect(this.p.l, this.p.t, this.w - this.p.l - this.p.r, this.h - this.p.t - this.p.b);
+  g.fillStyle = '#4a5058';
+  g.textAlign = 'right';
+  g.fillText(xl, this.w - this.p.r, this.h - 4);
+  g.textAlign = 'left';
+  g.fillText(yl, this.p.l, this.p.t - 5);
+};
+Frame.prototype.poly = function (xs, ys, color, lw, alpha) {
+  var g = this.g;
+  g.strokeStyle = color; g.lineWidth = lw; g.globalAlpha = alpha === undefined ? 1 : alpha;
+  g.beginPath();
+  for (var i = 0; i < xs.length; i++) {
+    var X = this.X(xs[i]), Y = this.Y(ys[i]);
+    if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y);
+  }
+  g.stroke(); g.globalAlpha = 1;
+};
+Frame.prototype.dot = function (x, y, color, r) {
+  var g = this.g;
+  g.fillStyle = color;
+  g.beginPath(); g.arc(this.X(x), this.Y(y), r || 2, 0, 2 * Math.PI); g.fill();
+};
+
+function fmt(v) {
+  if (Math.abs(v) >= 100) return v.toFixed(0);
+  if (Math.abs(v) >= 10) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function shade(base, k, n) {
+  // lighten toward the start of the seed curve so position along the BUP reads
+  var f = 0.55 - 0.5 * (k / Math.max(n - 1, 1));
+  var r = parseInt(base.slice(1, 3), 16), gg = parseInt(base.slice(3, 5), 16),
+      b = parseInt(base.slice(5, 7), 16);
+  function mix(c) { return Math.round(c + (255 - c) * Math.max(f, 0)); }
+  return 'rgb(' + mix(r) + ',' + mix(gg) + ',' + mix(b) + ')';
+}
+
+function cut(t, tau) {
+  var i = 0;
+  while (i < t.tau.length - 1 && t.tau[i + 1] <= tau) i++;
+  return i;
+}
+
+function bounds(getx, gety, tau) {
+  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  STATE.lobes.forEach(function (L) {
+    L.trajs.forEach(function (t) {
+      var m = cut(t, tau);
+      for (var i = 0; i <= m; i++) {
+        var x = getx(t, i), y = gety(t, i);
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    });
+  });
+  if (!isFinite(x0)) return [0, 1, 0, 1];
+  var mx = 0.06 * (x1 - x0) + 1e-6, my = 0.06 * (y1 - y0) + 1e-6;
+  return [x0 - mx, x1 + mx, y0 - my, y1 + my];
+}
+
+// ---------------------------------------------------------------------------
+// the three views
+// ---------------------------------------------------------------------------
+
+function drawFace(cv, getx, gety, xl, yl, flipX, flipY) {
+  var c = fit(cv), F = new Frame(c.g, c.w, c.h);
+  var b = bounds(getx, gety, STATE.tau);
+  F.setDomain(flipX ? b[1] : b[0], flipX ? b[0] : b[1],
+              flipY ? b[2] : b[3], flipY ? b[3] : b[2]);
+  F.axes(xl, yl);
+
+  var idx = 0;
+  STATE.lobes.forEach(function (L, li) {
+    L.trajs.forEach(function (t, k) {
+      var m = cut(t, STATE.tau), xs = [], ys = [];
+      for (var i = 0; i <= m; i++) { xs.push(getx(t, i)); ys.push(gety(t, i)); }
+      var on = (idx === STATE.sel);
+      F.poly(xs, ys, on ? '#000' : shade(L.color, k, L.trajs.length),
+             on ? 1.8 : 0.8, on ? 1 : 0.75);
+      idx++;
+    });
+    // the seed curve itself
+    var bx = [], by = [];
+    L.trajs.forEach(function (t) { bx.push(getx(t, 0)); by.push(gety(t, 0)); });
+    if (bx.length) F.poly(bx, by, BUP, 2.0, 1);
+  });
+
+  if (STATE.showSw) {
+    STATE.lobes.forEach(function (L) {
+      L.trajs.forEach(function (t) {
+        t.switches.forEach(function (s) {
+          if (s.tau > STATE.tau) return;
+          var i = cut(t, s.tau);
+          F.dot(getx(t, i), gety(t, i), SW, 1.8);
+        });
+      });
+    });
+  }
+  // the marked point on the selected trajectory
+  var sel = selected();
+  if (sel) {
+    var i = cut(sel, STATE.tau * STATE.frac);
+    F.dot(getx(sel, i), gety(sel, i), '#000', 3.5);
+  }
+}
+
+/* orthographic 3-D: rotate (phi2, phi1, R) into the screen plane */
+function project(x, y, z, sc) {
+  var ca = Math.cos(STATE.az), sa = Math.sin(STATE.az);
+  var ce = Math.cos(STATE.el), se = Math.sin(STATE.el);
+  var X = x * ca - y * sa;
+  var Y = (x * sa + y * ca) * se - z * ce;
+  return [X * sc.x, Y * sc.y];
+}
+
+function draw3d(cv) {
+  var c = fit(cv), g = c.g;
+  var bx = bounds(function (t, i) { return t.a2[i] / D; },
+                  function (t, i) { return t.a1[i] / D; }, STATE.tau);
+  var bz = bounds(function (t, i) { return t.a2[i] / D; },
+                  function (t, i) { return t.R[i]; }, STATE.tau);
+  var cx = 0.5 * (bx[0] + bx[1]), cy = 0.5 * (bx[2] + bx[3]), cz = 0.5 * (bz[2] + bz[3]);
+  var sx = Math.max(bx[1] - bx[0], 1e-6), sy = Math.max(bx[3] - bx[2], 1e-6),
+      sz = Math.max(bz[3] - bz[2], 1e-6);
+  var norm = function (t, i) {
+    return [(t.a2[i] / D - cx) / sx, (t.a1[i] / D - cy) / sy, (t.R[i] - cz) / sz];
+  };
+  var sc = { x: 0.42 * c.w, y: 0.42 * c.h };
+  var ox = c.w / 2, oy = c.h / 2;
+  var put = function (p) { return [ox + p[0], oy + p[1]]; };
+
+  // axis tripod
+  g.strokeStyle = '#d6dbe1'; g.lineWidth = 1;
+  [[[-0.6, -0.6, -0.6], [0.6, -0.6, -0.6], 'φ₂'],
+   [[-0.6, -0.6, -0.6], [-0.6, 0.6, -0.6], 'φ₁'],
+   [[-0.6, -0.6, -0.6], [-0.6, -0.6, 0.6], 'R']].forEach(function (a) {
+    var p = put(project(a[0][0], a[0][1], a[0][2], sc));
+    var q = put(project(a[1][0], a[1][1], a[1][2], sc));
+    g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.stroke();
+    g.fillStyle = '#838b95'; g.font = '11px -apple-system, Segoe UI, sans-serif';
+    g.fillText(a[2], q[0] + 4, q[1] + 4);
+  });
+
+  // sheet fill: quad strip between neighbouring trajectories
+  if (STATE.showSheet) {
+    STATE.lobes.forEach(function (L) {
+      for (var k = 0; k + 1 < L.trajs.length; k++) {
+        var A = L.trajs[k], C2 = L.trajs[k + 1];
+        var mA = cut(A, STATE.tau), mC = cut(C2, STATE.tau);
+        var m = Math.min(mA, mC), step = Math.max(1, Math.floor(m / 60));
+        g.globalAlpha = 0.5;
+        g.fillStyle = shade(L.color, k, L.trajs.length);
+        for (var i = 0; i + step <= m; i += step) {
+          var p1 = put(project.apply(null, norm(A, i).concat([sc])));
+          var p2 = put(project.apply(null, norm(A, i + step).concat([sc])));
+          var p3 = put(project.apply(null, norm(C2, i + step).concat([sc])));
+          var p4 = put(project.apply(null, norm(C2, i).concat([sc])));
+          g.beginPath();
+          g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
+          g.lineTo(p3[0], p3[1]); g.lineTo(p4[0], p4[1]);
+          g.closePath(); g.fill();
+        }
+        g.globalAlpha = 1;
+      }
+    });
+  }
+
+  // trajectories
+  var idx = 0;
+  STATE.lobes.forEach(function (L) {
+    L.trajs.forEach(function (t, k) {
+      var m = cut(t, STATE.tau);
+      var on = (idx === STATE.sel);
+      g.strokeStyle = on ? '#000' : shade(L.color, k, L.trajs.length);
+      g.lineWidth = on ? 1.8 : 0.6;
+      g.globalAlpha = on ? 1 : (STATE.showSheet ? 0.5 : 0.85);
+      g.beginPath();
+      for (var i = 0; i <= m; i++) {
+        var p = put(project.apply(null, norm(t, i).concat([sc])));
+        if (i === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
+      }
+      g.stroke(); g.globalAlpha = 1;
+      idx++;
+    });
+    // seed curve
+    g.strokeStyle = BUP; g.lineWidth = 2.2;
+    g.beginPath();
+    L.trajs.forEach(function (t, k) {
+      var p = put(project.apply(null, norm(t, 0).concat([sc])));
+      if (k === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
+    });
+    g.stroke();
+  });
+
+  if (STATE.showSw) {
+    g.fillStyle = SW;
+    STATE.lobes.forEach(function (L) {
+      L.trajs.forEach(function (t) {
+        t.switches.forEach(function (s) {
+          if (s.tau > STATE.tau) return;
+          var p = put(project.apply(null, norm(t, cut(t, s.tau)).concat([sc])));
+          g.beginPath(); g.arc(p[0], p[1], 1.9, 0, 2 * Math.PI); g.fill();
+        });
+      });
+    });
+  }
+
+  var sel = selected();
+  if (sel) {
+    var p = put(project.apply(null, norm(sel, cut(sel, STATE.tau * STATE.frac)).concat([sc])));
+    g.fillStyle = '#000';
+    g.beginPath(); g.arc(p[0], p[1], 4, 0, 2 * Math.PI); g.fill();
+  }
+
+  document.getElementById('h3d').textContent =
+    'τ ≤ ' + STATE.tau.toFixed(2) + '   az ' + Math.round(STATE.az / D) +
+    '°  el ' + Math.round(STATE.el / D) + '°';
+}
+
+/* Relative geometry, Eqs. (1)-(3): A1 at the origin, A2 down the LOS at range R.
+   phi_i is each aircraft's own velocity direction measured off the LOS toward
+   the other, which is what makes Rdot = -(cos phi_1 + cos phi_2). */
+function drawGeometry(cv) {
+  var c = fit(cv), g = c.g;
+  var sel = selected();
+  document.getElementById('gnote').textContent = '';
+  if (!sel) return;
+  var i = cut(sel, STATE.tau * STATE.frac);
+  var R = sel.R[i], p1 = sel.Y[i][1], p2 = sel.Y[i][2];
+
+  var pad = 34, sc = (c.w - 2 * pad) / Math.max(R, 1e-3);
+  sc = Math.min(sc, (c.h - 2 * pad) / 2.2);
+  var ax = c.w / 2 - 0.5 * R * sc, ay = c.h / 2;
+  var bx = ax + R * sc, by = ay;
+
+  g.strokeStyle = '#c9cfd6'; g.lineWidth = 1; g.setLineDash([4, 4]);
+  g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+  g.setLineDash([]);
+
+  function arrow(x, y, ang, color, label) {
+    var len = Math.min(52, 0.30 * c.w);
+    var dx = Math.cos(ang) * len, dy = -Math.sin(ang) * len;
+    g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx, y + dy); g.stroke();
+    g.beginPath();
+    g.moveTo(x + dx, y + dy);
+    g.lineTo(x + dx - 8 * Math.cos(ang - 0.4), y + dy + 8 * Math.sin(ang - 0.4));
+    g.lineTo(x + dx - 8 * Math.cos(ang + 0.4), y + dy + 8 * Math.sin(ang + 0.4));
+    g.closePath(); g.fill();
+    g.beginPath(); g.arc(x, y, 4.5, 0, 2 * Math.PI); g.fill();
+    g.font = '11px -apple-system, Segoe UI, sans-serif';
+    g.fillText(label, x - 4, y + 18);
+  }
+  arrow(ax, ay, p1, NEG, 'A₁');
+  arrow(bx, by, Math.PI - p2, POS, 'A₂');
+
+  g.fillStyle = '#4a5058'; g.font = '11px -apple-system, Segoe UI, sans-serif';
+  g.textAlign = 'center';
+  g.fillText('R = ' + R.toFixed(3), (ax + bx) / 2, ay - 8);
+  g.textAlign = 'left';
+
+  var f12 = canFire(p1, p2, R), f21 = canFire(p2, p1, R);
+  document.getElementById('gnote').innerHTML =
+    '1→2 firing conditions: <b class="' + (f12 ? 'ok' : 'no') + '">' + (f12 ? 'met' : 'not met') +
+    '</b> &nbsp;·&nbsp; 2→1: <b class="' + (f21 ? 'ok' : 'no') + '">' + (f21 ? 'met' : 'not met') + '</b>';
+}
+
+function drawInvariants(cv) {
+  var c = fit(cv), F = new Frame(c.g, c.w, c.h, { l: 34, r: 34, t: 16, b: 24 });
+  var sel = selected();
+  if (!sel) return;
+  var m = cut(sel, STATE.tau);
+  var lo = Infinity, hi = -Infinity, i;
+  for (i = 0; i <= m; i++) {
+    [sel.Y[i][3], sel.Y[i][4], sel.Y[i][5]].forEach(function (v) {
+      if (v < lo) lo = v; if (v > hi) hi = v;
+    });
+  }
+  var pad = 0.1 * (hi - lo) + 1e-6;
+  F.setDomain(0, Math.max(sel.tau[m], 1e-3), hi + pad, lo - pad);
+  F.axes('τ', 'λ');
+
+  var g = c.g;
+  g.strokeStyle = '#c9cfd6'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(F.p.l, F.Y(0)); g.lineTo(c.w - F.p.r, F.Y(0)); g.stroke();
+
+  [[3, NEG], [4, POS], [5, SW]].forEach(function (s) {
+    var xs = [], ys = [];
+    for (var i2 = 0; i2 <= m; i2++) { xs.push(sel.tau[i2]); ys.push(sel.Y[i2][s[0]]); }
+    F.poly(xs, ys, s[1], 1.6);
+  });
+
+  sel.switches.forEach(function (s) {
+    if (s.tau > STATE.tau) return;
+    g.strokeStyle = SW; g.lineWidth = 1; g.setLineDash([2, 3]);
+    g.beginPath(); g.moveTo(F.X(s.tau), F.p.t); g.lineTo(F.X(s.tau), c.h - F.p.b); g.stroke();
+    g.setLineDash([]);
+  });
+
+  // |H*| on its own log decade axis, right side
+  var G = new Frame(c.g, c.w, c.h, { l: 34, r: 34, t: 16, b: 24 });
+  G.setDomain(0, Math.max(sel.tau[m], 1e-3), -8, -18);
+  var xs2 = [], ys2 = [];
+  for (i = 0; i <= m; i++) {
+    xs2.push(sel.tau[i]);
+    ys2.push(Math.log10(Math.max(sel.h[i], 1e-18)));
+  }
+  G.poly(xs2, ys2, '#1a7f4b', 1.2, 0.9);
+  g.fillStyle = '#1a7f4b'; g.font = '10px -apple-system, Segoe UI, sans-serif';
+  g.textAlign = 'left';
+  g.fillText('10⁻⁸', c.w - 30, G.Y(-8) + 3);
+  g.fillText('10⁻¹⁸', c.w - 32, G.Y(-18) + 3);
+}
+
+function selected() {
+  var idx = 0, found = null;
+  STATE.lobes.forEach(function (L) {
+    L.trajs.forEach(function (t) {
+      if (idx === STATE.sel) found = t;
+      idx++;
+    });
+  });
+  return found;
+}
+
+function drawReadout() {
+  var sel = selected();
+  var el = document.getElementById('read');
+  if (!sel) { el.innerHTML = ''; return; }
+  var i = cut(sel, STATE.tau * STATE.frac);
+  var y = sel.Y[i];
+  var s = B.controls(y);
+  var fi = Math.abs(B.firstIntegral(y[0], y[3], y[4], y[5]) - 1);
+  var hs = Math.abs(B.hamiltonianStar(y[0], y[1], y[2], y[3], y[4], y[5]));
+  var rows = [
+    ['τ', sel.tau[i].toFixed(4)],
+    ['R', y[0].toFixed(5)],
+    ['φ₁', (sel.a1[i] / D).toFixed(3) + '°'],
+    ['φ₂', (sel.a2[i] / D).toFixed(3) + '°'],
+    ['λ_R', y[3].toFixed(6)],
+    ['λ₁', y[4].toFixed(6)],
+    ['λ₂', y[5].toFixed(6)],
+    ['σ₁*, σ₂*', s[0] + ',  ' + s[1]],
+    ['|FI − 1|', fi.toExponential(2)],
+    ['|H*|', hs.toExponential(2)],
+    ['switches on this path', sel.switches.length],
+    ['seed R̄₁(φ₂)', sel.seed[0].toFixed(5)],
+    ['seed φ₁, φ₂', (sel.seed[1] / D).toFixed(3) + '°, ' + (sel.seed[2] / D).toFixed(3) + '°']
+  ];
+  el.innerHTML = rows.map(function (r) {
+    return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
+  }).join('');
+  document.getElementById('rsub').textContent = 'trajectory ' + (STATE.sel + 1);
+}
+
+function draw() {
+  draw3d(document.getElementById('c3d'));
+  drawFace(document.getElementById('cA'),
+           function (t, i) { return t.a2[i] / D; },
+           function (t, i) { return t.a1[i] / D; },
+           'φ₂ [deg]', 'φ₁ [deg]', true, false);
+  drawFace(document.getElementById('cB'),
+           function (t, i) { return t.a2[i] / D; },
+           function (t, i) { return t.R[i]; },
+           'φ₂ [deg]', 'R', true, true);
+  drawGeometry(document.getElementById('cG'));
+  drawInvariants(document.getElementById('cI'));
+  drawReadout();
+}
+
+// ---------------------------------------------------------------------------
+// interaction
+// ---------------------------------------------------------------------------
+
+var tauEl = document.getElementById('tau'), tauOut = document.getElementById('tauOut');
+tauEl.oninput = function () {
+  STATE.tau = Math.max(+this.value / 100, 0.01);
+  tauOut.textContent = STATE.tau.toFixed(2);
+  draw();
+};
+var nsEl = document.getElementById('ns'), nsOut = document.getElementById('nsOut');
+nsEl.onchange = function () { nsOut.textContent = this.value; rebuild(); };
+nsEl.oninput = function () { nsOut.textContent = this.value; };
+document.getElementById('fam').onchange = rebuild;
+document.getElementById('showSw').onclick = function () {
+  STATE.showSw = !STATE.showSw; this.classList.toggle('on', STATE.showSw); draw();
+};
+document.getElementById('showSheet').onclick = function () {
+  STATE.showSheet = !STATE.showSheet; this.classList.toggle('on', STATE.showSheet); draw();
+};
+
+var playing = null;
+document.getElementById('play').onclick = function () {
+  var btn = this;
+  if (playing) { clearInterval(playing); playing = null; btn.textContent = '▶ sweep';
+                 btn.classList.remove('on'); return; }
+  btn.textContent = '❚❚ pause'; btn.classList.add('on');
+  var v = 1;
+  playing = setInterval(function () {
+    v += 6;
+    if (v > +tauEl.max) v = 1;
+    tauEl.value = v;
+    tauEl.oninput.call(tauEl);
+  }, 40);
+};
+
+/* pick the nearest trajectory in the (φ₂, φ₁) face */
+document.getElementById('cA').onmousemove = function (e) {
+  var r = this.getBoundingClientRect();
+  var c = { w: r.width, h: r.height };
+  var b = bounds(function (t, i) { return t.a2[i] / D; },
+                 function (t, i) { return t.a1[i] / D; }, STATE.tau);
+  var F = new Frame(null, c.w, c.h);
+  F.setDomain(b[1], b[0], b[3], b[2]);
+  var mx = e.clientX - r.left, my = e.clientY - r.top;
+  var best = -1, bestD = Infinity, idx = 0, bestFrac = 1;
+  STATE.lobes.forEach(function (L) {
+    L.trajs.forEach(function (t) {
+      var m = cut(t, STATE.tau);
+      var step = Math.max(1, Math.floor(m / 80));
+      for (var i = 0; i <= m; i += step) {
+        var dx = F.X(t.a2[i] / D) - mx, dy = F.Y(t.a1[i] / D) - my;
+        var d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; best = idx; bestFrac = m ? i / m : 1; }
+      }
+      idx++;
+    });
+  });
+  if (best >= 0 && bestD < 900) {
+    STATE.sel = best; STATE.frac = bestFrac; draw();
+  }
+};
+
+/* drag to rotate the 3-D view */
+(function () {
+  var cv = document.getElementById('c3d'), down = false, lx = 0, ly = 0;
+  cv.onmousedown = function (e) { down = true; lx = e.clientX; ly = e.clientY; };
+  window.addEventListener('mouseup', function () { down = false; });
+  cv.onmousemove = function (e) {
+    if (!down) return;
+    STATE.az += (e.clientX - lx) * 0.008;
+    STATE.el = Math.max(-1.4, Math.min(1.4, STATE.el + (e.clientY - ly) * 0.006));
+    lx = e.clientX; ly = e.clientY;
+    draw();
+  };
+}());
+
+window.addEventListener('resize', draw);
+rebuild();
+</script>
+</body>
+</html>
