@@ -90,6 +90,12 @@
   .key i { display: inline-block; width: 16px; height: 3px; border-radius: 2px;
            vertical-align: middle; margin-right: 4px; }
   .key i.dot { width: 7px; height: 7px; border-radius: 50%; }
+  .seg { cursor: pointer; user-select: none; padding: 1px 6px 1px 4px;
+         border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .seg:hover { border-color: #9aa3ad; }
+  .seg.off { opacity: 0.38; text-decoration: line-through; }
+  .seg b { font-weight: 600; color: var(--ink3); margin-left: 3px; }
+  .seglink { cursor: pointer; color: var(--c0); text-decoration: underline; }
   .note { font-size: 11px; color: var(--ink3); margin-top: 5px; }
 </style>
 </head>
@@ -128,6 +134,10 @@
   <button id="showSheet" class="on">sheet</button>
   <button id="showT2" class="on">Table 2</button>
   <button id="showMark" class="on">marker</button>
+  <button id="showZones" class="on">capture zones</button>
+  <button id="showTarget" class="on" title="the target set of Eqs. (6)-(9), semi-transparent, with its usable parts shaded (3-D view)">target set</button>
+  <button id="showExtra" class="on" title="max range only: seeds on the φ₂ = 0 corner edge O–e₁ and the universal line from d₁">corner + universal</button>
+  <button id="fig8">Fig. 8 view</button>
   <button id="reset">reset views</button>
   <button id="png">save PNG</button>
 </div>
@@ -141,7 +151,13 @@
       <span><i style="background:#111"></i>the (BUP) seed curve</span>
       <span><i class="dot" style="background:var(--sw)"></i>located control switch</span>
       <span id="markKey"><i class="dot" style="background:#111"></i>marked point</span>
-      <span id="branchKey"></span>
+      <span><i style="background:#1a7f4b"></i>φ₂ = 0 corner edge O–e₁</span>
+      <span id="tsKey"><i style="background:rgba(93,107,121,0.45);height:9px"></i>target set T₁
+        &nbsp;<i style="background:rgba(15,159,181,0.55);height:9px"></i>usable parts (UP)₁ — the family shown is darker</span>
+      <span style="flex-basis:100%;height:0"></span>
+      <span style="color:var(--ink2)">segments — click to hide / show:</span>
+      <span id="branchKey" style="display:contents"></span>
+      <span class="seglink" id="segAll">all on</span>
       <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ·
         drag rotates · shift-drag pans · wheel zooms</span>
     </div>
@@ -229,6 +245,11 @@ var B = window.Barrier, C = window.BupCurves;
 var D = Math.PI / 180;
 var HUE = ['#1f5fa8', '#c1442a', '#8a5cc7'];     // validated for CVD separation
 var SW = '#8a5cc7', BUP = '#111111', OK = '#1a7f4b';
+var CORNER = '#1a7f4b';       // trajectories seeded on the phi_2 = 0 corner edge
+var UNIV = '#e08a00';         // the universal line of player 1 -- sigma_1 = 0
+var TS_FILL = 'rgba(93,107,121,0.075)', TS_EDGE = 'rgba(55,64,74,0.55)';
+var UP_FILL = 'rgba(15,159,181,0.42)', UP_FILL_OTHER = 'rgba(15,159,181,0.13)',
+    UP_EDGE = 'rgba(8,110,126,0.95)';
 
 /* Axis furniture. Deliberately dark and weighted: on the 3-D view especially,
    a hairline tripod in pale grey is unreadable against the sheet. */
@@ -272,7 +293,10 @@ var S = {
   pinned: null,            // index of a locked trajectory, or null
   mark: 1.0,               // fraction of tau at which the marker sits
   focus: false,
-  showSw: true, showSheet: true, showT2: true, showMark: true,
+  showSw: true, showSheet: true, showT2: true, showMark: true, showZones: true,
+  showExtra: true,          // max range: corner-edge family + universal lines
+  hidden: {},               // segment name -> true when switched off; survives rebuilds
+  showTarget: true,         // the target set T_1 and its usable parts, 3-D view
   az: -58 * D, el: 22 * D,
   views: {}                // per-canvas user transform
 };
@@ -305,8 +329,10 @@ function unwrapCol(Y, col) {
 /* barrier.js returns { path:[{tau,y}], switches:[{tau,which}], fiErr, hErr }.
    Flatten to column arrays once, here, and derive the invariant histories from
    the module's own functions rather than recomputing any physics. */
-function trajectory(y0, bi, si) {
-  var tr = B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: DT });
+function trajectory(y0, bi, si, pre) {
+  // `pre` is an already-integrated path (the universal line, which barrier.js's
+  // bang-bang integrator cannot fly); otherwise integrate here.
+  var tr = pre || B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: DT });
   var Y = tr.path.map(function (p) { return p.y; });
   var fi = [], h = [];
   for (var i = 0; i < Y.length; i++) {
@@ -319,7 +345,8 @@ function trajectory(y0, bi, si) {
     R: Y.map(function (q) { return q[0]; }),
     a1: unwrapCol(Y, 1), a2: unwrapCol(Y, 2),
     Y: Y, switches: tr.switches, fi: fi, h: h,
-    fiErr: tr.fiErr, hErr: tr.hErr, seed: y0, bi: bi, si: si
+    fiErr: tr.fiErr, hErr: tr.hErr, seed: y0, bi: bi, si: si,
+    universal: !!pre, sigmaFixed: pre ? pre.sigma : null
   };
 }
 
@@ -335,14 +362,22 @@ function rebuild() {
   var n = +document.getElementById('ns').value;
   S.family = document.getElementById('fam').value;
   var res = C.seeds(S.family, n);
-  S.branches = res.branches.map(function (seeds, bi) {
-    return { color: HUE[bi % HUE.length],
-             trajs: seeds.map(function (y, si) { return trajectory(y, bi, si); }) };
+  S.branches = [];
+  res.branches.forEach(function (seeds, li) {
+    var parts = S.family === 'max' ? splitAtFold(seeds)
+                                   : [{ name: 'branch ' + (li + 1), seeds: seeds }];
+    parts.forEach(function (pt) {
+      var bi = S.branches.length;
+      S.branches.push({ color: HUE[li % HUE.length], name: pt.name,
+                        trajs: pt.seeds.map(function (y, si) { return trajectory(y, bi, si); }) });
+    });
   });
+  if (S.family === 'max' && S.showExtra) addMaxrangeExtras(n);
   S.flat = [];
   S.branches.forEach(function (b) { b.trajs.forEach(function (t) { S.flat.push(t); }); });
   S.sel = Math.min(S.sel, Math.max(S.flat.length - 1, 0));
   S.pinned = null;
+  keepSelectionVisible();
   classifyTable2();
 
   var fi = 0, h = 0, nsw = 0;
@@ -350,19 +385,70 @@ function rebuild() {
     fi = Math.max(fi, t.fiErr); h = Math.max(h, t.hErr); nsw += t.switches.length;
   });
   document.getElementById('status').textContent =
-    res.label + ' · ' + S.branches.length + ' branch' +
-    (S.branches.length > 1 ? 'es' : '') + ' of the (BUP) · ' + S.flat.length +
+    res.label + ' · ' + res.branches.length + ' branch' +
+    (res.branches.length > 1 ? 'es' : '') + ' of the (BUP)' +
+    (S.branches.length > res.branches.length
+      ? ' + corner edge O–e₁ (both signs) + universal lines d₁c₁, d₁′c₁′' : '') +
+    ' · ' + S.flat.length +
     ' trajectories · ' + nsw + ' switches located · max |FI−1| ' + fi.toExponential(1) +
     ' · max |H*| ' + h.toExponential(1) + ' · built in ' +
     Math.round(performance.now() - t0) + ' ms';
 
-  document.getElementById('branchKey').innerHTML = S.branches.map(function (b, i) {
-    return '<i style="background:' + b.color + '"></i>branch ' + (i + 1);
-  }).join(' &nbsp; ');
+  drawSegmentKey();
 
   Object.keys(S.views).forEach(function (k) { S.views[k] = null; });
   S.views = {};
   draw();
+}
+
+/* "(-1,+1)" from the control pair the barrier law assigns at a seed. */
+function pairLabel(s) {
+  function f(v) { return v === 0 ? '0' : (v > 0 ? '+1' : '−1'); }
+  return '(' + f(s[0]) + ',' + f(s[1]) + ')';
+}
+
+/* Each maximum-range lobe is one curve through its fold d_1, but its two halves
+   carry different sigma_1 (Finding 1 of the audit): split there so each half can
+   be switched on and off by itself. The fold seed goes into both halves. */
+function splitAtFold(seeds) {
+  var k = 0;
+  seeds.forEach(function (y, i) { if (Math.abs(y[2]) > Math.abs(seeds[k][2])) k = i; });
+  var primed = seeds[k][2] > 0 ? '′' : '';
+  return [seeds.slice(0, k + 1), seeds.slice(k)].filter(function (p) {
+    return p.length > 1;
+  }).map(function (p) {
+    var far = p[0] === seeds[k] ? p[p.length - 1] : p[0];     // the end that is not d_1
+    var mid = p[Math.floor(p.length / 2)];
+    var nm = Math.abs(far[1]) > 18 * D ? 'e₁' + primed + '–d₁' + primed
+                                        : 'd₁' + primed + '–O';
+    return { name: 'lens ' + nm + ' ' + pairLabel(B.controls(mid)), seeds: p };
+  });
+}
+
+/* Maximum range only. Two pieces of the barrier that are not roots of Eq. (32)
+   and so never come out of C.seeds:
+     - the phi_2 = 0 corner edge O-e_1 (and O-e_1'), seeded with the corner
+       costate of Eqs. (39)-(41) and integrated like any other barrier path;
+     - the universal line of player 1 from d_1 (and d_1'), flown with the
+       singular control sigma_1 = 0 and stopped at c_1, where it meets the
+       corner sheet (see universal_d1.py, dispersal_e1c1O.py).
+   Each universal line is its own one-trajectory branch, so no sheet is filled
+   and no seed curve is drawn between d_1 and d_1'. */
+function addMaxrangeExtras(n) {
+  C.cornerSeeds(n).forEach(function (seeds, k) {
+    var bi = S.branches.length;
+    var mid = seeds[Math.floor(seeds.length / 2)];
+    S.branches.push({ color: CORNER,
+                      name: (k ? 'corner O–e₁′ ' : 'corner O–e₁ ') + pairLabel(B.controls(mid)),
+                      trajs: seeds.map(function (y, si) { return trajectory(y, bi, si); }) });
+  });
+  C.universalLines(DT / 4).forEach(function (u, k) {
+    var bi = S.branches.length;
+    S.branches.push({ color: UNIV, universal: true,
+                      name: (k ? 'universal d₁′c₁′ ' : 'universal d₁c₁ ') +
+                            pairLabel([0, u.sigma[1]]),
+                      trajs: [trajectory(u.path[0].y, bi, 0, u)] });
+  });
 }
 
 /* Mark the Table 2 points that lie on the family now shown, so the overlay
@@ -519,7 +605,45 @@ function cut(t, tau) {
 
 function selected() { return S.flat[S.sel]; }
 
-function visible(t) { return !S.focus || t === selected(); }
+function hiddenBranch(bi) {
+  var b = S.branches[bi];
+  return !!(b && S.hidden[b.name]);
+}
+
+function visible(t) {
+  if (hiddenBranch(t.bi)) return false;
+  return !S.focus || t === selected();
+}
+
+/* One clickable chip per segment. The name keys the on/off state, so it
+   survives rebuilds (seed count, the corner + universal toggle). */
+function drawSegmentKey() {
+  var el = document.getElementById('branchKey');
+  el.innerHTML = S.branches.map(function (b, bi) {
+    var nm = b.name.replace(/ (\([^)]*\))$/, ' <b>$1</b>');
+    return '<span class="seg' + (S.hidden[b.name] ? ' off' : '') + '" data-bi="' + bi +
+           '"><i style="background:' + b.color + (b.universal ? ';height:4px' : '') +
+           '"></i>' + nm + '</span>';
+  }).join('');
+  Array.prototype.forEach.call(el.querySelectorAll('.seg'), function (node) {
+    node.onclick = function () {
+      var b = S.branches[+this.getAttribute('data-bi')];
+      if (S.hidden[b.name]) delete S.hidden[b.name]; else S.hidden[b.name] = true;
+      keepSelectionVisible();
+      drawSegmentKey();
+      draw();
+    };
+  });
+}
+
+/* If the selected or pinned trajectory was just hidden, move to one that is not. */
+function keepSelectionVisible() {
+  if (S.pinned !== null && hiddenBranch(S.flat[S.pinned].bi)) S.pinned = null;
+  if (S.flat[S.sel] && !hiddenBranch(S.flat[S.sel].bi)) return;
+  for (var i = 0; i < S.flat.length; i++) {
+    if (!hiddenBranch(S.flat[i].bi)) { S.sel = i; return; }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // reference geometry drawn under the bundle -- what the printed figures show
@@ -546,6 +670,63 @@ function drawReference(F, kind) {
     F.poly(xs, ys, '#9aa3ad', 1, 0.9);
   }
   g.setLineDash([]);
+}
+
+/* The two small closed maximum-range capture zones of Fig. 8.
+ *
+ * On this face the zone is bounded by the (BUP) lens on one side and by the
+ * phi_2 = 0 corner segment O - f_1 - e_1 on the other, and the region they
+ * enclose is exactly {Eq. (32) < 0} -- the usable part of the maximum-range
+ * surface for that lobe. So it is drawn by filling, at each phi_2, between the
+ * two roots of Eq. (32): exact, not a pixel test.
+ *
+ * NOTE this is a projection. The zones close in (phi_2, phi_1), which is the
+ * only thing Fig. 8 shows. The corner-edge family and the d_1 universal line
+ * are drawn as trajectories when "corner + universal" is on; the dispersal line
+ * e_1 c_1 O lies within 0.07 deg of the phi_2 = 0 edge (dispersal_e1c1O.py).
+ */
+function drawZones(F) {
+  if (!S.showZones || S.family !== 'max') return;
+  var g = F.g, sgn, i, q, rs;
+  [-1, +1].forEach(function (sgn) {
+    var lo = [], hi = [], xs = [];
+    for (i = 0; i <= 260; i++) {
+      q = sgn * (1e-4 + 0.1675 * i / 260);
+      rs = B.bupMaxrange(q);
+      if (rs.length < 2) continue;
+      xs.push(q / D);
+      lo.push(Math.min.apply(null, rs) / D);
+      hi.push(Math.max.apply(null, rs) / D);
+    }
+    if (xs.length < 3) return;
+    g.fillStyle = sgn < 0 ? 'rgba(31,95,168,0.16)' : 'rgba(193,68,42,0.16)';
+    g.beginPath();
+    for (i = 0; i < xs.length; i++) {
+      if (i === 0) g.moveTo(F.X(xs[i]), F.Y(lo[i])); else g.lineTo(F.X(xs[i]), F.Y(lo[i]));
+    }
+    for (i = xs.length - 1; i >= 0; i--) g.lineTo(F.X(xs[i]), F.Y(hi[i]));
+    g.closePath();
+    g.fill();
+  });
+  // the phi_2 = 0 corner segment O - f_1 - e_1, the zones' straight edge
+  g.strokeStyle = '#1a7f4b'; g.lineWidth = 2.2; g.setLineDash([6, 3]);
+  g.beginPath();
+  g.moveTo(F.X(0), F.Y(0));
+  g.lineTo(F.X(0), F.Y(36.07));
+  g.moveTo(F.X(0), F.Y(0));
+  g.lineTo(F.X(0), F.Y(-36.07));
+  g.stroke();
+  g.setLineDash([]);
+
+  // f_1 and its mirror, as tabulated in Table 2. On this segment f_1 is where the
+  // universal-line costate is semipermeable, Rbar_0 tan(phi_1/2) = 1
+  g.font = '10px -apple-system, Segoe UI, sans-serif';
+  [18.5, -18.5].forEach(function (a1, k) {
+    g.fillStyle = '#1a7f4b';
+    g.beginPath(); g.arc(F.X(0), F.Y(a1), 4.2, 0, 2 * Math.PI); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = 1.1; g.stroke();
+    g.fillText(k ? 'f1\u2032' : 'f1', F.X(0) + 7, F.Y(a1) - 4);
+  });
 }
 
 function drawTable2(F, xk, yk) {
@@ -623,6 +804,7 @@ function drawFace(id) {
   F.axes(f.xl, f.yl);
   F.clip();
   drawReference(F, f.ref);
+  if (id === 'cA') drawZones(F);
 
   S.branches.forEach(function (br) {
     br.trajs.forEach(function (t, k) {
@@ -631,13 +813,24 @@ function drawFace(id) {
       if (m === 0) return;
       for (i = 0; i <= m; i++) { xs.push(f.x(t, i)); ys.push(f.y(t, i)); }
       var on = (t === selected());
+      if (br.universal) {
+        F.poly(xs, ys, on ? '#000' : UNIV, on ? 3.0 : 2.8, 1);
+        if (m === t.tau.length - 1 && id === 'cA') {   // flown all the way: mark c_1
+          F.dot(xs[m], ys[m], UNIV, 4.2);
+          F.g.fillStyle = '#7a4a00'; F.g.font = '600 10.5px -apple-system, Segoe UI, sans-serif';
+          F.g.textAlign = 'right';            // left of the point: f_1's label is to its right
+          F.g.fillText(t.seed[2] < 0 ? 'c₁' : 'c₁′', F.X(xs[m]) - 7, F.Y(ys[m]) + 14);
+          F.g.textAlign = 'left';
+        }
+        return;
+      }
       F.poly(xs, ys, on ? '#000' : shade(br.color, k, br.trajs.length),
              on ? 2.0 : 0.8, on ? 1 : 0.7);
     });
     // the seed curve itself, always drawn -- at tau = 0 it is the whole picture
     var bx = [], by = [];
     br.trajs.forEach(function (t) {
-      if (S.focus && !visible(t)) return;
+      if (!visible(t)) return;
       bx.push(f.x(t, 0)); by.push(f.y(t, 0));
     });
     if (bx.length > 1) F.poly(bx, by, BUP, 2.0, 1);
@@ -675,6 +868,12 @@ function make3d(c) {
                       function (t, i) { return t.a1[i] / D; });
   var bz = autoBounds(function (t, i) { return t.a2[i] / D; },
                       function (t, i) { return t.R[i]; });
+  if (S.showTarget) {                 // frame the whole target set, as in Fig. 3
+    var TB = targetBounds();
+    bx = [Math.min(bx[0], TB[0]), Math.max(bx[1], TB[1]),
+          Math.min(bx[2], TB[2]), Math.max(bx[3], TB[3])];
+    bz = [bx[0], bx[1], Math.min(bz[2], TB[4]), Math.max(bz[3], TB[5])];
+  }
   var cx = 0.5 * (bx[0] + bx[1]), cy = 0.5 * (bx[2] + bx[3]),
       cz = 0.5 * (bz[2] + bz[3]);
   var sx = Math.max(bx[1] - bx[0], 1e-6), sy = Math.max(bx[3] - bx[2], 1e-6),
@@ -691,12 +890,155 @@ function make3d(c) {
     norm: function (t, i) {
       return [(t.a2[i] / D - cx) / sx, (t.a1[i] / D - cy) / sy, (t.R[i] - cz) / sz];
     },
+    // a data point [phi_2 deg, phi_1 deg, R]
+    normPt: function (q) {
+      return [(q[0] - cx) / sx, (q[1] - cy) / sy, (q[2] - cz) / sz];
+    },
     at: function (p) {
       var X = p[0] * ca - p[1] * sa;
       var Y = (p[0] * sa + p[1] * ca) * se - p[2] * ce;
       return [ox + X * sc.x, oy + Y * sc.y];
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// the target set T_1 (Eqs. 6-9) and its usable parts, for the 3-D view
+// ---------------------------------------------------------------------------
+
+/* T_1 = { |phi_1| <= beta,  R_lo(phi_2) <= R < R_hi(phi_2) }, phi_2 in [-pi, pi]:
+   the box of D&S Fig. 3. Its four boundary surfaces are Eqs. (24)-(27); the
+   usable part of each is where Eq. (13) holds -- Eq. (32) on the maximum-range
+   top, Eq. (46) on the minimum-range bottom, Eq. (62) on the two off-boresight
+   walls. Built once, in data coordinates [phi_2 deg, phi_1 deg, R]. */
+var TARGET = null;
+
+function targetBounds() {
+  var P = B.PARAMS, b = P.beta / D;
+  return [-180 - 8, 180 + 8, -b - 4, b + 4, P.a - P.b - 0.2, P.Rbar0 + 0.2];
+}
+
+/* Where f < 0 on [lo, hi]: sample, then bisect each sign change. */
+function negIntervals(f, lo, hi, n) {
+  var out = [], xs = [], fs = [], i;
+  for (i = 0; i <= n; i++) { xs.push(lo + (hi - lo) * i / n); fs.push(f(xs[i])); }
+  function edge(a, b) {
+    var fa = f(a);
+    for (var k = 0; k < 50; k++) {
+      var m = 0.5 * (a + b), fm = f(m);
+      if ((fm < 0) === (fa < 0)) { a = m; fa = fm; } else b = m;
+    }
+    return 0.5 * (a + b);
+  }
+  var start = fs[0] < 0 ? lo : null;
+  for (i = 1; i <= n; i++) {
+    if (fs[i - 1] >= 0 && fs[i] < 0) start = edge(xs[i - 1], xs[i]);
+    if (fs[i - 1] < 0 && fs[i] >= 0) { out.push([start, edge(xs[i - 1], xs[i])]); start = null; }
+  }
+  if (start !== null) out.push([start, hi]);
+  return out;
+}
+
+/* Connect per-station intervals into bands: an interval continues the band
+   whose last interval it overlaps. Returns [{q:[], lo:[], hi:[]}]. */
+function traceBands(qs, intervalsAt) {
+  var done = [], active = [];
+  qs.forEach(function (q) {
+    var iv = intervalsAt(q), used = iv.map(function () { return false; }), next = [];
+    active.forEach(function (b) {
+      var L = b.lo[b.lo.length - 1], H = b.hi[b.hi.length - 1], hit = -1, n = 0;
+      iv.forEach(function (v, j) { if (!used[j] && v[0] <= H && v[1] >= L) { hit = j; n++; } });
+      if (n === 1) { used[hit] = true; b.q.push(q); b.lo.push(iv[hit][0]); b.hi.push(iv[hit][1]); next.push(b); }
+      else done.push(b);
+    });
+    iv.forEach(function (v, j) { if (!used[j]) next.push({ q: [q], lo: [v[0]], hi: [v[1]] }); });
+    active = next;
+  });
+  return done.concat(active).filter(function (b) { return b.q.length > 1; });
+}
+
+function buildTarget() {
+  var P = B.PARAMS, beta = P.beta, bd = beta / D, n = 720, i;
+  var qs = [];
+  for (i = 0; i <= n; i++) qs.push(-Math.PI + 2 * Math.PI * i / n);
+  var faces = [], edges = [], ups = [];
+
+  function curve(fR, a1) {        // along phi_2 at fixed phi_1 (deg)
+    return qs.map(function (q) { return [q / D, a1, fR(q)]; });
+  }
+  var topM = curve(B.Rhi, -bd), topP = curve(B.Rhi, bd);
+  var botM = curve(B.Rlo, -bd), botP = curve(B.Rlo, bd);
+  faces.push(topM.concat(topP.slice().reverse()));         // maximum-range surface
+  faces.push(botM.concat(botP.slice().reverse()));         // minimum-range surface
+  faces.push(topM.concat(botM.slice().reverse()));         // phi_1 = -beta wall
+  faces.push(topP.concat(botP.slice().reverse()));         // phi_1 = +beta wall
+  [-Math.PI, Math.PI].forEach(function (q) {                // the phi_2 = +/-pi ends
+    faces.push([[q / D, -bd, B.Rlo(q)], [q / D, bd, B.Rlo(q)],
+                [q / D, bd, B.Rhi(q)], [q / D, -bd, B.Rhi(q)]]);
+  });
+  edges.push(topM, topP, botM, botP);
+  faces.slice(4).forEach(function (f) { edges.push(f.concat([f[0]])); });
+  // the phi_2 = 0 crease of the maximum-range top, where Rbar has its slope jump
+  // (the corner edge e_1' - O - e_1 lies along it)
+  edges.push([[0, -bd, B.Rhi(0)], [0, bd, B.Rhi(0)]]);
+
+  // UP bands on each surface. The (phi_2 < 0) and (phi_2 > 0) halves are traced
+  // separately: sign(phi_2) in Eqs. (29)-(32) makes phi_2 = 0 a genuine break.
+  var fine = [];
+  for (i = 0; i <= 2400; i++) fine.push(-Math.PI + 2 * Math.PI * i / 2400);
+  var halves = [fine.filter(function (q) { return q < -1e-6; }),
+                fine.filter(function (q) { return q > 1e-6; })];
+  function surfaceBands(fam, fOf, Rof) {
+    halves.forEach(function (h) {
+      traceBands(h, function (q) {
+        return negIntervals(function (a1) { return fOf(a1, q); }, -beta, beta, 180);
+      }).forEach(function (b) {
+        var lo = b.q.map(function (q, k) { return [q / D, b.lo[k] / D, Rof(q)]; });
+        var hi = b.q.map(function (q, k) { return [q / D, b.hi[k] / D, Rof(q)]; });
+        ups.push({ fam: fam, poly: lo.concat(hi.reverse()) });
+      });
+    });
+  }
+  surfaceBands('max', B.upMaxrange, B.Rhi);
+  surfaceBands('min', B.upMinrange, B.Rlo);
+  // off-boresight walls: Eq. (62) is linear in R -- UP where R > L sign(phi_1)
+  [[+1, 'bore+'], [-1, 'bore-']].forEach(function (w) {
+    var a1 = w[0] * beta;
+    traceBands(fine, function (q) {
+      var L = Math.sin(a1) + Math.sin(q), lo = Math.max(B.Rlo(q), L * w[0]), hi = B.Rhi(q);
+      return lo < hi ? [[lo, hi]] : [];
+    }).forEach(function (b) {
+      var lo = b.q.map(function (q, k) { return [q / D, a1 / D, b.lo[k]]; });
+      var hi = b.q.map(function (q, k) { return [q / D, a1 / D, b.hi[k]]; });
+      ups.push({ fam: w[1], poly: lo.concat(hi.reverse()) });
+    });
+  });
+  return { faces: faces, edges: edges, ups: ups };
+}
+
+function drawTarget(g, P) {
+  if (!S.showTarget) return;
+  if (!TARGET) TARGET = buildTarget();
+  function path(poly, close) {
+    g.beginPath();
+    poly.forEach(function (q, k) {
+      var p = P.at(P.normPt(q));
+      if (k === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
+    });
+    if (close) g.closePath();
+  }
+  g.fillStyle = TS_FILL;
+  TARGET.faces.forEach(function (f) { path(f, true); g.fill(); });
+  g.strokeStyle = TS_EDGE; g.lineWidth = 1;
+  TARGET.edges.forEach(function (e) { path(e, false); g.stroke(); });
+  TARGET.ups.forEach(function (u) {
+    path(u.poly, true);
+    var mine = u.fam === S.family;       // the family shown is emphasized
+    g.fillStyle = mine ? UP_FILL : UP_FILL_OTHER; g.fill();
+    g.strokeStyle = mine ? UP_EDGE : 'rgba(8,110,126,0.45)';
+    g.lineWidth = mine ? 1.6 : 0.8;
+    g.stroke();
+  });
 }
 
 /* Three labelled axes rather than a bare tripod.  Each carries tick marks and
@@ -761,9 +1103,11 @@ function draw3d() {
   var put = function (t, i) { return P.at(P.norm(t, i)); };
 
   drawAxes3d(g, P);
+  drawTarget(g, P);
 
   if (S.showSheet && !S.focus && S.tau > 0) {
     S.branches.forEach(function (br) {
+      if (S.hidden[br.name]) return;
       for (var k = 0; k + 1 < br.trajs.length; k++) {
         var A = br.trajs[k], Z = br.trajs[k + 1];
         var m = Math.min(cut(A, S.tau), cut(Z, S.tau));
@@ -789,9 +1133,9 @@ function draw3d() {
       var m = cut(t, S.tau);
       if (m === 0) return;
       var on = (t === selected());
-      g.strokeStyle = on ? '#000' : shade(br.color, k, br.trajs.length);
-      g.lineWidth = on ? 2.0 : 0.6;
-      g.globalAlpha = on ? 1 : (S.showSheet && !S.focus ? 0.5 : 0.85);
+      g.strokeStyle = on ? '#000' : br.universal ? UNIV : shade(br.color, k, br.trajs.length);
+      g.lineWidth = on ? 2.0 : br.universal ? 2.8 : 0.6;
+      g.globalAlpha = on || br.universal ? 1 : (S.showSheet && !S.focus ? 0.5 : 0.85);
       g.beginPath();
       for (var i = 0; i <= m; i++) {
         var p = put(t, i);
@@ -803,7 +1147,7 @@ function draw3d() {
     g.beginPath();
     var started = false;
     br.trajs.forEach(function (t) {
-      if (S.focus && !visible(t)) return;
+      if (!visible(t)) return;
       var p = put(t, 0);
       if (!started) { g.moveTo(p[0], p[1]); started = true; } else g.lineTo(p[0], p[1]);
     });
@@ -961,7 +1305,10 @@ function drawInvariants() {
 function drawReadout() {
   var el = document.getElementById('read'), sel = selected();
   if (!sel) { el.innerHTML = ''; return; }
-  var i = cut(sel, S.tau * S.mark), y = sel.Y[i], s = B.controls(y);
+  var i = cut(sel, S.tau * S.mark), y = sel.Y[i];
+  // on the universal line lambda_1 == 0 to round-off, so B.controls would read
+  // the sign of noise; the control there is the singular one, by construction
+  var s = sel.universal ? ['0 (singular)', sel.sigmaFixed[1]] : B.controls(y);
   var fi = Math.abs(B.firstIntegral(y[0], y[3], y[4], y[5]) - 1);
   var hs = Math.abs(B.hamiltonianStar(y[0], y[1], y[2], y[3], y[4], y[5]));
   var rows = [
@@ -984,7 +1331,8 @@ function drawReadout() {
     return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
   }).join('');
   document.getElementById('rsub').innerHTML =
-    'branch ' + (sel.bi + 1) + ', seed ' + (sel.si + 1) +
+    (S.branches[sel.bi] ? S.branches[sel.bi].name : 'branch ' + (sel.bi + 1)) +
+    (sel.universal ? '' : ', seed ' + (sel.si + 1)) +
     (S.pinned === null ? ''
       : ' · <b style="color:#17191c">pinned</b> <span style="color:#838b95">' +
         '(click it again or press Esc)</span>');
@@ -1032,6 +1380,39 @@ toggle('showSw', 'showSw');
 toggle('showSheet', 'showSheet');
 toggle('showT2', 'showT2');
 toggle('showMark', 'showMark');   // the marked point on the selected trajectory
+toggle('showZones', 'showZones');
+document.getElementById('showTarget').onclick = function () {
+  S.showTarget = !S.showTarget;
+  this.classList.toggle('on', S.showTarget);
+  document.getElementById('tsKey').style.display = S.showTarget ? '' : 'none';
+  draw();
+};
+document.getElementById('segAll').onclick = function () {
+  S.hidden = {};
+  drawSegmentKey();
+  draw();
+};
+document.getElementById('showExtra').onclick = function () {
+  S.showExtra = !S.showExtra;
+  this.classList.toggle('on', S.showExtra);
+  rebuild();                                 // adds or drops whole branches
+};
+
+/* D&S Fig. 8 is a (phi_2, phi_1) projection of the head-on region at very small
+   retrograde time -- there is no R axis on it at all. At tau = 6 the bundle has
+   wound through several hundred degrees and the 19-degree-wide structure Fig. 8
+   shows is invisible. This puts the view where the figure is. */
+document.getElementById('fig8').onclick = function () {
+  document.getElementById('fam').value = 'max';
+  S.showZones = true;
+  document.getElementById('showZones').classList.add('on');
+  S.showSheet = false;
+  document.getElementById('showSheet').classList.remove('on');
+  rebuild();
+  setTau(0.40);
+  S.views['cA'] = { dom: [12, -12, 45, -45], k: 1, dx: 0, dy: 0 };   // phi_1 up, as printed
+  draw();
+};
 toggle('focus', 'focus');
 
 document.getElementById('reset').onclick = function () {

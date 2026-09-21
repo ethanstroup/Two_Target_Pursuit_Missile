@@ -314,11 +314,136 @@
     };
   }
 
+  // -- maximum-range extras: corner edge O-e_1 and the d_1 universal line ----
+  //
+  // Neither is a root of Eq. (32), so neither comes out of the continuation
+  // above. The corner edge is where Rbar has its slope jump at phi_2 = 0; its
+  // costate is the corner combination of Eqs. (38)-(41). The universal line of
+  // player 1 starts at d_1 (lambda_1 = lambda_1-dot = 0) and is flown with the
+  // singular control sigma_1 = 0 (Table 3) to c_1, where it meets the corner
+  // sheet. Twin of the same block in bup_curves.py.
+
+  var E1 = 2 * Math.atan(2 / B.PARAMS.Rbar0);          // e_1: 36.0755 deg
+
+  function lamCornerEdge(p1) {                          // Eqs. (39)-(41)
+    var R0 = B.PARAMS.Rbar0, s = Math.abs(Math.sin(p1));
+    var q = 1 / Math.hypot(Math.cos(p1) + 1, R0 + s);
+    return [q * (R0 + s), 0, q * R0 * (Math.cos(p1) + 1) * Math.sign(p1)];
+  }
+
+  /* Two ordered seed lists on the corner edge: O -> e_1 and O -> e_1'. */
+  function cornerSeeds(nseed) {
+    nseed = nseed || 60;
+    var R0 = B.PARAMS.Rbar0;
+    return [+1, -1].map(function (g) {
+      return grid(2e-3, E1 - 1e-4, nseed).map(function (x) {
+        var l = lamCornerEdge(g * x);
+        return [R0, g * x, 0, l[0], l[1], l[2]];
+      });
+    });
+  }
+
+  function mirror(y) { return [y[0], -y[1], -y[2], y[3], -y[4], -y[5]]; }
+
+  function solve(J, b) {                                // Gaussian elimination
+    var n = b.length, A = J.map(function (r, i) { return r.concat([b[i]]); });
+    for (var c = 0; c < n; c++) {
+      var p = c;
+      for (var r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      var t = A[c]; A[c] = A[p]; A[p] = t;
+      for (r = c + 1; r < n; r++) {
+        var f = A[r][c] / A[c][c];
+        for (var k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    var x = new Array(n);
+    for (var i = n - 1; i >= 0; i--) {
+      var sum = A[i][n];
+      for (var j = i + 1; j < n; j++) sum -= A[i][j] * x[j];
+      x[i] = sum / A[i][i];
+    }
+    return x;
+  }
+
+  /* Newton with a forward-difference Jacobian; h[k] is the step for x[k]. */
+  function newton(F, x, h, iters, tol) {
+    for (var it = 0; it < iters; it++) {
+      var f = F(x), J = f.map(function () { return []; });
+      for (var k = 0; k < x.length; k++) {
+        var xp = x.slice(); xp[k] += h[k];
+        var fp = F(xp);
+        for (var i = 0; i < f.length; i++) J[i][k] = (fp[i] - f[i]) / h[k];
+      }
+      var dx = solve(J, f.map(function (v) { return -v; }));
+      var big = 0;
+      for (k = 0; k < x.length; k++) { x[k] += dx[k]; big = Math.max(big, Math.abs(dx[k])); }
+      if (big < tol) break;
+    }
+    return x;
+  }
+
+  function l1dotOnBup(p1, p2) {
+    var l = B.lamMaxrange(p2);
+    return B.costateDot(B.Rhi(p2), p1, p2, l[0], l[1], l[2])[1];
+  }
+
+  /* d_1: Eq. (32) = 0 and lambda_1-dot = 0 on the phi_2 < 0 lobe. */
+  function d1Seed() {
+    var x = newton(function (v) {
+      return [B.upMaxrange(v[0], v[1]), l1dotOnBup(v[0], v[1])];
+    }, [18.88 * Math.PI / 180, -9.57 * Math.PI / 180], [1e-7, 1e-7], 40, 1e-15);
+    var l = B.lamMaxrange(x[1]);
+    return [B.Rhi(x[1]), x[0], x[1], l[0], l[1], l[2]];
+  }
+
+  function flow(y, sigma, tau, n) {
+    for (var i = 0; i < n; i++) y = B.rk4Retro(y, tau / n, sigma);
+    return y;
+  }
+
+  /* Retrograde time at which the d_1 universal line meets the corner sheet,
+     i.e. c_1.  Newton on corner(s, tau_C) = universal(tau_U), states only. */
+  function c1Tau(yd) {
+    yd = yd || d1Seed();
+    var R0 = B.PARAMS.Rbar0;
+    var x = newton(function (v) {
+      var l = lamCornerEdge(v[0]);
+      var a = flow([R0, v[0], 0, l[0], l[1], l[2]], [-1, 1], v[1], 20);
+      var b = flow(yd, [0, -1], v[2], 400);
+      return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    }, [18.43 * Math.PI / 180, 1.1e-3, 0.1727], [1e-7, 1e-8, 1e-7], 30, 1e-13);
+    return x[2];
+  }
+
+  /* The singular arc: retrograde RK4 with sigma = (0, sign lambda_2) held.
+     Returns the same shape as Barrier.integrateRetrograde. */
+  function integrateUniversal(y0, tauMax, dt) {
+    dt = dt || 2e-3;
+    var sig = [0, Math.sign(y0[5])], n = Math.max(Math.ceil(tauMax / dt), 1);
+    var y = y0.slice(), path = [{ tau: 0, y: y.slice() }], fiErr = 0, hErr = 0;
+    for (var i = 0; i < n; i++) {
+      y = B.rk4Retro(y, tauMax / n, sig);
+      path.push({ tau: (i + 1) * tauMax / n, y: y.slice() });
+      fiErr = Math.max(fiErr, Math.abs(B.firstIntegral(y[0], y[3], y[4], y[5]) - 1));
+      hErr = Math.max(hErr, Math.abs(B.hamiltonianStar(y[0], y[1], y[2], y[3], y[4], y[5])));
+    }
+    return { path: path, switches: [], fiErr: fiErr, hErr: hErr, sigma: sig };
+  }
+
+  /* The d_1 and d_1' universal lines, each flown to c_1 (c_1'). */
+  function universalLines(dt) {
+    var yd = d1Seed(), tc = c1Tau(yd);
+    return [yd, mirror(yd)].map(function (y) { return integrateUniversal(y, tc, dt); });
+  }
+
   return {
     FAMILIES: FAMILIES, traceBranches: traceBranches, joinFolds: joinFolds,
     mergeSeam: mergeSeam, resampleBranch: resampleBranch, snapToBup: snapToBup,
     refineFold: refineFold, closeFoldTips: closeFoldTips,
     branchesMaxrange: branchesMaxrange, branchesMinrange: branchesMinrange,
-    branchesBoresight: branchesBoresight, seedState: seedState, seeds: seeds
+    branchesBoresight: branchesBoresight, seedState: seedState, seeds: seeds,
+    E1: E1, lamCornerEdge: lamCornerEdge, cornerSeeds: cornerSeeds, mirror: mirror,
+    d1Seed: d1Seed, c1Tau: c1Tau, integrateUniversal: integrateUniversal,
+    universalLines: universalLines
   };
 }));

@@ -160,6 +160,43 @@ try:
 except FileNotFoundError:
     check(False, 'node not found — cannot cross-check the JS twin')
 
+print('\n8. Maximum-range extras: corner edge O-e_1 and the d_1 universal line')
+CS = C.corner_seeds(NSEED)
+fi = max(abs(B.first_integral(y[0], y[3], y[4], y[5]) - 1) for br in CS for y in br)
+h = max(abs(B.hamiltonian_star(*y)) for br in CS for y in br)
+check(fi < 1e-12 and h < 1e-12,
+      'corner seeds: max |FI-1| %.1e, max |H*| %.1e' % (fi, h))
+pairs = [sorted(set(tuple(int(v) for v in B.barrier_controls(*y)) for y in br)) for br in CS]
+check(pairs == [[(-1, 1)], [(1, -1)]],
+      'corner controls: O-e_1 %s, O-e_1\' %s (mirror images)' % (pairs[0], pairs[1]))
+yd = C.d1_seed()
+check(abs(yd[0] - 5.808) < 5e-4 and abs(yd[1] * D - 18.88) < 5e-3 and abs(yd[2] * D + 9.56) < 1e-2,
+      'd_1 = (%.5f, %.4f, %.4f), Table 2 (5.808, 18.88, -9.56)' % (yd[0], yd[1] * D, yd[2] * D))
+UL = C.universal_lines()
+l1 = max(np.abs(Y[:, 4]).max() for _, Y in UL)
+hu = max(max(abs(B.hamiltonian_star(*y)) for y in Y) for _, Y in UL)
+check(l1 < 1e-12 and hu < 1e-12,
+      'universal lines hold lambda_1 = 0 (%.1e) and H* = 0 (%.1e) with sigma_1 = 0' % (l1, hu))
+end = UL[0][1][-1]
+check(np.linalg.norm(end[:3] - [6.14377, 18.4861 / D, -0.0672 / D]) < 1e-4,
+      'd_1 line ends at c_1 = (%.5f, %.4f, %.4f), as dispersal_e1c1O.py solves it'
+      % (end[0], end[1] * D, end[2] * D))
+js2 = r"""
+var C = require('./bup_curves.js');
+process.stdout.write(JSON.stringify({ corner: C.cornerSeeds(%d), d1: C.d1Seed(),
+  tc: C.c1Tau(), ends: C.universalLines().map(function (u) { return u.path[u.path.length - 1].y; }) }));
+""" % NSEED
+try:
+    raw = subprocess.run(['node', '-e', js2], cwd=HERE, capture_output=True, text=True, timeout=120)
+    J = json.loads(raw.stdout)
+    w = max(np.abs(np.array(a) - np.array(b)).max()
+            for ba, bb in zip(CS, J['corner']) for a, b in zip(ba, bb))
+    w = max(w, np.abs(np.array(J['d1']) - yd).max(), abs(J['tc'] - C.c1_tau(yd)),
+            max(np.abs(np.array(e) - Y[-1]).max() for e, (_, Y) in zip(J['ends'], UL)))
+    check(w < 1e-9, 'bup_curves.js extras reproduce bup_curves.py: max |py - js| = %.2e' % w)
+except Exception as e:
+    check(False, 'JS extras cross-check failed: %s' % e)
+
 print('\n' + '=' * 78)
 print('%d passed, %d failed' % (n_pass, n_fail))
 print('=' * 78)

@@ -1,0 +1,209 @@
+
+==============================================================================
+1. The maximum-range BUP
+==============================================================================
+  Eq. (32) as implemented vs the equality as stated:
+     max | (LHS - RHS) - up_maxrange | over 20000 points = 0.00e+00
+     -> the code solves exactly Rbar(1-cos p1) = -(sin p1 + sin p2)(1+cos p2) sgn p2
+
+  maximum range, Eq. (32): 2 connected branch(es) of the BUP
+     branch 0:  61 seeds   phi_2 in [ -9.569,  -0.011]   phi_1 in [  0.011,  36.066]
+     branch 1:  61 seeds   phi_2 in [  0.011,   9.569]   phi_1 in [-36.066,  -0.011]
+     signs of phi_2 present: [np.float64(-1.0), np.float64(1.0)] -> both symmetric branches sampled: True
+     max |Eq. (32)| over every seed = 5.55e-16
+
+  Sampled BUP points (phi_1, phi_2, R), branch 0, every 8th:
+            phi_1     phi_2         R        Eq.(32)
+           0.0115   -0.0115   6.14119       1.31e-20
+           3.6497   -3.2986   6.02648      -2.08e-17
+           7.6540   -6.1255   5.92798       5.55e-17
+          12.0544   -8.2777   5.85315       5.55e-17
+          16.8050   -9.4481   5.81254      -5.55e-17
+          21.6943   -9.3401   5.81628       2.78e-16
+          26.3697   -7.9037   5.86614       2.22e-16
+          30.5705   -5.3890   5.95362      -2.22e-16
+          34.2202   -2.1199   6.06760      -2.22e-16
+
+==============================================================================
+2. Classifying every BUP seed by its initial control branch
+==============================================================================
+  lam_1f = 0 on every seed: max |lambda_1| = 0.00e+00
+  closed-form lam1dot_f vs the integrator's costate_dot: max diff = 9.02e-17
+
+  Seeds grouped by (sigma_1*, sigma_2*)   [sigma_1* = sign(lam1dot_f), sigma_2* = sign(lam_2f)]
+        (s1, s2)        count   phi_2 range [deg]
+        (-1, -1)           30   [ -9.569,  -0.011]
+        (-1, +1)           31   [  0.011,   9.555]
+        (+1, -1)           31   [ -9.555,  -0.011]
+        (+1, +1)           30   [  0.011,   9.569]
+
+==============================================================================
+3. The special BUP points: solving lam1dot_f = 0 on the BUP
+==============================================================================
+  Identity  d(Eq.32)/dphi_1 == -lam1dot_f / rho :  max residual 8.07e-10
+     -> lam1dot_f = 0 on the BUP IS the fold of Eq. (32): the point where
+        its two phi_1 roots merge, and where sigma_1* changes sign.
+
+  phi_2 < 0 : lam1dot_f = 0 and Eq.(32) = 0 at
+        R = 5.80833   phi_1 = 18.8775 deg   phi_2 = -9.5695 deg
+        residuals: Eq.(32) = -4.75e-07   lam1dot_f = -2.48e-14
+        vs Table 2 d_1  (5.8080, 18.88, -9.56):  dR 3.3e-04  dphi_1 2.5e-03 deg  dphi_2 9.5e-03 deg
+        vs Table 2 f_1  (6.1420, 18.50, 0.00):  dR 3.3e-01  dphi_1 3.8e-01 deg  dphi_2 9.6e+00 deg
+
+  phi_2 > 0 : lam1dot_f = 0 and Eq.(32) = 0 at
+        R = 5.80833   phi_1 = -18.8775 deg   phi_2 = 9.5695 deg
+        residuals: Eq.(32) = -4.75e-07   lam1dot_f = 4.79e-14
+        vs Table 2 d_1  (5.8080, 18.88, -9.56):  dR 3.3e-04  dphi_1 3.8e+01 deg  dphi_2 1.9e+01 deg
+        vs Table 2 f_1  (6.1420, 18.50, 0.00):  dR 3.3e-01  dphi_1 3.7e+01 deg  dphi_2 9.6e+00 deg
+
+  Is f_1 a point of the maximum-range BUP at all?
+     Table 2 f_1 = (6.1420, 18.50 deg, 0.00 deg)
+     Eq.(32) residual at f_1, evaluated at phi_2 = 0 exactly: 0.3174
+     Eq.(32) residual at phi_1 = f_1, phi_2 = +1e-04 : +0.9522   /  -0.3170
+     Eq.(32) residual at phi_1 = f_1, phi_2 = +1e-03 : +0.9539   /  -0.3153
+     Eq.(32) residual at phi_1 = f_1, phi_2 = +1e-02 : +0.9709   /  -0.2983
+  >> f_1 is NOT a root of Eq. (32).  It sits at phi_2 = 0, R = Rbar(0), phi_1 = 18.5 deg -- on the phi_2 = 0 CORNER EDGE of the maximum-range surface, not on the maximum-range BUP.
+
+==============================================================================
+4. Integrating every ordinary BUP seed, with termination classified
+==============================================================================
+  122 trajectories integrated to tau_max = 6.0, dt = 0.001
+  control switches located (recomputed at every sign change): 196
+  singular-arc flags raised: 0
+  invariants over the whole bundle: max |FI-1| = 1.45e-14, max |H*| = 6.89e-14
+
+  Termination events, counted separately from numerical timeout:
+        tau limit (numerical timeout)     122
+
+==============================================================================
+41. The phi_2 = 0 corner segment O - f_1 - e_1 (the paper's other family)
+==============================================================================
+  Table 2 O_1  = (R 6.1416, phi_1   0.00 deg, phi_2  0.00 deg)
+  Table 2 f_1  = (R 6.1420, phi_1  18.50 deg, phi_2  0.00 deg)
+  Table 2 e_1  = (R 6.1420, phi_1  36.07 deg, phi_2  0.00 deg)
+  -> all three sit at phi_2 = 0 and R = Rbar(0) = 6.14159, differing only
+     in phi_1.  They are collinear along the corner edge, not on the lens.
+
+  Rbar has a corner at phi_2 = 0: Rbar = Rbar_0 - |phi_2 + sin phi_2|,
+  so dRbar/dphi_2 jumps from +2.0000 to -2.0000 across it.
+  The outer normal is therefore not unique there, and the costate must
+  be a non-negative combination of the two adjoining normals:
+     n(phi_2 -> 0-) = (1.000, 0.000, -2.000)
+     n(phi_2 -> 0+) = (1.000, 0.000, +2.000)
+
+  barrier.py CAN solve that combination: lam_corner solves H* = 0 and
+  FI = 1 for it.  Scanning phi_1 along the corner:
+     phi_1 intervals admitting TWO admissible costates [deg]: [(np.float64(36.1), 44.8)]
+     the corner costate becomes double-valued at phi_1 = 36.0755 deg
+     Table 2 e_1 is at                              phi_1 = 36.07 deg (difference 0.0055 deg)
+     -> e_1 is precisely the branch point of the corner costate. Below it,
+        along O - f_1 - e_1, the corner costate is UNIQUE:
+        at f_1   lam_corner        = (+0.9574, +0.0000, +1.7737)  sigma_2* = +1
+        cf.      lens, phi_2 -> 0- = (+0.9509, +0.0000, -1.9017)  sigma_2* = -1
+        cf.      lens, phi_2 -> 0+ = (+0.9509, +0.0000, +1.9017)  sigma_2* = +1
+  >> Wiring lam_corner into the seeding is necessary but NOT sufficient: on the segment O - f_1 - e_1 it returns a single costate, matching the phi_2 -> 0+ limit. Two sheets over that segment -- which is what a dispersal line needs -- do not fall out of it as written.
+
+  Does the seeding ever use it?
+     bup_curves.py references lam_corner   : NO
+     bup_curves.py references n_maxrange   : NO
+     bup_curves.py references n_minrange   : NO
+     bup_curves.py references n_boresight  : NO
+  >> The phi_2 = 0 corner family is NEVER SEEDED. bup_curves.py builds seeds only from lam_maxrange / lam_minrange / lam_boresight -- the three smooth surfaces. lam_corner is implemented and validated by test_barrier.py to 1.1e-15, but nothing calls it. So of the paper's two maximum-range families, only the lens family (e_1 d_1 O) is generated; the corner family (e_1 f_1 O) is absent.
+  >> Because the corner family is absent, the dispersal line where the two families meet cannot be produced, c_1 cannot be located, and the two small closed capture zones cannot be bounded. What is plotted today is the ordinary backward-integrated sheets only.
+
+==============================================================================
+5. Intersections between barrier families, in full (R, phi_1, phi_2)
+==============================================================================
+  family ('lobe0', 'inner')            32 trajectories
+  family ('lobe0', 'outer')            29 trajectories
+  family ('lobe1', 'inner')            30 trajectories
+  family ('lobe1', 'outer')            31 trajectories
+
+  Resolved in retrograde time: past tau ~ 3 the angles wind through
+  +/- 180 deg and every sheet threads every other one, so a single
+  number at tau_max says nothing about whether they MEET.
+
+  family pair                               tau<=0.4  tau<=1.0  tau<=2.0
+  ('lobe0', 'inner') x ('lobe0', 'outer')    0.00175   0.00174   0.00174
+  ('lobe0', 'inner') x ('lobe1', 'inner')    0.07797   0.07732   0.07686
+  ('lobe0', 'inner') x ('lobe1', 'outer')    0.00009   0.00009   0.00009
+  ('lobe0', 'outer') x ('lobe1', 'inner')    0.11779   0.11779   0.11779
+  ('lobe0', 'outer') x ('lobe1', 'outer')    0.07967   0.07901   0.07854
+  ('lobe1', 'inner') x ('lobe1', 'outer')    0.00231   0.00228   0.00228
+
+==============================================================================
+6. Do the red and blue sheets actually meet?
+==============================================================================
+  Closest approach of any two families, tau <= 2.0: 0.00009 (normalized)
+     ('lobe0', 'inner')     R 6.1412  phi_1    0.011 deg  phi_2   -0.011 deg
+     ('lobe1', 'outer')     R 6.1412  phi_1   -0.011 deg  phi_2    0.011 deg
+     separation in R alone there: 0.00000
+
+  Projection trap, ('lobe0', 'inner') x ('lobe1', 'inner') at tau <= 2:
+     within tol in the (phi_1, phi_2) projection alone :    102 points
+     within tol in full (R, phi_1, phi_2)              :      0 points
+     -> the projection overstates contact by 102.0x
+
+  Candidate P2-dispersal points (different lobes => different sigma_2),
+  tau <= 2, tol 0.020: 478
+     phi_2 of those points: mean 0.0013 deg, |phi_2| max 0.2540 deg
+  ordered into one continuous curve: no
+
+==============================================================================
+7. Universal / singular control at the special points
+==============================================================================
+  At d_1 (and at f_1 on the corner) lambda_1 = 0 AND lambda_1-dot = 0,
+  so sigma_1 = -sign(lambda_1) determines nothing.
+  barrier.py behaviour: integrate_retrograde DETECTS this case
+  (|lambda_i| < tol and |lambda_i-dot| < tol) and returns it in its
+  `singular` field.  Flags raised over this bundle: 0
+  smallest max(|lambda_i|, |lambda_i-dot|) anywhere in the bundle: 1.93e-03
+  detector threshold: 1.0e-07
+  >> The singular detector never fires: the closest any trajectory comes to the condition is 1.9e-03, five orders of magnitude above the 1e-7 threshold. It is dead code in practice and provides no protection.
+  >> There is NO singular / universal-arc propagation anywhere in the code. Universal lines are detected, never integrated. The intermediate control on such an arc is not computed, and nothing assigns sigma_1 = +/-1 there as a substitute.
+
+==============================================================================
+8. Where the universal lines meet the dispersal line (c_1)
+==============================================================================
+  Not computable: step 7 shows no universal line is propagated, so there
+  is no curve to intersect with the dispersal candidates.
+  >> c_1-type junctions cannot be located until universal-line propagation exists.
+
+==============================================================================
+9. Closure of the capture zone
+==============================================================================
+  Required pieces: ordinary sheets, universal-line pieces, dispersal-line
+  junctions, and the usable maximum-range target patch.
+     ordinary sheets ........................ present
+     universal-line pieces .................. ABSENT (step 7)
+     dispersal-line junctions ............... ABSENT (step 8)
+     usable target patch .................... computable, not assembled
+  >> No mesh is ever assembled from the sheets, so watertightness cannot be tested and no open-edge list can be produced. The code plots surfaces; it does not build a solid.
+
+==============================================================================
+10. Summary
+==============================================================================
+  BUP seeds ............................... 122 (2 branches)
+  control switches detected ............... 196
+  min distance between families ........... 0.00009 (normalized, tau<=2)
+  intersection points within tol .......... 478
+  intersection points cluster within ...... |phi_2| <= 0.254 deg
+  continuous dispersal line found ......... no -- see below
+     The points that pass the 3-D test all sit at phi_2 ~ 0, which is
+     where the two mirror lenses SHARE their endpoint O_1. That is one
+     point thickened by the tolerance, not a dispersal curve. The two
+     lens families otherwise stay 0.000 apart (normalized) and never meet.
+  universal-line handling exists .......... no (detection only)
+  assembled surface watertight ............ n/a -- no mesh is assembled
+
+  Equations / conventions that disagree with the paper:
+     1. f_1 is NOT a root of Eq. (32).  It sits at phi_2 = 0, R = Rbar(0), phi_1 = 18.5 deg -- on the phi_2 = 0 CORNER EDGE of the maximum-range surface, not on the maximum-range BUP.
+     2. Wiring lam_corner into the seeding is necessary but NOT sufficient: on the segment O - f_1 - e_1 it returns a single costate, matching the phi_2 -> 0+ limit. Two sheets over that segment -- which is what a dispersal line needs -- do not fall out of it as written.
+     3. The phi_2 = 0 corner family is NEVER SEEDED. bup_curves.py builds seeds only from lam_maxrange / lam_minrange / lam_boresight -- the three smooth surfaces. lam_corner is implemented and validated by test_barrier.py to 1.1e-15, but nothing calls it. So of the paper's two maximum-range families, only the lens family (e_1 d_1 O) is generated; the corner family (e_1 f_1 O) is absent.
+     4. Because the corner family is absent, the dispersal line where the two families meet cannot be produced, c_1 cannot be located, and the two small closed capture zones cannot be bounded. What is plotted today is the ordinary backward-integrated sheets only.
+     5. The singular detector never fires: the closest any trajectory comes to the condition is 1.9e-03, five orders of magnitude above the 1e-7 threshold. It is dead code in practice and provides no protection.
+     6. There is NO singular / universal-arc propagation anywhere in the code. Universal lines are detected, never integrated. The intermediate control on such an arc is not computed, and nothing assigns sigma_1 = +/-1 there as a substitute.
+     7. c_1-type junctions cannot be located until universal-line propagation exists.
+     8. No mesh is ever assembled from the sheets, so watertightness cannot be tested and no open-edge list can be produced. The code plots surfaces; it does not build a solid.
+
+  wrote /home/claude/work/repo/layer0/viz/figs/diag_maxrange.png

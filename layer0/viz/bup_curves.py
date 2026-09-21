@@ -395,6 +395,108 @@ def seeds(family, nseed=60, n=None):
     return out, label
 
 
+
+# ---------------------------------------------------------------------------
+# Maximum-range extras: the phi_2 = 0 corner edge and the universal line at d_1.
+#
+# Neither is a root of Eq. (32), so neither comes out of the continuation
+# above. The corner edge O-e_1 is where Rbar = Rbar_0 - |phi_2 + sin phi_2| has
+# its slope jump; its costate is the corner combination of Eqs. (38)-(41). The
+# universal line of player 1 starts at d_1, where lambda_1 = lambda_1-dot = 0,
+# and is flown with the singular control sigma_1 = 0 (Table 3) up to c_1, where
+# it meets the corner sheet. See universal_d1.py and dispersal_e1c1O.py.
+# ---------------------------------------------------------------------------
+
+E1 = 2.0 * np.arctan(2.0 / B.RBAR0)        # e_1, closed form: 36.0755 deg
+
+
+def lam_corner_edge(p1):
+    """Corner costate on phi_2 = 0, Eqs. (39)-(41). lambda_1 = 0 identically."""
+    s = abs(np.sin(p1))
+    q = 1.0 / np.hypot(np.cos(p1) + 1.0, B.RBAR0 + s)
+    return np.array([q * (B.RBAR0 + s), 0.0,
+                     q * B.RBAR0 * (np.cos(p1) + 1.0) * np.sign(p1)])
+
+
+def corner_seeds(nseed=60):
+    """Two ordered seed lists on the corner edge: O -> e_1 and O -> e_1'."""
+    a = np.linspace(2e-3, E1 - 1e-4, nseed)
+    return [[np.array([B.RBAR0, g * x, 0.0, *lam_corner_edge(g * x)]) for x in a]
+            for g in (+1.0, -1.0)]
+
+
+def mirror(y):
+    """The symmetry M: (R, phi_1, phi_2, lR, l1, l2) -> (R, -phi_1, -phi_2, lR, -l1, -l2)."""
+    return np.array([y[0], -y[1], -y[2], y[3], -y[4], -y[5]])
+
+
+def _l1dot_on_bup(p1, p2):
+    lR, l1, l2 = B.lam_maxrange(p2)
+    return B.costate_dot(B.R_hi(p2), p1, p2, lR, l1, l2)[1]
+
+
+def d1_seed():
+    """d_1: Eq. (32) = 0 and lambda_1-dot = 0 on the phi_2 < 0 lobe (Newton)."""
+    x = np.array([18.88, -9.57]) * np.pi / 180.0
+    F = lambda v: np.array([B.up_maxrange(*v), _l1dot_on_bup(*v)])
+    for _ in range(40):
+        f, h = F(x), 1e-7
+        J = np.column_stack([(F(x + [h, 0]) - f) / h, (F(x + [0, h]) - f) / h])
+        dx = np.linalg.solve(J, -f)
+        x = x + dx
+        if np.abs(dx).max() < 1e-15:
+            break
+    return np.array([B.R_hi(x[1]), x[0], x[1], *B.lam_maxrange(x[1])])
+
+
+def _flow(y, sigma, tau, n):
+    for _ in range(n):
+        y = B._rk4_retro(y, tau / n, sigma)
+    return y
+
+
+def c1_tau(yd=None):
+    """
+    Retrograde time at which the d_1 universal line meets the corner sheet, c_1.
+    Newton on corner(s, tau_C) = universal(tau_U); state only, controls fixed.
+    """
+    yd = d1_seed() if yd is None else yd
+    x = np.array([18.43 * np.pi / 180.0, 1.1e-3, 0.1727])
+
+    def F(v):
+        s, tc, tu = v
+        a = _flow(np.array([B.RBAR0, s, 0.0, *lam_corner_edge(s)]), (-1.0, 1.0), tc, 20)
+        b = _flow(yd, (0.0, -1.0), tu, 400)
+        return (a - b)[:3]
+    for _ in range(30):
+        f = F(x)
+        J = np.column_stack([(F(x + e) - f) / e[k] for k, e in
+                             enumerate(np.diag([1e-7, 1e-8, 1e-7]))])
+        dx = np.linalg.solve(J, -f)
+        x = x + dx
+        if np.abs(dx).max() < 1e-13:
+            break
+    return float(x[2])
+
+
+def integrate_universal(y0, tau_max, dt=2e-3):
+    """Retrograde RK4 with sigma = (0, sign lambda_2) held -- the singular arc."""
+    sig = (0.0, float(np.sign(y0[5])))
+    n = max(int(np.ceil(tau_max / dt)), 1)
+    y, T, Y = np.array(y0, float), [0.0], [np.array(y0, float)]
+    for i in range(n):
+        y = B._rk4_retro(y, tau_max / n, sig)
+        T.append((i + 1) * tau_max / n)
+        Y.append(y.copy())
+    return np.array(T), np.array(Y)
+
+
+def universal_lines(dt=2e-3):
+    """The d_1 and d_1' universal lines, each flown to c_1 (c_1'). [(T, Y), ...]"""
+    yd = d1_seed()
+    tc = c1_tau(yd)
+    return [integrate_universal(y, tc, dt) for y in (yd, mirror(yd))]
+
 if __name__ == '__main__':
     for key in ('max', 'min', 'bore+', 'bore-'):
         S, label = seeds(key, nseed=40)
