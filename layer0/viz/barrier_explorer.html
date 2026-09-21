@@ -17,6 +17,8 @@
 
     wheel            zoom, about the cursor
     drag             pan (rotate, in the 3-D view; shift-drag pans there)
+    wheel-drag       pan in every view -- press the mouse wheel and drag, as in
+                     AutoCAD / Fusion 360; in 3-D it translates the whole scene
     click            select a trajectory, in any of the three views
     double-click     reset that view
 -->
@@ -136,7 +138,7 @@
   <button id="showMark" class="on">marker</button>
   <button id="showZones" class="on">capture zones</button>
   <button id="showTarget" class="on" title="the target set of Eqs. (6)-(9), semi-transparent, with its usable parts shaded (3-D view)">target set</button>
-  <button id="showExtra" class="on" title="max range only: seeds on the φ₂ = 0 corner edge O–e₁ and the universal line from d₁">corner + universal</button>
+  <button id="showExtra" class="on" title="max range: seeds on the φ₂ = 0 corner edge O–e₁ and the universal line from d₁ · off-boresight: seeds on the wall's max-range corner B₁A₁ and min-range corner N₁Z₁m₁">corner + universal</button>
   <button id="fig8">Fig. 8 view</button>
   <button id="reset">reset views</button>
   <button id="png">save PNG</button>
@@ -151,7 +153,7 @@
       <span><i style="background:#111"></i>the (BUP) seed curve</span>
       <span><i class="dot" style="background:var(--sw)"></i>located control switch</span>
       <span id="markKey"><i class="dot" style="background:#111"></i>marked point</span>
-      <span><i style="background:#1a7f4b"></i>φ₂ = 0 corner edge O–e₁</span>
+      <span id="extraKey" style="display:contents"></span>
       <span id="tsKey"><i style="background:rgba(93,107,121,0.45);height:9px"></i>target set T₁
         &nbsp;<i style="background:rgba(15,159,181,0.55);height:9px"></i>usable parts (UP)₁ — the family shown is darker</span>
       <span style="flex-basis:100%;height:0"></span>
@@ -159,7 +161,7 @@
       <span id="branchKey" style="display:contents"></span>
       <span class="seglink" id="segAll">all on</span>
       <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ·
-        drag rotates · shift-drag pans · wheel zooms</span>
+        drag rotates · wheel-drag or shift-drag pans · wheel zooms</span>
     </div>
   </div>
 
@@ -245,7 +247,12 @@ var B = window.Barrier, C = window.BupCurves;
 var D = Math.PI / 180;
 var HUE = ['#1f5fa8', '#c1442a', '#8a5cc7'];     // validated for CVD separation
 var SW = '#8a5cc7', BUP = '#111111', OK = '#1a7f4b';
-var CORNER = '#1a7f4b';       // trajectories seeded on the phi_2 = 0 corner edge
+var CORNER = '#1a7f4b';       // trajectories seeded on the phi_2 = 0 corner edge,
+                              // and on the max-range corner of the off-boresight wall
+var CORNER_MIN = '#c1442a';   // the min-range corner of the off-boresight wall
+// the off-boresight wall's (BUP), split at Q_1: two related blues, far enough
+// apart to tell at a glance (normal-vision dE 17.3, validated against #fcfcfb)
+var WALL_NQ = '#1f4f96', WALL_QM = '#3a86d0';
 var UNIV = '#e08a00';         // the universal line of player 1 -- sigma_1 = 0
 var TS_FILL = 'rgba(93,107,121,0.075)', TS_EDGE = 'rgba(55,64,74,0.55)';
 var UP_FILL = 'rgba(15,159,181,0.42)', UP_FILL_OTHER = 'rgba(15,159,181,0.13)',
@@ -329,10 +336,11 @@ function unwrapCol(Y, col) {
 /* barrier.js returns { path:[{tau,y}], switches:[{tau,which}], fiErr, hErr }.
    Flatten to column arrays once, here, and derive the invariant histories from
    the module's own functions rather than recomputing any physics. */
-function trajectory(y0, bi, si, pre) {
+function trajectory(y0, bi, si, pre, dt) {
   // `pre` is an already-integrated path (the universal line, which barrier.js's
-  // bang-bang integrator cannot fly); otherwise integrate here.
-  var tr = pre || B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: DT });
+  // bang-bang integrator cannot fly); otherwise integrate here, at step `dt`
+  // (default DT).
+  var tr = pre || B.integrateRetrograde(y0, { tauMax: TAU_FULL, dt: dt || DT });
   var Y = tr.path.map(function (p) { return p.y; });
   var fi = [], h = [];
   for (var i = 0; i < Y.length; i++) {
@@ -363,16 +371,19 @@ function rebuild() {
   S.family = document.getElementById('fam').value;
   var res = C.seeds(S.family, n);
   S.branches = [];
+  var bore = S.family === 'bore+' || S.family === 'bore-';
   res.branches.forEach(function (seeds, li) {
     var parts = S.family === 'max' ? splitAtFold(seeds)
-                                   : [{ name: 'branch ' + (li + 1), seeds: seeds }];
+              : bore ? splitAtQ1(seeds, S.family)
+              : [{ name: 'branch ' + (li + 1), seeds: seeds }];
     parts.forEach(function (pt) {
       var bi = S.branches.length;
-      S.branches.push({ color: HUE[li % HUE.length], name: pt.name,
-                        trajs: pt.seeds.map(function (y, si) { return trajectory(y, bi, si); }) });
+      S.branches.push({ color: pt.color || HUE[li % HUE.length], name: pt.name,
+                        trajs: seamAwareTrajs(pt.seeds, bi, S.family) });
     });
   });
   if (S.family === 'max' && S.showExtra) addMaxrangeExtras(n);
+  if (bore && S.showExtra) addBoresightExtras(n, S.family === 'bore+' ? +1 : -1);
   S.flat = [];
   S.branches.forEach(function (b) { b.trajs.forEach(function (t) { S.flat.push(t); }); });
   S.sel = Math.min(S.sel, Math.max(S.flat.length - 1, 0));
@@ -386,15 +397,17 @@ function rebuild() {
   });
   document.getElementById('status').textContent =
     res.label + ' · ' + res.branches.length + ' branch' +
-    (res.branches.length > 1 ? 'es' : '') + ' of the (BUP)' +
+    (res.branches.length > 1 ? 'es' : '') + ' of the (BUP)' + (bore ? ' (split at Q₁)' : '') +
     (S.branches.length > res.branches.length
-      ? ' + corner edge O–e₁ (both signs) + universal lines d₁c₁, d₁′c₁′' : '') +
+      ? (bore ? ' + max-range corner B₁A₁ (split at B₁) + min-range corner N₁Z₁m₁ (split at Z₁)'
+              : ' + corner edge O–e₁ (both signs) + universal lines d₁c₁, d₁′c₁′') : '') +
     ' · ' + S.flat.length +
     ' trajectories · ' + nsw + ' switches located · max |FI−1| ' + fi.toExponential(1) +
     ' · max |H*| ' + h.toExponential(1) + ' · built in ' +
     Math.round(performance.now() - t0) + ' ms';
 
   drawSegmentKey();
+  drawExtraKey();
 
   Object.keys(S.views).forEach(function (k) { S.views[k] = null; });
   S.views = {};
@@ -405,6 +418,55 @@ function rebuild() {
 function pairLabel(s) {
   function f(v) { return v === 0 ? '0' : (v > 0 ? '+1' : '−1'); }
   return '(' + f(s[0]) + ',' + f(s[1]) + ')';
+}
+
+/* A (BUP) branch that runs across phi_2 = +/-pi is one curve -- the seam bounds
+   the coordinate, not the problem -- but its seeds come back wrapped, so the last
+   seed before the seam and the first after it sit 360 deg apart and the seed
+   curve (and the sheet) got joined by a straight chord across the whole plot.
+   Cut the branch there instead, and end each side exactly ON the seam: the seam
+   point is one state, flown once and drawn twice, at +180 closing one run and at
+   -180 opening the next. `breakBefore` marks the first trajectory of a new run;
+   nothing is drawn between it and its predecessor. */
+function shiftA2(t, d) {
+  var u = Object.assign({}, t);
+  u.a2 = t.a2.map(function (v) { return v + d; });
+  return u;
+}
+
+/* The seam state that closes a run.  Only the off-boresight walls get one:
+   there lambda = (0, R sgn phi_1, 0) and lambda_2-dot = -cos(phi_2) sgn(phi_1) is
+   +/-1 on the seam, so the path is an ordinary one.  On the minimum-range (BUP)
+   the seam point has lambda_2 = lambda_2-dot = 0 -- a singular point, where the
+   bang-bang integrator chatters (2000+ switches) -- so that branch is only cut;
+   its seeds already sit within 0.3 deg of the seam on either side. */
+function seamSeed(family, a) {
+  if (family === 'bore+' || family === 'bore-') return C.seedState(family, a[1], Math.PI);
+  return null;
+}
+
+function seamAwareTrajs(seeds, bi, family) {
+  var out = [];
+  seeds.forEach(function (y, k) {
+    var brk = false;
+    if (k > 0 && Math.abs(y[2] - seeds[k - 1][2]) > Math.PI) {
+      var ys = seamSeed(family, seeds[k - 1]);
+      if (ys) {
+        var t = trajectory(ys, bi, out.length);
+        var side = seeds[k - 1][2] > 0 ? 1 : -1;          // the side this run reaches
+        out.push(shiftA2(t, side * Math.PI - t.a2[0]));   // closes it on the seam
+        var u = shiftA2(t, -side * Math.PI - t.a2[0]);    // and opens the next
+        u.si = out.length; u.breakBefore = true;
+        out.push(u);
+      } else {
+        brk = true;
+      }
+    }
+    var tk = trajectory(y, bi, out.length);
+    if (brk) tk.breakBefore = true;
+    out.push(tk);
+  });
+  return out;
 }
 
 /* Each maximum-range lobe is one curve through its fold d_1, but its two halves
@@ -423,6 +485,37 @@ function splitAtFold(seeds) {
                                         : 'd₁' + primed + '–O';
     return { name: 'lens ' + nm + ' ' + pairLabel(B.controls(mid)), seeds: p };
   });
+}
+
+/* The off-boresight wall's (BUP) N_1 - Q_1 - m_1 is one curve, but the evader's
+   terminal control changes sign at Q_1 (phi_2 = +/-pi/2): Eq. (65) gives
+   sigma_2* = sign(cos phi_2) sign(phi_1), and lambda_2-dot_f = 0 there -- the start
+   of the evader's universal line. Split there so each half has its own chip and
+   pair. Q_1 itself is left out, since its control is singular; each half is
+   closed instead by a seed Q_DELTA to its own side of Q_1, which flies cleanly
+   (no switches, H* ~ 1e-12) and puts the two seed curves 0.01 deg apart. */
+var Q_DELTA = 1e-4;
+function splitAtQ1(seeds, family) {
+  var sgn = family === 'bore+' ? 1 : -1, qQ = sgn * Math.PI / 2, p1 = seeds[0][1];
+  var pr = sgn > 0 ? '' : '′';
+  var k = -1;
+  for (var i = 0; i + 1 < seeds.length; i++) {
+    if (Math.cos(seeds[i][2]) * Math.cos(seeds[i + 1][2]) < 0 &&
+        Math.abs(seeds[i][2] - seeds[i + 1][2]) < Math.PI) { k = i; break; }
+  }
+  if (k < 0) return [{ name: 'wall (BUP) N₁' + pr + '–Q₁' + pr + '–m₁' + pr, seeds: seeds }];
+  function cap(y) { return C.seedState(family, p1, qQ + Q_DELTA * Math.sign(y[2] - qQ)); }
+  var a = seeds.slice(0, k + 1).concat([cap(seeds[k])]);
+  var b = [cap(seeds[k + 1])].concat(seeds.slice(k + 1));
+  // the half on the cos(phi_2) < 0 side is the one reaching N_1 (through the seam)
+  var nq = Math.cos(a[0][2]) < 0 ? a : b, qm = nq === a ? b : a;
+  function mid(p) { return p[Math.floor(p.length / 2)]; }
+  return [
+    { name: 'wall (BUP) N₁' + pr + '–Q₁' + pr + ' ' + pairLabel(B.controls(mid(nq))), seeds: nq,
+      color: WALL_NQ },
+    { name: 'wall (BUP) Q₁' + pr + '–m₁' + pr + ' ' + pairLabel(B.controls(mid(qm))), seeds: qm,
+      color: WALL_QM }
+  ];
 }
 
 /* Maximum range only. Two pieces of the barrier that are not roots of Eq. (32)
@@ -449,6 +542,49 @@ function addMaxrangeExtras(n) {
                             pairLabel([0, u.sigma[1]]),
                       trajs: [trajectory(u.path[0].y, bi, 0, u)] });
   });
+}
+
+/* Off-boresight only. The usable part of the wall phi_1 = s*beta is bounded by
+   its smooth (BUP) and by two corners (Sec. 3.3), neither of which is a root of
+   Eq. (62) and so neither comes out of C.seeds:
+     - the max-range corner B_1-A_1, costate Eqs. (66)-(67) with Eq. (68)
+       corrected; terminal pair (-s, +sign phi_2) -- NOT Eq. (70);
+     - the min-range corner N_1-Z_1-m_1, costate Eqs. (53)-(56) with both mu's
+       times -1; terminal pair Eqs. (57)-(58).
+   Each corner is split where the evader's terminal control changes sign, at B_1
+   and at Z_1, so every chip carries one pair. See bup_curves.py for the note. */
+var CORNER_LABEL = {
+  '+1': { 'max+': 'max-range corner B₁–A₁, φ₂ > 0', 'max-': 'max-range corner B₁–A₁, φ₂ < 0',
+          'min-': 'min-range corner N₁–Z₁',         'min+': 'min-range corner Z₁–m₁' },
+  '-1': { 'max+': 'max-range corner B₁′–A₁′, φ₂ > 0', 'max-': 'max-range corner B₁′–A₁′, φ₂ < 0',
+          'min-': 'min-range corner Z₁′–m₁′',          'min+': 'min-range corner N₁′–Z₁′' }
+};
+function addBoresightExtras(n, sgn) {
+  C.boresightCornerSeeds(sgn, n).forEach(function (pc) {
+    var bi = S.branches.length;
+    var mid = pc.seeds[Math.floor(pc.seeds.length / 2)];
+    S.branches.push({ color: pc.piece.charAt(1) === 'a' ? CORNER : CORNER_MIN,
+                      name: CORNER_LABEL[sgn > 0 ? '+1' : '-1'][pc.piece] + ' ' +
+                            pairLabel(B.controls(mid)),
+                      // the min-range corner's paths pass close to R = 0 late in
+                      // tau, where the fixed step loses the invariants (7e-6 at DT);
+                      // DT/4 holds them to 3e-8
+                      trajs: pc.seeds.map(function (y, si) {
+                        return trajectory(y, bi, si, null, pc.piece.charAt(1) === 'i' ? DT / 4 : DT);
+                      }) });
+  });
+}
+
+/* The legend entry for whatever extras the current family carries. */
+function drawExtraKey() {
+  var el = document.getElementById('extraKey'), html = '';
+  if (S.showExtra && S.family === 'max') {
+    html = '<span><i style="background:' + CORNER + '"></i>φ₂ = 0 corner edge O–e₁</span>';
+  } else if (S.showExtra && (S.family === 'bore+' || S.family === 'bore-')) {
+    html = '<span><i style="background:' + CORNER + '"></i>max-range corner B₁A₁</span>' +
+           '<span><i style="background:' + CORNER_MIN + '"></i>min-range corner N₁Z₁m₁</span>';
+  }
+  el.innerHTML = html;
 }
 
 /* Mark the Table 2 points that lie on the family now shown, so the overlay
@@ -827,13 +963,16 @@ function drawFace(id) {
       F.poly(xs, ys, on ? '#000' : shade(br.color, k, br.trajs.length),
              on ? 2.0 : 0.8, on ? 1 : 0.7);
     });
-    // the seed curve itself, always drawn -- at tau = 0 it is the whole picture
+    // the seed curve itself, always drawn -- at tau = 0 it is the whole picture.
+    // A branch cut at the phi_2 = +/-pi seam is drawn as separate runs.
     var bx = [], by = [];
+    function flush() { if (bx.length > 1) F.poly(bx, by, BUP, 2.0, 1); bx = []; by = []; }
     br.trajs.forEach(function (t) {
       if (!visible(t)) return;
+      if (t.breakBefore) flush();
       bx.push(f.x(t, 0)); by.push(f.y(t, 0));
     });
-    if (bx.length > 1) F.poly(bx, by, BUP, 2.0, 1);
+    flush();
   });
 
   if (S.showSw) {
@@ -1110,6 +1249,7 @@ function draw3d() {
       if (S.hidden[br.name]) return;
       for (var k = 0; k + 1 < br.trajs.length; k++) {
         var A = br.trajs[k], Z = br.trajs[k + 1];
+        if (Z.breakBefore) continue;               // no strip across the seam
         var m = Math.min(cut(A, S.tau), cut(Z, S.tau));
         if (m < 1) continue;
         var step = Math.max(1, Math.floor(m / 60));
@@ -1149,7 +1289,8 @@ function draw3d() {
     br.trajs.forEach(function (t) {
       if (!visible(t)) return;
       var p = put(t, 0);
-      if (!started) { g.moveTo(p[0], p[1]); started = true; } else g.lineTo(p[0], p[1]);
+      if (!started || t.breakBefore) { g.moveTo(p[0], p[1]); started = true; }
+      else g.lineTo(p[0], p[1]);
     });
     g.stroke();
   });
@@ -1548,18 +1689,30 @@ function hoverScrub(id, cv, e) {
   });
 }
 
-/* Drag: pan on the faces, rotate (shift-pan) in 3-D.  A press that does not
-   move is a click, and pins. */
+/* Drag: pan on the faces, rotate (shift-pan) in 3-D.  Pressing the mouse wheel
+   and dragging pans in every view -- in 3-D it translates the whole scene, as in
+   AutoCAD or Fusion 360.  A left press that does not move is a click, and pins;
+   a wheel press never pins. */
 ['cA', 'cB', 'c3d'].forEach(function (id) {
   var cv = document.getElementById(id);
-  var down = false, moved = 0, lx = 0, ly = 0;
+  var down = false, moved = 0, lx = 0, ly = 0, wheelPan = false;
   cv.addEventListener('mousedown', function (e) {
+    if (e.button !== 0 && e.button !== 1) return;
     down = true; moved = 0;
     lx = e.clientX; ly = e.clientY;
+    wheelPan = e.button === 1;
+    if (wheelPan) {
+      e.preventDefault();                  // no autoscroll cursor on Windows
+      cv.style.cursor = 'move';
+    }
+  });
+  cv.addEventListener('auxclick', function (e) {
+    if (e.button === 1) e.preventDefault();   // no middle-click paste / open
   });
   window.addEventListener('mouseup', function (e) {
     if (!down) return;
     down = false;
+    if (wheelPan) { wheelPan = false; cv.style.cursor = ''; return; }
     if (moved > 3) return;
     var xy = localXY(cv, e);
     var hit = pickAt(id, xy, null);
@@ -1579,7 +1732,7 @@ function hoverScrub(id, cv, e) {
     moved += Math.abs(dx) + Math.abs(dy);
     lx = e.clientX; ly = e.clientY;
     var v = view(id);
-    if (id === 'c3d' && !e.shiftKey) {
+    if (id === 'c3d' && !e.shiftKey && !wheelPan) {
       S.az += dx * 0.008;
       S.el = Math.max(-1.45, Math.min(1.45, S.el + dy * 0.006));
     } else if (id === 'c3d') {

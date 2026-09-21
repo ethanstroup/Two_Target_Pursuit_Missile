@@ -497,6 +497,115 @@ def universal_lines(dt=2e-3):
     tc = c1_tau(yd)
     return [integrate_universal(y, tc, dt) for y in (yd, mirror(yd))]
 
+
+# ---------------------------------------------------------------------------
+# Off-boresight extras: the two corners of the phi_1 = +/-beta wall (Sec. 3.3).
+#
+# The usable part of the wall phi_1 = s*beta is bounded by the smooth (BUP)
+# R = (sin phi_1 + sin phi_2) s (seeded above) and by two corners, where the
+# wall meets the range surfaces.  A corner is on the (BUP) only where exactly one
+# of its two faces is usable -- that is also the condition for a costate
+# lambda = mu_a n_a + mu_b n_b with mu_a, mu_b > 0 and H* = 0.
+#
+#   max-range corner A_1-B_1-A_1  R = Rbar(phi_2), all phi_2.  The wall is
+#       usable and the max-range face is not, everywhere.  Costate Eqs. (66)-(67)
+#       with Eq. (68) CORRECTED: printed as "mu-bar_1 = q[Rbar - L sign phi_2]",
+#       it is mu-bar_2, and the sign belongs to phi_1.  As printed H* reaches
+#       8.7e-2 wherever sign phi_1 != sign phi_2.  The terminal pair is then
+#       (-s, +sign phi_2) -- NOT Eq. (70)'s -sign(sin phi_2), which looks copied
+#       from Eq. (58).  With the derived pair the two halves cross retrograde
+#       along the evader's dispersal line B_1 C_1, through Table 2's C_1; with
+#       Eq. (70)'s pair they diverge and B_1 C_1 could not exist.
+#   min-range corner N_1-Z_1-m_1  R = R_lo(phi_2), phi_2 between N_1 and m_1.
+#       The wall is usable and the min-range face is not.  Costate Eqs. (53)-(56)
+#       with both mu's multiplied by -1 (Sec. 3.3).  Terminal pair Eqs. (57)-(58),
+#       (-s, -sign sin phi_2), which switches at Z_1 (phi_2 = 0).  The text's
+#       "M_1" for this corner is Table 2's m_1 (0.847, 45, 8.05).
+#
+# Each corner is split where its evader control changes -- B_1 and Z_1 -- so the
+# explorer can show each piece's pair on its own chip.
+# ---------------------------------------------------------------------------
+
+EPS_VERTEX = 2e-3      # inset from B_1, Z_1 (lambda_2 -> 0 or jumps) and A_1
+EPS_JOIN = 1e-4        # inset from N_1, m_1, where the corner meets the wall's BUP
+
+
+def min_corner_ends(sgn=+1):
+    """
+    phi_2 of m_1 and N_1 on phi_1 = sgn*beta: R_lo(phi_2) = (sin phi_1 + sin phi_2) sgn,
+    i.e. b cos phi_2 - sin phi_2 = sin beta - a.  Closed form; for sgn = -1 the
+    roots are the negatives.  Returns (m_1, N_1).
+    """
+    k = np.hypot(1.0, B.B1)
+    dlt = np.arctan2(1.0, B.B1)
+    c = np.arccos((np.sin(B.BETA) - B.A1) / k)
+    return sgn * (c - dlt), sgn * (-c - dlt)
+
+
+def lam_corner_max(p2, sgn=+1):
+    """Max-range / off-boresight corner, Eqs. (66)-(67) and Eq. (68) corrected."""
+    p1 = sgn * B.BETA
+    R = B.R_hi(p2)
+    L = np.sin(p1) + np.sin(p2)
+    s2 = np.sign(p2)
+    mb1 = (1 - np.cos(p1)) * R + L * (1 + np.cos(p2)) * s2          # Eq. (67)
+    mb2 = R - L * sgn                                                # Eq. (68), corrected
+    lam = np.array([mb2, mb1 * sgn, mb2 * (1 + np.cos(p2)) * s2])     # Eq. (66)
+    return lam / np.sqrt(B.first_integral(R, *lam))                  # q-bar: Eq. (23)
+
+
+def lam_corner_min(p2, sgn=+1):
+    """
+    Min-range / off-boresight corner, Eqs. (53)-(56).  The mu's are returned
+    positive: on N_1-Z_1-m_1 both printed brackets are negative and are
+    multiplied by -1, as Sec. 3.3 says; on h_1 g_1 (Sec. 3.2) they are not.
+    """
+    p1 = sgn * B.BETA
+    R = B.R_lo(p2)
+    L = np.sin(p1) + np.sin(p2)
+    Cc = np.cos(p1) + np.cos(p2)
+    ss = np.sign(np.sin(p2))
+    m1 = -Cc * R + B.B1 * np.sin(p2) * (L - R * ss)                   # Eq. (54)
+    m2 = L * sgn - R                                                 # Eq. (55)
+    qt = 1.0 / np.hypot(Cc - B.B1 * np.sin(p2) * (sgn - ss), m2)     # Eq. (56)
+    flip = -1.0 if m2 < 0 else 1.0
+    mu1, mu2 = flip * qt * m1, flip * qt * m2
+    return np.array([-mu2, mu1 * sgn, -mu2 * B.B1 * np.sin(p2)])     # Eq. (53)
+
+
+BORE_PIECES = ('max+', 'max-', 'min-', 'min+')     # corner, then sign of phi_2
+
+
+def boresight_corner_seeds(sgn=+1, nseed=60):
+    """
+    Ordered seed lists on the two corners of phi_1 = sgn*beta, as
+    [(piece, [y, ...]), ...] in BORE_PIECES order:
+
+      'max+'  B_1 -> A_1 through phi_2 > 0      'max-'  B_1 -> A_1 through phi_2 < 0
+      'min-'  Z_1 -> the phi_2 < 0 end          'min+'  Z_1 -> the phi_2 > 0 end
+
+    (For sgn = +1 the min-range ends are N_1 at -154.6 deg and m_1 at +8.04 deg; for
+    sgn = -1 they swap sides.)  Each list starts at the vertex B_1 or Z_1.  The
+    short min-range piece gets seeds in proportion to its length, at least 9.
+    """
+    p1 = sgn * B.BETA
+    out = []
+    for g in (+1.0, -1.0):
+        q = g * np.linspace(EPS_VERTEX, np.pi - EPS_VERTEX, nseed)
+        out.append(('max+' if g > 0 else 'max-',
+                    [np.array([B.R_hi(x), p1, x, *lam_corner_max(x, sgn)]) for x in q]))
+    m1, N1 = min_corner_ends(sgn)
+    ends = {+1.0: max(m1, N1), -1.0: min(m1, N1)}
+    span = {g: abs(ends[g]) for g in ends}
+    longest = max(span.values())
+    for g in (-1.0, +1.0):
+        n = nseed if span[g] == longest else max(9, int(round(nseed * span[g] / longest)))
+        q = g * np.linspace(EPS_VERTEX, span[g] - EPS_JOIN, n)
+        out.append(('min+' if g > 0 else 'min-',
+                    [np.array([B.R_lo(x), p1, x, *lam_corner_min(x, sgn)]) for x in q]))
+    return out
+
+
 if __name__ == '__main__':
     for key in ('max', 'min', 'bore+', 'bore-'):
         S, label = seeds(key, nseed=40)

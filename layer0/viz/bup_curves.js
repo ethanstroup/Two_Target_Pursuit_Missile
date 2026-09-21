@@ -436,6 +436,75 @@
     return [yd, mirror(yd)].map(function (y) { return integrateUniversal(y, tc, dt); });
   }
 
+  // -- off-boresight extras: the two corners of the phi_1 = +/-beta wall -----
+  //
+  // Twin of the same block in bup_curves.py, which carries the full note.
+  //   max-range corner A_1-B_1-A_1: Eqs. (66)-(67) with Eq. (68) CORRECTED
+  //     (it is mu-bar_2, and the sign is sign phi_1, not sign phi_2).  Terminal
+  //     pair (-s, +sign phi_2), not Eq. (70)'s -sign(sin phi_2).
+  //   min-range corner N_1-Z_1-m_1: Eqs. (53)-(56) with both mu's times -1.
+  //     Terminal pair Eqs. (57)-(58), switching at Z_1.
+
+  var EPS_VERTEX = 2e-3, EPS_JOIN = 1e-4;
+
+  /* phi_2 of m_1 and N_1 on phi_1 = sgn*beta, closed form.  Returns [m_1, N_1]. */
+  function minCornerEnds(sgn) {
+    sgn = sgn || 1;
+    var P = B.PARAMS, k = Math.hypot(1, P.b), dlt = Math.atan2(1, P.b);
+    var c = Math.acos((Math.sin(P.beta) - P.a) / k);
+    return [sgn * (c - dlt), sgn * (-c - dlt)];
+  }
+
+  function lamCornerMax(p2, sgn) {                      // Eqs. (66)-(68), corrected
+    var p1 = sgn * B.PARAMS.beta, R = B.Rhi(p2);
+    var L = Math.sin(p1) + Math.sin(p2), s2 = Math.sign(p2);
+    var mb1 = (1 - Math.cos(p1)) * R + L * (1 + Math.cos(p2)) * s2;
+    var mb2 = R - L * sgn;
+    var l = [mb2, mb1 * sgn, mb2 * (1 + Math.cos(p2)) * s2];
+    var n = Math.sqrt(B.firstIntegral(R, l[0], l[1], l[2]));
+    return [l[0] / n, l[1] / n, l[2] / n];
+  }
+
+  function lamCornerMin(p2, sgn) {                      // Eqs. (53)-(56)
+    var P = B.PARAMS, p1 = sgn * P.beta, R = B.Rlo(p2);
+    var L = Math.sin(p1) + Math.sin(p2), Cc = Math.cos(p1) + Math.cos(p2);
+    var ss = Math.sign(Math.sin(p2));
+    var m1 = -Cc * R + P.b * Math.sin(p2) * (L - R * ss);
+    var m2 = L * sgn - R;
+    var qt = 1 / Math.hypot(Cc - P.b * Math.sin(p2) * (sgn - ss), m2);
+    var flip = m2 < 0 ? -1 : 1, mu1 = flip * qt * m1, mu2 = flip * qt * m2;
+    return [-mu2, mu1 * sgn, -mu2 * P.b * Math.sin(p2)];
+  }
+
+  var BORE_PIECES = ['max+', 'max-', 'min-', 'min+'];
+
+  /* [{piece, seeds}] in BORE_PIECES order; each list starts at B_1 or Z_1. */
+  function boresightCornerSeeds(sgn, nseed) {
+    nseed = nseed || 60;
+    var p1 = sgn * B.PARAMS.beta, out = [];
+    [+1, -1].forEach(function (g) {
+      out.push({ piece: g > 0 ? 'max+' : 'max-',
+                 seeds: grid(EPS_VERTEX, Math.PI - EPS_VERTEX, nseed).map(function (x) {
+                   var q = g * x, l = lamCornerMax(q, sgn);
+                   return [B.Rhi(q), p1, q, l[0], l[1], l[2]];
+                 }) });
+    });
+    var e = minCornerEnds(sgn), span = {};
+    span[+1] = Math.abs(Math.max(e[0], e[1]));
+    span[-1] = Math.abs(Math.min(e[0], e[1]));
+    var longest = Math.max(span[1], span[-1]);
+    [-1, +1].forEach(function (g) {
+      var n = span[g] === longest ? nseed
+                                  : Math.max(9, Math.round(nseed * span[g] / longest));
+      out.push({ piece: g > 0 ? 'min+' : 'min-',
+                 seeds: grid(EPS_VERTEX, span[g] - EPS_JOIN, n).map(function (x) {
+                   var q = g * x, l = lamCornerMin(q, sgn);
+                   return [B.Rlo(q), p1, q, l[0], l[1], l[2]];
+                 }) });
+    });
+    return out;
+  }
+
   return {
     FAMILIES: FAMILIES, traceBranches: traceBranches, joinFolds: joinFolds,
     mergeSeam: mergeSeam, resampleBranch: resampleBranch, snapToBup: snapToBup,
@@ -444,6 +513,9 @@
     branchesBoresight: branchesBoresight, seedState: seedState, seeds: seeds,
     E1: E1, lamCornerEdge: lamCornerEdge, cornerSeeds: cornerSeeds, mirror: mirror,
     d1Seed: d1Seed, c1Tau: c1Tau, integrateUniversal: integrateUniversal,
-    universalLines: universalLines
+    universalLines: universalLines,
+    minCornerEnds: minCornerEnds, lamCornerMax: lamCornerMax,
+    lamCornerMin: lamCornerMin, BORE_PIECES: BORE_PIECES,
+    boresightCornerSeeds: boresightCornerSeeds
   };
 }));
