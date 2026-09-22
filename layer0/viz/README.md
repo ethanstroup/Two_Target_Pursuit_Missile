@@ -35,9 +35,23 @@ It loads `../barrier.js` and `./bup_curves.js` as plain scripts.
   overlaid, for direct comparison against the printed figures. Raise τ to sweep the sheet.
 - **wheel** zooms about the cursor, **drag** pans (rotates, in the 3-D view; shift-drag pans
   there), **double-click** resets one view.
-- **wheel-drag** — press the mouse wheel and drag — pans in every view, as in AutoCAD or
-  Fusion 360. In the 3-D view it translates the whole scene; a wheel press never pins a
-  trajectory.
+- **R locked / free 3-D / top view**: the buttons in the 3-D view's top-left corner.
+  - **R locked** (the default) is an oblique view. The (φ₂, φ₁) floor turns and tilts,
+    but R is always drawn straight up at full length.
+  - **free 3-D** is a true, rigid rotation. R shortens with elevation, and from directly
+    above you see the (φ₂, φ₁) plane. Elevation stops at ±90° in both modes, so the view
+    never turns upside down; drag sideways to spin about R.
+  - **top view** goes straight down with φ₂ increasing to the left and φ₁ up, the same
+    orientation as the face (φ₂, φ₁) panel, and switches to free 3-D.
+  - The default view (az −155°, el 22°) has φ₂ increasing to the left, as printed. The
+    3-D box is proportioned φ₂ : φ₁ : R = 2 : 1 : 1, with one scale for both screen axes.
+- **resizing panels** — drag the gutter between two panels to move the split, a panel's
+  bottom edge to change its row's height, or the grip in its bottom-right corner to do both.
+  Canvases fill their panels and redraw as they change. The layout is remembered in this
+  browser; **reset layout** puts it back.
+- **select** (toolbar) turns hover-selecting and click-pinning on and off. Off, moving or
+  clicking the mouse over a view changes nothing and no trajectory is highlighted; rotate,
+  pan and zoom still work, and the lower panels keep the last selection.
 - **click** selects a trajectory in any of the three views; **play** then walks the marker
   along it as τ elapses, and **focus** hides everything else while you watch.
 - **corner + universal** on maximum range adds the two barrier pieces that are not

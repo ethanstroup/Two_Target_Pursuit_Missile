@@ -63,24 +63,80 @@
   button.on { background: var(--c0); border-color: var(--c0); color: #fff; }
   .status { color: var(--ink3); font-size: 12px; font-variant-numeric: tabular-nums; }
 
-  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+  /* Panel layout.  Every panel is resizable: drag the gutter between two panels,
+     a panel's bottom edge, or the grip in its bottom-right corner.  The track
+     sizes are set from JS (applyLayout); these are only the pre-script defaults. */
+  .grid { display: grid; grid-template-columns: 1.3fr 10px 1fr; grid-template-rows: 640px; }
+  .row2 { display: grid; grid-template-columns: 1fr 10px 1fr 10px 1fr;
+          grid-template-rows: 330px; margin-top: 10px; }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     padding: 9px 10px 6px;
+    position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0;
   }
+  .card > h2, .card > .key, .card > .note { flex: none; }
+  /* a canvas fills whatever its panel leaves it; absolute, so its own pixel size
+     never feeds back into the layout */
+  .cv { position: relative; flex: 1 1 auto; min-height: 0; }
+  .cv > canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .readbody { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+  .gutter { position: relative; }
+  .gutter.gv { cursor: col-resize; }
+  .gutter.gh { cursor: row-resize; }
+  .gutter::after {
+    content: ''; position: absolute; border-radius: 2px; background: transparent;
+    transition: background 0.12s;
+  }
+  .gutter.gv::after { left: 4px; width: 2px; top: 8px; bottom: 8px; }
+  .gutter.gh::after { top: 4px; height: 2px; left: 8px; right: 8px; }
+  .gutter:hover::after, .gutter.drag::after { background: #9aa3ad; }
+  .rz-b {
+    position: absolute; left: 12px; right: 16px; bottom: -6px; height: 11px;
+    cursor: row-resize; z-index: 3;
+  }
+  .rz-b::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px;
+    border-radius: 2px; background: transparent; transition: background 0.12s;
+  }
+  .rz-b:hover::after, .rz-b.drag::after { background: #9aa3ad; }
+  .rz-c {
+    position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px;
+    cursor: nwse-resize; z-index: 4;
+  }
+  .rz-c::before {        /* the grip: two short diagonals inside the corner */
+    content: ''; position: absolute; right: 8px; bottom: 8px; width: 8px; height: 8px;
+    background:
+      linear-gradient(135deg, transparent 45%, #b8c0c9 45%, #b8c0c9 58%, transparent 58%),
+      linear-gradient(135deg, transparent 72%, #b8c0c9 72%, #b8c0c9 85%, transparent 85%);
+  }
+  .rz-c:hover::before, .rz-c.drag::before {
+    background:
+      linear-gradient(135deg, transparent 45%, #4a5058 45%, #4a5058 58%, transparent 58%),
+      linear-gradient(135deg, transparent 72%, #4a5058 72%, #4a5058 85%, transparent 85%);
+  }
+  body.resizing, body.resizing * { cursor: var(--rzcur) !important; user-select: none; }
   .card h2 {
     font-size: 12px; font-weight: 600; margin: 0 0 5px;
     display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   }
   .card h2 span { font-weight: 400; color: var(--ink3); font-size: 11px;
                   font-variant-numeric: tabular-nums; }
-  .stack { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; }
+  .stack { display: grid; grid-template-rows: 1fr 10px 1fr; min-height: 0; min-width: 0; }
   canvas { display: block; width: 100%; }
-  #c3d { height: 452px; cursor: grab; }
+  #c3d { cursor: grab; }
   #c3d:active { cursor: grabbing; }
-  #cA, #cB { height: 196px; cursor: crosshair; }
-  #cG, #cI { height: 214px; }
+  .c3dwrap { position: relative; }
+  .viewbtns { position: absolute; top: 6px; left: 6px; z-index: 2; display: flex; gap: 6px; }
+  .lockbtn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 6px; font-size: 11.5px; line-height: 1.2;
+    background: rgba(255,255,255,0.92); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .lockbtn svg { width: 13px; height: 13px; flex: none; }
+  .lockbtn.on { background: var(--c0); border-color: var(--c0); color: #fff; }
+  #cA, #cB { cursor: crosshair; }
 
   table.read { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   table.read td { padding: 1.5px 0; font-size: 12px; }
@@ -136,19 +192,28 @@
   <button id="showSheet" class="on">sheet</button>
   <button id="showT2" class="on">Table 2</button>
   <button id="showMark" class="on">marker</button>
+  <button id="pick" class="on" title="hovering selects the nearest trajectory and follows it; clicking pins one. Turn off when it gets in the way — rotate, pan and zoom still work, and the lower panels keep the last selection">select</button>
   <button id="showZones" class="on">capture zones</button>
   <button id="showTarget" class="on" title="the target set of Eqs. (6)-(9), semi-transparent, with its usable parts shaded (3-D view)">target set</button>
   <button id="showExtra" class="on" title="max range: seeds on the φ₂ = 0 corner edge O–e₁ and the universal line from d₁ · off-boresight: seeds on the wall's max-range corner B₁A₁ and min-range corner N₁Z₁m₁">corner + universal</button>
   <button id="fig8">Fig. 8 view</button>
   <button id="reset">reset views</button>
+  <button id="resetLayout" title="put every panel back to its default size">reset layout</button>
   <button id="png">save PNG</button>
 </div>
 <div class="bar" style="padding:7px 12px"><span class="status" id="status"></span></div>
 
-<div class="grid">
-  <div class="card">
+<div class="grid" id="gTop">
+  <div class="card" id="k3d">
     <h2>the bundle in (φ₂, φ₁, R) <span id="h3d"></span></h2>
-    <canvas id="c3d"></canvas>
+    <div class="cv c3dwrap">
+      <canvas id="c3d"></canvas>
+      <div class="viewbtns">
+        <button id="lockR" class="lockbtn on" type="button"></button>
+        <button id="topView" class="lockbtn" type="button"
+                title="look straight down on the (φ₂, φ₁) plane, turned to match the face (φ₂, φ₁) panel — switches to free 3-D">top view</button>
+      </div>
+    </div>
     <div class="key">
       <span><i style="background:#111"></i>the (BUP) seed curve</span>
       <span><i class="dot" style="background:var(--sw)"></i>located control switch</span>
@@ -160,46 +225,61 @@
       <span style="color:var(--ink2)">segments — click to hide / show:</span>
       <span id="branchKey" style="display:contents"></span>
       <span class="seglink" id="segAll">all on</span>
-      <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ·
-        drag rotates · wheel-drag or shift-drag pans · wheel zooms</span>
+      <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ("select" turns both off) ·
+        drag rotates · wheel-drag or shift-drag pans · wheel zooms ·
+        drag a panel's edge or corner to resize it</span>
     </div>
+    <div class="rz-b" data-rz="topH"></div>
+    <div class="rz-c" data-rz="topH" data-gut="top:0"></div>
   </div>
+  <div class="gutter gv" data-gut="top:0"></div>
 
-  <div class="stack">
-    <div class="card">
+  <div class="stack" id="gStack">
+    <div class="card" id="kA">
       <h2>face (φ₂, φ₁) <span>φ₂ increases to the left, as printed</span></h2>
-      <canvas id="cA"></canvas>
+      <div class="cv"><canvas id="cA"></canvas></div>
     </div>
-    <div class="card">
+    <div class="gutter gh" data-gut="stack:0"></div>
+    <div class="card" id="kB">
       <h2>face (φ₂, R) <span>R increases downward, as printed</span></h2>
-      <canvas id="cB"></canvas>
+      <div class="cv"><canvas id="cB"></canvas></div>
+      <div class="rz-b" data-rz="topH"></div>
     </div>
   </div>
 </div>
 
-<div class="row2">
-  <div class="card">
+<div class="row2" id="gBot">
+  <div class="card" id="kG">
     <h2>engagement geometry <span>at the marked point</span></h2>
-    <canvas id="cG"></canvas>
+    <div class="cv"><canvas id="cG"></canvas></div>
     <div class="note" id="gnote"></div>
+    <div class="rz-b" data-rz="botH"></div>
+    <div class="rz-c" data-rz="botH" data-gut="bot:0"></div>
   </div>
-  <div class="card">
+  <div class="gutter gv" data-gut="bot:0"></div>
+  <div class="card" id="kI">
     <h2>costates and invariants <span>selected trajectory</span></h2>
-    <canvas id="cI"></canvas>
+    <div class="cv"><canvas id="cI"></canvas></div>
     <div class="key">
       <span><i style="background:var(--c0)"></i>λ<sub>R</sub></span>
       <span><i style="background:var(--c1)"></i>λ₁</span>
       <span><i style="background:var(--c2)"></i>λ₂</span>
       <span><i style="background:var(--ok)"></i>log₁₀|H*|</span>
     </div>
+    <div class="rz-b" data-rz="botH"></div>
+    <div class="rz-c" data-rz="botH" data-gut="bot:1"></div>
   </div>
-  <div class="card">
+  <div class="gutter gv" data-gut="bot:1"></div>
+  <div class="card" id="kR">
     <h2>readout <span id="rsub"></span></h2>
-    <table class="read" id="read"></table>
-    <div class="note">
-      Firing conditions use the index asymmetry of Eq. (7): the boresight bound is on the
-      shooter's own angle, both range bounds on the target's aspect angle.
+    <div class="readbody" id="readbody">
+      <table class="read" id="read"></table>
+      <div class="note">
+        Firing conditions use the index asymmetry of Eq. (7): the boresight bound is on the
+        shooter's own angle, both range bounds on the target's aspect angle.
+      </div>
     </div>
+    <div class="rz-b" data-rz="botH"></div>
   </div>
 </div>
 
@@ -291,6 +371,13 @@ var TABLE2 = [["A_1",3.0,45,180],["B_1",6.142,45,0],["C_1",4.3,113.87,-25.27],
 // state
 // ---------------------------------------------------------------------------
 
+/* The default 3-D view.  az = -155 deg puts phi_2 increasing to the LEFT, as
+   in the printed figures and the face panels, with phi_1 running into the
+   picture and R up; dragging straight down from here reaches the top view
+   turned 25 deg from the face (phi_2, phi_1) panel ("top view" matches it
+   exactly). */
+var AZ0 = -155 * Math.PI / 180, EL0 = 22 * Math.PI / 180;
+
 var S = {
   family: 'max',
   tau: 0.0,
@@ -301,10 +388,13 @@ var S = {
   mark: 1.0,               // fraction of tau at which the marker sits
   focus: false,
   showSw: true, showSheet: true, showT2: true, showMark: true, showZones: true,
+  pick: true,               // hover selects and follows a trajectory, click pins it
   showExtra: true,          // max range: corner-edge family + universal lines
   hidden: {},               // segment name -> true when switched off; survives rebuilds
   showTarget: true,         // the target set T_1 and its usable parts, 3-D view
-  az: -58 * D, el: 22 * D,
+  az: AZ0, el: EL0,
+  lockR: true,             // true: oblique view, R upright at full length;
+                           // false: true 3-D rotation, free in both angles
   views: {}                // per-canvas user transform
 };
 
@@ -948,7 +1038,7 @@ function drawFace(id) {
       var m = cut(t, S.tau), xs = [], ys = [], i;
       if (m === 0) return;
       for (i = 0; i <= m; i++) { xs.push(f.x(t, i)); ys.push(f.y(t, i)); }
-      var on = (t === selected());
+      var on = S.pick && t === selected();
       if (br.universal) {
         F.poly(xs, ys, on ? '#000' : UNIV, on ? 3.0 : 2.8, 1);
         if (m === t.tau.length - 1 && id === 'cA') {   // flown all the way: mark c_1
@@ -989,7 +1079,7 @@ function drawFace(id) {
   drawTable2(F, f.xk, f.yk);
 
   var sel = selected();
-  if (sel && S.showMark) {
+  if (sel && S.showMark && S.pick) {
     var i = cut(sel, S.tau * S.mark);
     if (S.pinned !== null) F.dot(f.x(sel, i), f.y(sel, i), '#000', 7.5, true);
     F.dot(f.x(sel, i), f.y(sel, i), '#000', 4);
@@ -1001,6 +1091,10 @@ function drawFace(id) {
 // ---------------------------------------------------------------------------
 // the 3-D view
 // ---------------------------------------------------------------------------
+
+/* The 3-D box's proportions, phi_2 : phi_1 : R.  phi_2 spans a full turn and
+   more, so it gets the long side -- about the aspect of the face panels. */
+var BOX_L = [2.0, 1.0, 1.0];
 
 function make3d(c) {
   var bx = autoBounds(function (t, i) { return t.a2[i] / D; },
@@ -1018,10 +1112,17 @@ function make3d(c) {
   var sx = Math.max(bx[1] - bx[0], 1e-6), sy = Math.max(bx[3] - bx[2], 1e-6),
       sz = Math.max(bz[3] - bz[2], 1e-6);
   var v = view('c3d');
-  var sc = { x: 0.40 * c.w * v.k, y: 0.40 * c.h * v.k };
+  // ONE scale for both screen axes, so a rotation is rigid: nothing stretches or
+  // squashes as the view turns.  (It used to be 0.40*w across and 0.40*h down,
+  // which flattened the (phi_2, phi_1) floor whenever it tilted toward the
+  // viewer -- from above it came out a thin sliver, and rotating seemed to do
+  // nothing but change the length of R.)  The box's own proportions come from
+  // BOX_L instead; the scale follows the height, or the width if that is tighter.
+  var sc = Math.min(0.40 * c.h, 0.30 * c.w) * v.k;
   var ox = c.w / 2 + v.dx * c.w, oy = c.h / 2 + v.dy * c.h;
   var ca = Math.cos(S.az), sa = Math.sin(S.az);
-  var ce = Math.cos(S.el), se = Math.sin(S.el);
+  var se = Math.sin(S.el), ce = Math.cos(S.el);
+  var kR = S.lockR ? 1 : ce;        // how R projects: full length, or foreshortened
   return {
     // centre and span per axis, so a normalized coordinate u maps back to the
     // data value c + u*s -- which is what the 3-D tick labels print
@@ -1033,10 +1134,19 @@ function make3d(c) {
     normPt: function (q) {
       return [(q[0] - cx) / sx, (q[1] - cy) / sy, (q[2] - cz) / sz];
     },
+    // Two projections, chosen by the lock button in the view's corner.
+    //   R locked (default) -- oblique ("military"): the (phi_2, phi_1) floor
+    //     turns with az and tilts with el, but R is always drawn straight up at
+    //     full length, so it reads the same from every view.
+    //   free -- true rotation: R shortens by cos(el), and from directly above
+    //     (el = 90) the view IS the (phi_2, phi_1) plane.  At az = 180 it is
+    //     oriented exactly like the face (phi_2, phi_1) panel: phi_2 increasing
+    //     to the left, phi_1 up.  Elevation stops at +/-90, so it never inverts.
     at: function (p) {
-      var X = p[0] * ca - p[1] * sa;
-      var Y = (p[0] * sa + p[1] * ca) * se - p[2] * ce;
-      return [ox + X * sc.x, oy + Y * sc.y];
+      var x = p[0] * BOX_L[0], y = p[1] * BOX_L[1], z = p[2] * BOX_L[2];
+      var X = x * ca - y * sa;
+      var Y = (x * sa + y * ca) * se - z * kR;
+      return [ox + X * sc, oy + Y * sc];
     }
   };
 }
@@ -1272,7 +1382,7 @@ function draw3d() {
       if (!visible(t)) return;
       var m = cut(t, S.tau);
       if (m === 0) return;
-      var on = (t === selected());
+      var on = S.pick && t === selected();
       g.strokeStyle = on ? '#000' : br.universal ? UNIV : shade(br.color, k, br.trajs.length);
       g.lineWidth = on ? 2.0 : br.universal ? 2.8 : 0.6;
       g.globalAlpha = on || br.universal ? 1 : (S.showSheet && !S.focus ? 0.5 : 0.85);
@@ -1308,7 +1418,7 @@ function draw3d() {
   }
 
   var sel = selected();
-  if (sel && S.showMark) {
+  if (sel && S.showMark && S.pick) {
     var p = put(sel, cut(sel, S.tau * S.mark));
     if (S.pinned !== null) {
       g.strokeStyle = '#000'; g.lineWidth = 1.4;
@@ -1323,7 +1433,8 @@ function draw3d() {
 
   document.getElementById('h3d').textContent =
     'τ ≤ ' + S.tau.toFixed(2) + '   az ' + Math.round(S.az / D) +
-    '°  el ' + Math.round(S.el / D) + '°   zoom ×' + view('c3d').k.toFixed(2);
+    '°  el ' + Math.round(S.el / D) + '°   zoom ×' + view('c3d').k.toFixed(2) +
+    (S.lockR ? '   R locked' : '   free 3-D');
 }
 
 // ---------------------------------------------------------------------------
@@ -1480,7 +1591,7 @@ function drawReadout() {
 }
 
 function draw() {
-  document.getElementById('markKey').style.display = S.showMark ? '' : 'none';
+  document.getElementById('markKey').style.display = S.showMark && S.pick ? '' : 'none';
   draw3d();
   drawFace('cA');
   drawFace('cB');
@@ -1521,6 +1632,15 @@ toggle('showSw', 'showSw');
 toggle('showSheet', 'showSheet');
 toggle('showT2', 'showT2');
 toggle('showMark', 'showMark');   // the marked point on the selected trajectory
+/* Selecting on/off. Off, hovering and clicking leave every view alone and no
+   trajectory is highlighted -- for when the black selected curve and its marker
+   sit on top of what you are looking at. Unlike focus it hides nothing else. */
+document.getElementById('pick').onclick = function () {
+  S.pick = !S.pick;
+  if (!S.pick) S.pinned = null;
+  this.classList.toggle('on', S.pick);
+  draw();
+};
 toggle('showZones', 'showZones');
 document.getElementById('showTarget').onclick = function () {
   S.showTarget = !S.showTarget;
@@ -1533,6 +1653,35 @@ document.getElementById('segAll').onclick = function () {
   drawSegmentKey();
   draw();
 };
+/* The lock in the 3-D view's corner, and the top-view snap beside it. */
+var LOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/>' +
+               '<path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+var UNLOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/>' +
+                 '<path d="M5 7V5a3 3 0 0 1 5.8-1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+function drawLock() {
+  var b = document.getElementById('lockR');
+  b.classList.toggle('on', S.lockR);
+  b.innerHTML = (S.lockR ? LOCK_SVG : UNLOCK_SVG) + (S.lockR ? 'R locked' : 'free 3-D');
+  b.title = S.lockR
+    ? 'R locked: R is always drawn straight up at full length (oblique view) — click for true 3-D rotation'
+    : 'Free 3-D: true rotation; R foreshortens with elevation, and from directly above you see the (φ₂, φ₁) plane — click to lock R upright at full length';
+}
+document.getElementById('lockR').onclick = function () {
+  S.lockR = !S.lockR;
+  drawLock();
+  draw();
+};
+/* Straight down on the (phi_2, phi_1) plane, turned to match the face panel:
+   az = 180 puts phi_2 increasing to the left and phi_1 up. A top view only
+   makes sense as a true rotation, so this switches to free 3-D. */
+document.getElementById('topView').onclick = function () {
+  S.lockR = false;
+  S.az = Math.PI; S.el = EL_MAX;
+  drawLock();
+  draw();
+};
+drawLock();
+
 document.getElementById('showExtra').onclick = function () {
   S.showExtra = !S.showExtra;
   this.classList.toggle('on', S.showExtra);
@@ -1558,7 +1707,7 @@ toggle('focus', 'focus');
 
 document.getElementById('reset').onclick = function () {
   S.views = {};
-  S.az = -58 * D; S.el = 22 * D;
+  S.az = AZ0; S.el = EL0;
   draw();
 };
 
@@ -1653,7 +1802,7 @@ function localXY(cv, e) {
 
   cv.addEventListener('dblclick', function () {
     S.views[id] = null;
-    if (id === 'c3d') { S.az = -58 * D; S.el = 22 * D; }
+    if (id === 'c3d') { S.az = AZ0; S.el = EL0; }
     draw();
   });
 });
@@ -1677,6 +1826,7 @@ function pickAt(id, xy, only) {
    pins a trajectory — hover then scrubs along that one only, and never jumps to
    a neighbour — and clicking it again releases. */
 function hoverScrub(id, cv, e) {
+  if (!S.pick) return;                     // selecting switched off
   var xy = localXY(cv, e);
   onNextFrame(function () {
     var pin = S.pinned === null ? null : S.flat[S.pinned];
@@ -1688,6 +1838,11 @@ function hoverScrub(id, cv, e) {
     draw();
   });
 }
+
+/* Elevation for the 3-D rotate, in both modes: the half-turn from straight below
+   to straight above.  It stops there rather than carrying on over the top, so
+   the view never turns upside down; drag sideways to turn it about R. */
+var EL_MIN = -90 * D, EL_MAX = 90 * D, EL_RATE = 0.006;
 
 /* Drag: pan on the faces, rotate (shift-pan) in 3-D.  Pressing the mouse wheel
    and dragging pans in every view -- in 3-D it translates the whole scene, as in
@@ -1713,7 +1868,7 @@ function hoverScrub(id, cv, e) {
     if (!down) return;
     down = false;
     if (wheelPan) { wheelPan = false; cv.style.cursor = ''; return; }
-    if (moved > 3) return;
+    if (moved > 3 || !S.pick) return;
     var xy = localXY(cv, e);
     var hit = pickAt(id, xy, null);
     if (!hit) return;
@@ -1734,7 +1889,8 @@ function hoverScrub(id, cv, e) {
     var v = view(id);
     if (id === 'c3d' && !e.shiftKey && !wheelPan) {
       S.az += dx * 0.008;
-      S.el = Math.max(-1.45, Math.min(1.45, S.el + dy * 0.006));
+      var el = S.el + dy * EL_RATE;
+      S.el = Math.max(EL_MIN, Math.min(EL_MAX, el));
     } else if (id === 'c3d') {
       v.dx += dx / cv.clientWidth; v.dy += dy / cv.clientHeight;
     } else {
@@ -1785,6 +1941,144 @@ window.addEventListener('keydown', function (e) {
 window.addEventListener('resize', draw);
 
 // ---------------------------------------------------------------------------
+// resizable panels
+// ---------------------------------------------------------------------------
+
+/* Every panel can be resized by hand, to give one view the room it needs:
+     - the gutter between two panels moves the split between them;
+     - a panel's bottom edge sets the height of its row;
+     - the grip in a panel's bottom-right corner does both at once.
+   Column and row splits are fr weights, so they survive a window resize; the
+   two row heights are pixels.  The canvases fill whatever their panel leaves
+   them and are redrawn whenever that changes (ResizeObserver).  The layout is
+   remembered in this browser (localStorage) -- "reset layout" puts it back. */
+var LAYOUT_KEY = 'layer0.barrierExplorer.layout.v1';
+var LY = null;
+var GRID = {
+  top:   { el: 'gTop',   axis: 'x', tracks: ['k3d', 'gStack'] },
+  stack: { el: 'gStack', axis: 'y', tracks: ['kA', 'kB'] },
+  bot:   { el: 'gBot',   axis: 'x', tracks: ['kG', 'kI', 'kR'] }
+};
+var MIN_TRACK = { x: 200, y: 90 };        // px, smallest a panel may be squeezed to
+
+function $(id) { return document.getElementById(id); }
+function rect(id) { return $(id).getBoundingClientRect(); }
+
+/* The height a panel spends on everything but its canvas (title, key, padding). */
+function chrome(cardId, bodyId) {
+  var inner = document.querySelector('#' + cardId + ' > ' + (bodyId ? '#' + bodyId : '.cv'));
+  return rect(cardId).height - inner.getBoundingClientRect().height;
+}
+
+/* Defaults reproduce the fixed layout this page used to have: a 452 px 3-D
+   canvas, and a bottom row tall enough for the readout without scrolling. */
+function defaultLayout() {
+  var botH = Math.max(214 + chrome('kG'), 214 + chrome('kI'),
+                      chrome('kR', 'readbody') + $('readbody').scrollHeight);
+  return { top: [1.3, 1], stack: [1, 1], bot: [1, 1, 1],
+           topH: Math.round(452 + chrome('k3d')), botH: Math.round(botH) };
+}
+
+function applyLayout() {
+  function fr(a) { return a.map(function (v) { return v + 'fr'; }).join(' 10px '); }
+  $('gTop').style.gridTemplateColumns = fr(LY.top);
+  $('gTop').style.gridTemplateRows = LY.topH + 'px';
+  $('gStack').style.gridTemplateRows = fr(LY.stack);
+  $('gBot').style.gridTemplateColumns = fr(LY.bot);
+  $('gBot').style.gridTemplateRows = LY.botH + 'px';
+}
+
+function saveLayout() {
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(LY)); } catch (e) { /* private window */ }
+}
+function loadLayout() {
+  try {
+    var v = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+    if (v && v.top && v.stack && v.bot && v.topH > 0 && v.botH > 0) return v;
+  } catch (e) { /* unavailable or corrupt: fall back to the defaults */ }
+  return null;
+}
+
+function minRowH(key) {
+  return key === 'topH' ? chrome('k3d') + 140
+                        : Math.max(chrome('kG'), chrome('kI')) + 100;
+}
+
+var redrawQueued = false;
+function redrawSoon() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(function () { redrawQueued = false; draw(); });
+}
+
+/* One drag on a gutter, an edge or a corner. */
+function startResize(e) {
+  var h = e.currentTarget;
+  if (e.button !== 0) return;
+  e.preventDefault();
+  h.setPointerCapture(e.pointerId);
+  var rz = h.getAttribute('data-rz'), gut = h.getAttribute('data-gut');
+  var st = { x: e.clientX, y: e.clientY, rz: rz, min: rz ? minRowH(rz) : 0 };
+  if (rz) st.h0 = LY[rz];
+  if (gut) {
+    var g = GRID[gut.split(':')[0]], i = +gut.split(':')[1];
+    // re-express this grid's weights as the panels' current pixel sizes, so the
+    // drag moves the gutter exactly with the pointer
+    st.g = gut.split(':')[0]; st.i = i; st.axis = g.axis;
+    st.px = g.tracks.map(function (id) { var r = rect(id); return g.axis === 'x' ? r.width : r.height; });
+  }
+  h.classList.add('drag');
+  document.body.classList.add('resizing');
+  document.body.style.setProperty('--rzcur', getComputedStyle(h).cursor);
+
+  function move(ev) {
+    var dx = ev.clientX - st.x, dy = ev.clientY - st.y;
+    if (rz) LY[rz] = Math.round(Math.max(st.min, st.h0 + dy));
+    if (gut) {
+      var d = st.axis === 'x' ? dx : dy, a = st.px[st.i], b = st.px[st.i + 1];
+      var m = MIN_TRACK[st.axis];
+      var na = Math.max(m, Math.min(a + b - m, a + d));
+      var w = st.px.slice();
+      w[st.i] = na; w[st.i + 1] = a + b - na;
+      LY[st.g] = w.map(function (v) { return Math.round(v); });
+    }
+    applyLayout();
+    redrawSoon();
+  }
+  function up() {
+    h.removeEventListener('pointermove', move);
+    h.removeEventListener('pointerup', up);
+    h.removeEventListener('pointercancel', up);
+    h.classList.remove('drag');
+    document.body.classList.remove('resizing');
+    saveLayout();
+  }
+  h.addEventListener('pointermove', move);
+  h.addEventListener('pointerup', up);
+  h.addEventListener('pointercancel', up);
+}
+
+function initLayout() {
+  LY = loadLayout() || defaultLayout();
+  applyLayout();
+  Array.prototype.forEach.call(document.querySelectorAll('.gutter, .rz-b, .rz-c'), function (h) {
+    h.addEventListener('pointerdown', startResize);
+  });
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(redrawSoon);
+    Array.prototype.forEach.call(document.querySelectorAll('.cv'), function (el) { ro.observe(el); });
+  }
+  $('resetLayout').onclick = function () {
+    try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { /* ignore */ }
+    LY = { top: [1.3, 1], stack: [1, 1], bot: [1, 1, 1], topH: 640, botH: 330 };
+    applyLayout();                      // back to the stock tracks, then measure
+    LY = defaultLayout();
+    applyLayout();
+    redrawSoon();
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 (function init() {
   var sel = document.getElementById('fam');
@@ -1795,6 +2089,7 @@ window.addEventListener('resize', draw);
   });
   sel.value = 'max';
   rebuild();
+  initLayout();
 }());
 </script>
 </body>
