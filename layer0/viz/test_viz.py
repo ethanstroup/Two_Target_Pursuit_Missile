@@ -350,6 +350,18 @@ try:
 except Exception as e:
     check(False, 'JS corner cross-check failed: %s' % e)
 
+print('\n10. Coordinates tabs: los_coords.js (world frame -> (R, phi1, phi2), T1 from barrier.js)')
+try:
+    raw = subprocess.run(['node', 'test_los_coords.js'], cwd=HERE, capture_output=True,
+                         text=True, timeout=120)
+    lines = [l.strip() for l in raw.stdout.splitlines() if l.strip()[:4] in ('PASS', 'FAIL')]
+    for l in lines:
+        check(l.startswith('PASS'), l[6:])
+    if raw.returncode != 0 and not lines:
+        check(False, 'node test_los_coords.js failed: ' + (raw.stderr.strip().splitlines() or ['?'])[-1])
+except FileNotFoundError:
+    check(False, 'node not found — cannot run test_los_coords.js')
+
 print('\n' + '=' * 78)
 print('%d passed, %d failed' % (n_pass, n_fail))
 print('=' * 78)

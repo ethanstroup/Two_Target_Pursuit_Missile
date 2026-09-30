@@ -16,7 +16,9 @@ them is the semipermeable sheet.
 | `bup_curves.js` | its twin, for the browser — cross-checked point by point by `test_viz.py` |
 | `visualize.py` | the static figure set → `figs/` |
 | `barrier_explorer.html` | interactive explorer; open it straight from the filesystem |
-| `test_viz.py` | 45 acceptance checks |
+| `los_coords.js` | world frame (x, y, heading) ↔ (R, φ₁, φ₂), for the coordinates tabs; T₁ comes from `../barrier.js` |
+| `test_los_coords.js` | 11 checks on `los_coords.js`, including against `../../heuristic_simulator/sim.js`; `test_viz.py` §10 runs it |
+| `test_viz.py` | 45 acceptance checks, plus the 11 from `test_los_coords.js` |
 
 Both modules call `../barrier.py` / `../barrier.js` for the maths. Nothing here re-derives
 anything.
@@ -29,7 +31,7 @@ python3 layer0/viz/visualize.py [outdir] [--tau 1.5] [--nseed 45]
 ```
 
 The explorer needs no build and no server — open `barrier_explorer.html` in a browser.
-It loads `../barrier.js` and `./bup_curves.js` as plain scripts.
+It loads `../barrier.js`, `./bup_curves.js` and `./los_coords.js` as plain scripts.
 
 - **τ = 0** draws the (BUP) alone, over the target-set boundaries with the Table 2 points
   overlaid, for direct comparison against the printed figures. Raise τ to sweep the sheet.
@@ -91,6 +93,88 @@ It loads `../barrier.js` and `./bup_curves.js` as plain scripts.
   half ends 1e−4 rad short of it. Chips show the control pair on each piece.
   **all on** restores everything; the on/off state survives changing τ or the seed count.
 - **save PNG** stitches the three trajectory views into one image for a deck.
+
+## Coordinates tabs
+
+The tab bar under the title switches between **Barrier Sheet** and two teaching views,
+**Coordinates** and **φ₂ Sweep**. The page remembers the last tab you used in this browser.
+Panel titles are in Title Case and are written once, in each card's `data-title`, so the page
+and the captures always show the same title.
+
+- **Coordinates** has three linked panels:
+  - **World Frame (x, y)**
+    - Drag either aircraft, or the handle at its nose, and the ψ, φ₁ and φ₂ arcs follow, as
+      in D&S Fig. 1.
+    - **envelope in world** draws player 2's firing envelope around it; the envelope turns
+      with player 2.
+  - **Target Frame (Player 2 Body Axes)**
+    - Player 2 sits at the origin, nose up, as in Fig. 2.
+    - The panel is drawn from (R, φ₁, φ₂) alone. Player 1 sits at (−R sin φ₂, R cos φ₂),
+      and its nose must lie in the ±β cone about the line of sight.
+  - **Target Set T₁ in (R, φ₁, φ₂)**
+    - T₁ is drawn as in Fig. 3, with the current state as a dot: green in T₁, red outside.
+    - **φ₂–R** turns the box to the unrolled side view.
+  - **Zoom and pan in the world and target-frame panels**
+    - The wheel zooms about the cursor.
+    - Dragging empty space pans. So does a middle-drag or shift-drag anywhere.
+    - A double-click or the **reset** button restores the view.
+  - **rigid motion** rotates and translates the whole world. It reports the largest change
+    in (R, φ₁, φ₂), which stays at rounding level: only ψ moves.
+  - **↻ spin player 1** turns player 1 continuously, at 36°/s, until pressed again. The
+    state runs parallel to the φ₁ axis.
+  - **fly** integrates unit-speed kinematics with the chosen σ₁ and σ₂ and traces the path
+    in all three panels.
+    - **pause** stops the flight.
+    - **scrub** moves back and forth along the recorded path.
+    - **resume** carries on from the point shown. Anything after that point is re-flown, so
+      a σ changed while paused takes effect from there.
+  - **grid carry** colors points inside the envelope by φ₂ and carries them into the box.
+- **φ₂ Sweep**: player 1 holds φ₁ = 0 at range R while player 2 turns.
+  - Ways to turn player 2:
+    - press and drag in the world panel;
+    - drag in the unrolled plot;
+    - use the slider;
+    - press **play**, which turns it at 36°/s.
+  - The envelope turns with player 2. The amber segment along the line of sight is R̄(φ₂),
+    and the matching slice of the box is highlighted.
+  - R̄ is 3 + π nose-on and 3 tail-on.
+  - The world panel zooms with the wheel and pans with shift-drag or middle-drag.
+- **Capture**: the capture bar in each tab exports the selected panels side by side, each
+  under its title. Underneath go the tab's legend and its readout (**stats**), both optional
+  and both at the same size. The stats are read live, so they change during a video or GIF.
+  - **save PNG** writes one image.
+  - **● record** starts a video and **■ stop** ends it and downloads it. Switching tabs also
+    stops the recording. Chrome and Edge write H.264 MP4, which plays in PowerPoint. A browser
+    without an H.264 recorder writes WebM instead, and the status line says so.
+  - **make GIF** renders one full turn of the tab into a looping GIF, frame by frame. It does
+    not record in real time, so the file is ready when the status line says so.
+    - On Coordinates, you choose whether player 1 or player 2 turns. The full 360° path is
+      drawn in the box and the state dot moves along it.
+    - On φ₂ Sweep, player 2 turns.
+    - Choose 72, 120 or 180 frames, and 1200, 1600 or 2400 px wide, or full size. A full turn
+      lasts about 10 s at any frame count.
+    - The page is held still while the GIF renders and returns to where it was afterwards.
+  - Tab canvases are backed at 2× or more, so captures are sharp on a 1× screen too.
+- **Sizes for slides**: the capture bar's **text size** and **lines & markers** sliders
+  control how big things are drawn. What the panels show is exactly what PNG, video and GIF
+  captures get.
+  - **text size** (100–300 %) scales every piece of text: tick values, axis names, in-plot
+    labels, the status lines, and the capture's panel titles, legend and stats.
+  - **lines & markers** (100–250 %) scales line widths, aircraft, dots and arrowheads. The
+    data still fills each panel.
+  - The sliders are remembered in this browser. **reset** returns them to the file's defaults.
+  - Those defaults, and every base size, are in one block near the top of the tabs' script.
+    Search `barrier_explorer.html` for `PRESENTATION SIZES`. Each entry says what it controls.
+  - All panel titles in a capture share one font size. A title too long for its panel wraps
+    onto two lines instead of shrinking on its own.
+
+Conventions (`los_coords.js`) are those of `heuristic_simulator/sim.js`: φ₁ = ψ − θ₁,
+φ₂ = ψ + π − θ₂ and dθᵢ/dt = −σᵢ, where ψ is the line-of-sight direction from player 1 to
+player 2. So both angles are measured clockwise, φ₁ > 0 puts player 2 on player 1's left, and
+σ = +1 is a right turn. With unit speeds these reproduce `Barrier.stateDot` (checked by finite
+differences). The mirror image — counterclockwise angles, dθ/dt = +σ — satisfies the same
+equations, so `test_los_coords.js` also checks against `Sim.recoverReduced` and `Sim.physDeriv`
+directly. The engagement-geometry panel on the barrier tab uses the same sense.
 
 ## Ordering
 

@@ -13,6 +13,10 @@
   curves).  Nothing here re-derives anything; it only draws.  Both modules are
   checked by test_viz.py and test_barrier_js.js.
 
+  Two more tabs, "Coordinates" and "phi2 Sweep", show how a world-frame picture
+  becomes the state (R, phi1, phi2) and how the firing envelope becomes T1; their
+  maths is ./los_coords.js, checked by test_los_coords.js.
+
   Open it directly in a browser -- file:// is fine.  No build, no server.
 
     wheel            zoom, about the cursor
@@ -155,11 +159,58 @@
   .seg b { font-weight: 600; color: var(--ink3); margin-left: 3px; }
   .seglink { cursor: pointer; color: var(--c0); text-decoration: underline; }
   .note { font-size: 11px; color: var(--ink3); margin-top: 5px; }
+
+  /* ---- tabs: Barrier Sheet | Coordinates | phi2 Sweep ---------------------------
+     Everything for the two coordinate tabs is scoped under .lx / lx- so none of it
+     can restyle the barrier page. */
+  .lx-tabs { display: flex; gap: 6px; margin: 8px 0 12px; }
+  .lx-tabs button { padding: 5px 14px; font-size: 13px; font-weight: 600; }
+  .lx {
+    --lx-max: #d08a00; --lx-min: #8a5cc7; --lx-bore: #0f9fb5; --lx-seam: #7d858e;
+    --lx-p1: #1f5fa8; --lx-p2: #c1442a; --lx-grid: #eef1f4; --lx-axis: #aab2bb;
+  }
+  .lx[hidden] { display: none; }
+  .lx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+  .lx .card { padding-bottom: 9px; }
+  .lx .card h2 { display: block; font-size: 15.5px; font-weight: 700; margin-bottom: 7px; }
+  .lx .card h2 span { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 400; }
+  .lx canvas { aspect-ratio: 1 / 1; touch-action: none; cursor: grab; border-radius: 4px; }
+  .lx canvas.lx-dragging, .lx canvas:active { cursor: grabbing; }
+  .lx-cvwrap { position: relative; }
+  .lx-views { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+  .lx-views.lx-left { left: 6px; right: auto; }
+  .lx-views button { font-size: 11px; padding: 2px 7px; background: rgba(255,255,255,0.92); }
+  .lx-read { display: flex; flex-wrap: wrap; gap: 4px 24px; font-variant-numeric: tabular-nums;
+             font-size: 12.5px; margin-top: 10px; }
+  .lx-read .k { color: var(--ink2); }
+  .lx-read .big { font-size: 18px; font-weight: 600; }
+  .lx-msg { font-size: 12px; color: var(--ink3); margin-top: 6px; min-height: 1.45em; }
+  .lx .key { font-size: 12px; }
+  .lx .key i.lx-max { background: var(--lx-max); } .lx .key i.lx-min { background: var(--lx-min); }
+  .lx .key i.lx-bore { background: var(--lx-bore); } .lx .key i.lx-seam { background: var(--lx-seam); }
+  .lx .key i.lx-p1 { background: var(--lx-p1); } .lx .key i.lx-p2 { background: var(--lx-p2); }
+  .lx-scrub { width: 170px; }
+  .lx-sizes input[type=range] { width: 110px; }
+  .lx-sizes output { min-width: 3.2em; font-size: 12px; }
+  .lx-capbar label.lx-chk { display: inline-flex; align-items: center; gap: 4px; color: var(--ink);
+                            font-size: 12px; white-space: nowrap; cursor: pointer; }
+  .lx-rec.on { background: var(--no); border-color: var(--no); color: #fff; }
+  .lx-recstat { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink3); }
+  .lx-recstat.live { color: var(--no); font-weight: 600; }
+  .lx-missing { padding: 16px; border: 1px solid #e6c9c4; border-left: 4px solid var(--no);
+                border-radius: 8px; background: #fff; }
 </style>
 </head>
 <body>
 
 <h1>Layer 0 — the barrier as a swept surface</h1>
+<nav class="lx-tabs">
+  <button data-lx-tab="barrier" class="on">Barrier Sheet</button>
+  <button data-lx-tab="coords" title="world frame (x, y) → (R, φ₁, φ₂), and the firing envelope → T₁">Coordinates</button>
+  <button data-lx-tab="sweep" title="turn player 2 and watch the max range and the T₁ slice change">φ₂ Sweep</button>
+</nav>
+
+<div id="pageBarrier">
 <div class="sub">
   The boundary of the usable part is a <b>curve</b>. Every point on it is a terminal
   condition: state on the target-set boundary, costate from transversality (Eq. 20).
@@ -282,9 +333,150 @@
     <div class="rz-b" data-rz="botH"></div>
   </div>
 </div>
+</div><!-- /pageBarrier -->
+
+<!-- ======================================================= coordinates tab -->
+<div id="pageCoords" class="lx" hidden>
+  <div class="sub">
+    How a world-frame picture of two aircraft becomes the state (R, φ₁, φ₂) of D&amp;S Fig. 1, and
+    how the firing envelope of Fig. 2 becomes the target set T₁ of Fig. 3. The target-frame panel
+    is drawn from (R, φ₁, φ₂) alone: the world position and ψ are gone. In the world and target-frame
+    panels the wheel zooms and dragging empty space pans; double-click or <b>reset</b> restores the view. Maths:
+    <code>los_coords.js</code>; the target set is <code>../barrier.js</code>'s own Rlo, Rhi and β.
+  </div>
+  <div class="bar">
+    <div class="ctl"><label>presets</label>
+      <button data-lx-preset="headon">head-on</button>
+      <button data-lx-preset="beam">beam</button>
+      <button data-lx-preset="tail">tail chase</button>
+      <button data-lx-preset="tailfar">tail, too far</button>
+      <button data-lx-preset="nose">nose off (|φ₁| &gt; β)</button>
+    </div>
+    <div class="ctl"><label>show</label>
+      <button id="lxRigid" title="rotate and translate the whole world: (R, φ₁, φ₂) do not move">rigid motion</button>
+      <button id="lxSpin" title="turn player 1 continuously: only φ₁ changes">↻ spin player 1</button>
+    </div>
+    <button id="lxEnv" class="on" title="draw the envelope around player 2 in the world frame; it turns with player 2">envelope in world</button>
+    <button id="lxCarry" title="sample points inside the envelope, coloured by φ₂, and carry them into (R, φ₁, φ₂)">grid carry</button>
+  </div>
+  <div class="bar">
+    <div class="ctl"><label for="lxS1">σ₁</label>
+      <select id="lxS1"><option value="pursuit">pursuit (turn to LOS)</option><option value="0">straight</option>
+        <option value="1">+1 (right turn)</option><option value="-1">−1 (left turn)</option></select>
+      <label for="lxS2">σ₂</label>
+      <select id="lxS2"><option value="0">straight</option><option value="evade">evade (turn tail)</option>
+        <option value="1">+1 (right turn)</option><option value="-1">−1 (left turn)</option></select>
+    </div>
+    <button id="lxFly" title="fly both aircraft from the current state">▶ fly</button>
+    <button id="lxPause" disabled title="pause the flight; resume carries on from the point shown">❚❚ pause</button>
+    <div class="ctl"><label for="lxScrub">scrub</label>
+      <input type="range" id="lxScrub" class="lx-scrub" min="0" max="0" step="1" value="0" disabled>
+      <output id="lxScrubOut">t = 0.00</output>
+    </div>
+    <button id="lxClear">clear trail</button>
+  </div>
+  <div class="bar lx-capbar" data-lx-capfor="coords"></div>
+  <div class="lx-grid">
+    <div class="card" data-lx-cap="world" data-title="World Frame (x, y)"
+         data-hint="drag an aircraft or its nose handle · wheel zooms · drag pans">
+      <h2></h2>
+      <div class="lx-cvwrap">
+        <canvas id="lxA"></canvas>
+        <div class="lx-views lx-left"><button data-lx-reset="A">reset</button></div>
+      </div>
+    </div>
+    <div class="card" data-lx-cap="body" data-title="Target Frame (Player 2 Body Axes)"
+         data-hint="D&amp;S Fig. 2 · wheel zooms · drag pans">
+      <h2></h2>
+      <div class="lx-cvwrap">
+        <canvas id="lxB"></canvas>
+        <div class="lx-views lx-left"><button data-lx-reset="B">reset</button></div>
+      </div>
+    </div>
+    <div class="card" data-lx-cap="box" data-title="Target Set T₁ in (R, φ₁, φ₂)"
+         data-hint="D&amp;S Fig. 3 · drag rotates · shift-drag pans · wheel zooms">
+      <h2></h2>
+      <div class="lx-cvwrap">
+        <canvas id="lxC"></canvas>
+        <div class="lx-views" data-lx-for="C">
+          <button data-lx-view="iso">iso</button><button data-lx-view="side">φ₂–R</button>
+          <button data-lx-view="front">φ₁–R</button><button data-lx-view="top">φ₂–φ₁</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="key" style="margin-top:8px">
+    <span><i class="lx-max"></i>Max range R̄(φ₂), Eq. 9</span>
+    <span><i class="lx-min"></i>Min range R<sub>min</sub>(φ₂), Eq. 8</span>
+    <span><i class="lx-bore"></i>Off-boresight |φ₁| = β</span>
+    <span><i class="lx-seam"></i>Tail seam φ₂ = ±π</span>
+    <span><i class="lx-p1"></i>Player 1 (shooter)</span>
+    <span><i class="lx-p2"></i>Player 2 (target)</span>
+  </div>
+  <div class="lx-read" id="lxRead"></div>
+  <div class="lx-msg" id="lxMsg"></div>
+</div>
+
+<!-- ======================================================= phi2 sweep tab -->
+<div id="pageSweep" class="lx" hidden>
+  <div class="sub">
+    Player 1 holds φ₁ = 0 at range R while player 2 turns. The envelope is fixed to player 2's
+    body, so it turns with it, and the maximum range along the line of sight is R̄(φ₂): largest
+    nose-on (φ₂ = 0, R̄ = 3 + π) and smallest tail-on (φ₂ = ±180°, R̄ = 3). Each φ₂ is one
+    slice of the T₁ box.
+  </div>
+  <div class="bar">
+    <div class="ctl"><label for="lxPhi2">φ₂</label>
+      <input type="range" id="lxPhi2" min="-180" max="180" step="0.5" value="0">
+      <output id="lxPhi2Out">0.0°</output>
+      <button id="lxPlay">▶ play</button>
+      <button data-lx-phi2="0">0°</button><button data-lx-phi2="90">90°</button><button data-lx-phi2="180">180°</button>
+    </div>
+    <div class="ctl"><label for="lxR">player 1 range R</label>
+      <input type="range" id="lxR" min="0.2" max="7" step="0.05" value="4.5">
+      <output id="lxROut">4.50</output>
+    </div>
+  </div>
+  <div class="bar lx-capbar" data-lx-capfor="sweep"></div>
+  <div class="lx-grid">
+    <div class="card" data-lx-cap="world" data-title="World Frame (x, y)"
+         data-hint="press and drag to turn player 2 · drag player 1 for R · wheel zooms · shift-drag pans">
+      <h2></h2>
+      <div class="lx-cvwrap">
+        <canvas id="lxSW"></canvas>
+        <div class="lx-views lx-left"><button data-lx-reset="SW">reset</button></div>
+      </div>
+    </div>
+    <div class="card" data-lx-cap="unrolled" data-title="Unrolled Target Set (φ₂, R) at φ₁ = 0"
+         data-hint="press and drag to set φ₂">
+      <h2></h2>
+      <canvas id="lxSU"></canvas>
+    </div>
+    <div class="card" data-lx-cap="box" data-title="Target Set T₁ in (R, φ₁, φ₂)"
+         data-hint="the slice at the current φ₂ · drag rotates · shift-drag pans">
+      <h2></h2>
+      <div class="lx-cvwrap">
+        <canvas id="lxS3"></canvas>
+        <div class="lx-views" data-lx-for="S3">
+          <button data-lx-view="iso">iso</button><button data-lx-view="side">φ₂–R</button>
+          <button data-lx-view="front">φ₁–R</button><button data-lx-view="top">φ₂–φ₁</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="key" style="margin-top:8px">
+    <span><i class="lx-max"></i>Max range R̄(φ₂)</span>
+    <span><i class="lx-min"></i>Min range R<sub>min</sub>(φ₂)</span>
+    <span><i class="lx-bore"></i>Off-boresight |φ₁| = β</span>
+    <span><i class="lx-p1"></i>Player 1 (ring: green in T₁, red outside)</span>
+    <span><i class="lx-p2"></i>Player 2</span>
+  </div>
+  <div class="lx-read" id="lxSweepRead"></div>
+</div>
 
 <script src="../barrier.js"></script>
 <script src="./bup_curves.js"></script>
+<script src="./los_coords.js"></script>
 <script>
 'use strict';
 var B = window.Barrier, C = window.BupCurves;
@@ -1444,7 +1636,10 @@ function draw3d() {
 /* Relative geometry of Eqs. (1)-(3): A1 at the origin, A2 down the line of
    sight at range R.  Each phi_i is that aircraft's own velocity direction
    measured off the LOS toward the other, which is what makes
-   Rdot = -(cos phi_1 + cos phi_2). */
+   Rdot = -(cos phi_1 + cos phi_2).  Both are measured clockwise, as in
+   heuristic_simulator/sim.js (phi1 = psi - th1, phi2 = psi + pi - th2): with
+   psi = 0 the headings are -phi_1 and pi - phi_2.  (A1 used to be drawn at
+   +phi_1, the mirror image of A2's sense.) */
 function drawGeometry() {
   var c = fit(document.getElementById('cG')), g = c.g;
   var sel = selected();
@@ -1475,7 +1670,7 @@ function drawGeometry() {
     g.font = '11px -apple-system, Segoe UI, sans-serif'; g.textAlign = 'center';
     g.fillText(label, x, y + lbly);
   }
-  arrow(ax, ay, p1, HUE[0], 'A₁', 20);
+  arrow(ax, ay, -p1, HUE[0], 'A₁', 20);
   arrow(bx, ay, Math.PI - p2, HUE[1], 'A₂', 20);
 
   g.fillStyle = '#4a5058'; g.textAlign = 'center';
@@ -2090,6 +2285,1404 @@ function initLayout() {
   sel.value = 'max';
   rebuild();
   initLayout();
+}());
+</script>
+<script>
+/* ---------------------------------------------------------------------------
+   The "Coordinates" and "φ₂ Sweep" tabs.  Self-contained: nothing above this
+   script refers to anything below it, and this script touches the barrier page
+   only through the tab switch (it fires a resize so that page re-fits its
+   canvases when it is shown again).
+   Maths: ./los_coords.js for the reduction, ../barrier.js for T₁ itself.
+   Angles follow heuristic_simulator/sim.js: φ₁ = ψ − θ₁, φ₂ = ψ + π − θ₂,
+   dθᵢ/dt = −σᵢ.
+   --------------------------------------------------------------------------- */
+(function coordinateTabs() {
+'use strict';
+var PI = Math.PI, TO_DEG = 180 / PI, TO_RAD = PI / 180;
+var BR = window.Barrier, LC = window.LosCoords;
+function $(id) { return document.getElementById(id); }
+function each(sel, fn, root) { Array.prototype.forEach.call((root || document).querySelectorAll(sel), fn); }
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+// Animation rates are per second of wall-clock time, so they do not depend on
+// the monitor's refresh rate.
+var RATE = { sweep: 36 * TO_RAD, spin: 36 * TO_RAD, fly: 1.2, rigid: 1.2 };
+var FLY_DT = 0.02, FLY_TMAX = 20, RIGID_SECONDS = 4, SPIN_TRAIL = 600;
+
+// ------------------------------------------------------------------ tab switch
+var PAGES = { barrier: 'pageBarrier', coords: 'pageCoords', sweep: 'pageSweep' };
+var TAB_KEY = 'layer0.barrierExplorer.tab.v1';
+var tab = 'barrier';
+function showTab(name) {
+  if (GIF.busy) return;                                 // a GIF is being rendered from this tab
+  if (!PAGES[name]) name = 'barrier';
+  if (REC.active) stopRecording();
+  tab = name;
+  Object.keys(PAGES).forEach(function (k) { $(PAGES[k]).hidden = k !== name; });
+  each('[data-lx-tab]', function (b) { b.classList.toggle('on', b.getAttribute('data-lx-tab') === name); });
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* private window */ }
+  if (name === 'barrier') window.dispatchEvent(new Event('resize'));
+  else if (LC) requestDraw();
+}
+each('[data-lx-tab]', function (b) {
+  b.addEventListener('click', function () { showTab(b.getAttribute('data-lx-tab')); });
+});
+function savedTab() { try { return localStorage.getItem(TAB_KEY); } catch (e) { return null; } }
+
+// Panel titles live once, in data-title, and feed both the page and the captures.
+each('.lx .card[data-title]', function (card) {
+  var h = card.querySelector('h2');
+  h.textContent = card.getAttribute('data-title');
+  if (card.getAttribute('data-hint')) {
+    var s = document.createElement('span'); s.textContent = card.getAttribute('data-hint'); h.appendChild(s);
+  }
+});
+
+var REC = { active: false }, GIF = { busy: false };
+if (!LC) {
+  ['pageCoords', 'pageSweep'].forEach(function (id) {
+    $(id).innerHTML = '<div class="lx-missing"><b>This tab could not load <code>layer0/viz/los_coords.js</code>.</b>' +
+      '<br>The page loads it as <code>./los_coords.js</code>, relative to itself. Put it back and reload.</div>';
+  });
+  showTab(savedTab());
+  return;
+}
+
+var BETA = BR.PARAMS.beta, RBAR0 = BR.PARAMS.Rbar0;
+function fmtDeg(a) {
+  var d = a * TO_DEG;
+  return (Math.abs(Math.abs(d) - 180) < 0.05 ? '±180.0' : d.toFixed(1)) + '°';
+}
+
+// ------------------------------------------------------------------ colours and type
+function palette() {
+  var cs = getComputedStyle($('pageCoords'));
+  function v(n) { return cs.getPropertyValue(n).trim(); }
+  return {
+    ink: v('--ink'), ink2: v('--ink2'), muted: v('--ink3'), panel: v('--panel') || '#ffffff',
+    grid: v('--lx-grid'), axis: v('--lx-axis'),
+    max: v('--lx-max'), min: v('--lx-min'), bore: v('--lx-bore'), seam: v('--lx-seam'),
+    p1: v('--lx-p1'), p2: v('--lx-p2'), ok: v('--ok'), bad: v('--no')
+  };
+}
+function rgba(hex, a) {
+  var h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+  var n = parseInt(h, 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function hueFor(phi2) { return 'hsl(' + ((phi2 + PI) / (2 * PI)) * 330 + ',70%,48%)'; }
+
+var FAM = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+// ============================================================================
+//  PRESENTATION SIZES  --  the one place to change how big things are drawn.
+//
+//  Sizes are screen pixels at 100 %.  The "text size" and "lines & markers"
+//  sliders in each tab's capture bar multiply these live, and whatever the
+//  sliders show is exactly what PNG, video and GIF captures get.  The sliders
+//  are remembered in this browser; their "reset" button returns to textScale
+//  and lineScale below.  Edit a number, save, reload the page.
+// ============================================================================
+var SIZES = {
+  // text drawn inside the panels
+  tick: 12.5,          // axis tick values: 0, 2, 4 ... and -pi, pi/2 ...
+  text: 13,            // small notes: "reference", "nose-on", "tail", the grid-carry note
+  label: 14,           // bold in-plot labels: phi1, phi2, psi, "R = 4.58", "R-bar = 3.57", 1 and 2
+  axis: 16,            // axis names: x, y, x', y' (nose), R, phi1, phi2
+  status: 13,          // "Inside / Outside the envelope" lines in the target frame
+  // text added around the panels in PNG, video and GIF captures
+  captureTitle: 24,    // the panel titles
+  captureText: 19,     // the legend and stats rows
+  // where the sliders start (1 = 100 %)
+  textScale: 1.6,      // multiplies every size above
+  lineScale: 1.0       // multiplies line widths, aircraft, dots and arrowheads
+};
+var SIZE_KEY = 'layer0.barrierExplorer.sizes.v1';
+var UI = (function () {
+  var u = { text: SIZES.textScale, line: SIZES.lineScale };
+  try { var v = JSON.parse(localStorage.getItem(SIZE_KEY) || 'null'); if (v && v.text > 0 && v.line > 0) u = v; } catch (e) { /* none saved */ }
+  return u;
+}());
+/* Panels draw in logical pixels = screen pixels / UI.line, so lines and markers grow
+   with UI.line while the data still fills the panel.  Text is set in logical pixels
+   too, so TS = UI.text / UI.line makes on-screen text exactly SIZES x UI.text. */
+var F_TEXT, F_TICK, F_LABEL, F_AXIS, F_STATUS, TS;
+function applySizes() {
+  TS = UI.text / UI.line;
+  function f(n, weight) { return (weight ? weight + ' ' : '') + (n * TS).toFixed(2) + 'px ' + FAM; }
+  F_TEXT = f(SIZES.text); F_TICK = f(SIZES.tick); F_LABEL = f(SIZES.label, 600);
+  F_AXIS = f(SIZES.axis, 700); F_STATUS = f(SIZES.status, 600);
+}
+applySizes();
+
+// ------------------------------------------------------------------ canvas helpers
+/* Backed at 2x or the display's own ratio, whichever is larger, so PNG and video
+   captures are sharp enough for slides even on a 1x screen. */
+function fitCanvas(cv) {
+  var dpr = Math.max(2, window.devicePixelRatio || 1), cw = cv.clientWidth, ch = cv.clientHeight;
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) {
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  }
+  var ctx = cv.getContext('2d'), w = cw / UI.line, h = ch / UI.line;     // logical size
+  ctx.setTransform(dpr * UI.line, 0, 0, dpr * UI.line, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = F_TEXT; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  return { ctx: ctx, w: w, h: h };
+}
+function pointerXY(cv, e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / UI.line, (e.clientY - r.top) / UI.line]; }
+function noMiddleScroll(cv) { cv.addEventListener('mousedown', function (e) { if (e.button === 1) e.preventDefault(); }); }
+
+/* Text with a thin halo in the panel colour, so labels stay legible over lines. */
+function haloText(ctx, text, x, y, color, font, align, base, halo) {
+  ctx.font = font; ctx.textAlign = align || 'left'; ctx.textBaseline = base || 'middle';
+  if (halo) { ctx.lineWidth = 3.5; ctx.strokeStyle = halo; ctx.strokeText(text, x, y); }
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+/* Text on a filled box in the panel colour (tick values). */
+function boxText(ctx, text, x, y, color, font, align, base, bg) {
+  ctx.font = font; ctx.textAlign = align; ctx.textBaseline = base;
+  var w = ctx.measureText(text).width, h = parseFloat(font.match(/([\d.]+)px/)[1]) * 1.15;
+  var x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  var y0 = base === 'bottom' ? y - h : base === 'top' ? y : y - h / 2;
+  ctx.fillStyle = bg; ctx.fillRect(x0 - 2, y0 - 1, w + 4, h + 2);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+function dotPx(ctx, x, y, r, fill, ring, ringW) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * PI);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = ringW || 1.5; ctx.stroke(); }
+}
+
+// ------------------------------------------------------------------ 2-D view (zoom + pan)
+function View2D(cv, extent, center, axisNames) {
+  this.cv = cv; this.axisNames = axisNames || ['x', 'y'];
+  this.home = { extent: extent, center: (center || [0, 0]).slice() };
+  this.w = cv.clientWidth || 300; this.h = cv.clientHeight || 300;
+  this.reset();
+}
+View2D.prototype.reset = function () {
+  this.extent = this.home.extent; this.center = this.home.center.slice(); this.s = this.scale();
+};
+View2D.prototype.scale = function () { return Math.min(this.w, this.h) / (2 * this.extent); };
+View2D.prototype.begin = function () {
+  var c = fitCanvas(this.cv);
+  this.ctx = c.ctx; this.w = c.w; this.h = c.h; this.s = this.scale();
+  return this.ctx;
+};
+View2D.prototype.px = function (p) {
+  return [this.w / 2 + (p[0] - this.center[0]) * this.s, this.h / 2 - (p[1] - this.center[1]) * this.s];
+};
+View2D.prototype.inv = function (x, y) {
+  return [(x - this.w / 2) / this.s + this.center[0], -(y - this.h / 2) / this.s + this.center[1]];
+};
+/* Zoom by factor f keeping the world point under (x, y) fixed. */
+View2D.prototype.zoomAt = function (x, y, f) {
+  var a = this.inv(x, y);
+  this.extent = clamp(this.extent * f, 0.4, 80); this.s = this.scale();
+  var b = this.inv(x, y);
+  this.center[0] += a[0] - b[0]; this.center[1] += a[1] - b[1];
+};
+View2D.prototype.panPx = function (dx, dy) { this.center[0] -= dx / this.s; this.center[1] += dy / this.s; };
+
+/* Wheel zooms about the cursor.  A left-drag goes to opts.hit's handle if there is
+   one; otherwise it pans when opts.panOnDrag.  Middle-drag and shift-drag always pan.
+   Double-click on empty space resets the view. */
+function attach2D(v, opts) {
+  var cv = v.cv, mode = null, last = null;
+  noMiddleScroll(cv);
+  cv.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 && e.button !== 1) return;
+    var p = pointerXY(cv, e);
+    var h = (e.button === 0 && !e.shiftKey && opts.hit) ? opts.hit(p[0], p[1]) : null;
+    if (h) { mode = h; if (opts.start) opts.start(h, p[0], p[1]); }
+    else if (opts.panOnDrag || e.button === 1 || e.shiftKey) mode = 'pan';
+    else return;
+    last = p; cv.setPointerCapture(e.pointerId); cv.classList.add('lx-dragging');
+    requestDraw();
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!mode) return;
+    var p = pointerXY(cv, e);
+    if (mode === 'pan') v.panPx(p[0] - last[0], p[1] - last[1]);
+    else if (opts.drag) opts.drag(mode, p[0], p[1]);
+    last = p; requestDraw();
+  });
+  function end() { mode = null; cv.classList.remove('lx-dragging'); }
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var p = pointerXY(cv, e);
+    v.zoomAt(p[0], p[1], Math.exp(e.deltaY * 0.0012)); requestDraw();
+  }, { passive: false });
+  cv.addEventListener('dblclick', function (e) {
+    var p = pointerXY(cv, e);
+    if (opts.hit && opts.hit(p[0], p[1])) return;
+    v.reset(); requestDraw();
+  });
+}
+
+function niceStep(span) {
+  var raw = span / 8, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  var ms = [1, 2, 5, 10];
+  for (var i = 0; i < ms.length; i++) if (ms[i] * mag >= raw) return ms[i] * mag;
+  return 10 * mag;
+}
+function fmtTick(x, step) {
+  var d = step >= 1 ? 0 : Math.ceil(-Math.log10(step) - 1e-9);
+  var s = x.toFixed(d);
+  if (Number(s) === 0) s = '0';
+  return s.replace('-', '−');
+}
+function gridLines(v) {
+  var tl = v.inv(0, 0), br = v.inv(v.w, v.h), step = niceStep(2 * v.extent), xs = [], ys = [], i;
+  for (i = Math.ceil(tl[0] / step); i * step <= br[0]; i++) xs.push(i * step);
+  for (i = Math.ceil(br[1] / step); i * step <= tl[1]; i++) ys.push(i * step);
+  return { xs: xs, ys: ys, step: step };
+}
+function drawGrid2D(v, C) {
+  var ctx = v.ctx, g = gridLines(v), q;
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
+  g.xs.forEach(function (x) { q = v.px([x, 0]); ctx.moveTo(q[0], 0); ctx.lineTo(q[0], v.h); });
+  g.ys.forEach(function (y) { q = v.px([0, y]); ctx.moveTo(0, q[1]); ctx.lineTo(v.w, q[1]); });
+  ctx.stroke();
+  q = v.px([0, 0]);
+  ctx.strokeStyle = C.axis; ctx.lineWidth = 1.2; ctx.beginPath();
+  if (q[0] >= 0 && q[0] <= v.w) { ctx.moveTo(q[0], 0); ctx.lineTo(q[0], v.h); }
+  if (q[1] >= 0 && q[1] <= v.h) { ctx.moveTo(0, q[1]); ctx.lineTo(v.w, q[1]); }
+  ctx.stroke();
+}
+/* Tick values along the bottom and left edges, and the axis names; drawn last. */
+function drawAxes2D(v, C) {
+  var ctx = v.ctx, g = gridLines(v), q;
+  g.xs.forEach(function (x) {
+    q = v.px([x, 0]);
+    if (q[0] < 60 / UI.line || q[0] > v.w - 30 - 40 * TS) return;
+    boxText(ctx, fmtTick(x, g.step), q[0], v.h - 6, C.ink2, F_TICK, 'center', 'bottom', C.panel);
+  });
+  g.ys.forEach(function (y) {
+    q = v.px([0, y]);
+    if (q[1] < 14 + 20 * TS || q[1] > v.h - 14 - 20 * TS) return;
+    boxText(ctx, fmtTick(y, g.step), 6, q[1], C.ink2, F_TICK, 'left', 'middle', C.panel);
+  });
+  haloText(ctx, v.axisNames[0], v.w - 8, v.h - 6, C.ink, F_AXIS, 'right', 'bottom', C.panel);
+  haloText(ctx, v.axisNames[1], 8, 8, C.ink, F_AXIS, 'left', 'top', C.panel);
+}
+
+function polyline(v, pts, color, width, dash) {
+  var ctx = v.ctx;
+  ctx.beginPath();
+  pts.forEach(function (p, i) { var q = v.px(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+  ctx.strokeStyle = color; ctx.lineWidth = width || 1.5; ctx.setLineDash(dash || []);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function label(v, p, text, color, dx, dy, align, font) {
+  var q = v.px(p);
+  haloText(v.ctx, text, q[0] + (dx || 0), q[1] + (dy || 0), color, font || F_TEXT, align || 'left', 'middle', palette().panel);
+}
+
+/* Arc of radius r about c from world angle a0 through the signed sweep delta, arrowhead at the end. */
+function arcWorld(v, c, r, a0, delta, color, text) {
+  var n = Math.max(8, Math.ceil(Math.abs(delta) * 20)), pts = [], i;
+  for (i = 0; i <= n; i++) { var a = a0 + delta * i / n; pts.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); }
+  polyline(v, pts, color, 1.8);
+  if (Math.abs(delta) > 0.02) {
+    var e = v.px(pts[n]), p = v.px(pts[n - 1]), ang = Math.atan2(e[1] - p[1], e[0] - p[0]), ctx = v.ctx;
+    ctx.beginPath(); ctx.moveTo(e[0], e[1]);
+    ctx.lineTo(e[0] - 8 * Math.cos(ang - 0.4), e[1] - 8 * Math.sin(ang - 0.4));
+    ctx.lineTo(e[0] - 8 * Math.cos(ang + 0.4), e[1] - 8 * Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  }
+  if (text) {
+    var am = a0 + delta / 2, rr = r + (8 + 9 * TS) / v.s;
+    label(v, [c[0] + rr * Math.cos(am), c[1] + rr * Math.sin(am)], text, color, 0, 0, 'center', F_LABEL);
+  }
+}
+
+/* Aircraft glyph at p pointing along th; with handleLen, a heading line ending in a drag handle.
+   The number sits below-left, or below-right when labelRight. */
+function aircraft(v, p, th, color, text, handleLen, labelRight) {
+  var ctx = v.ctx, q = v.px(p), sz = 10;
+  if (handleLen) {
+    var tip = [p[0] + handleLen * Math.cos(th), p[1] + handleLen * Math.sin(th)];
+    polyline(v, [p, tip], color, 2);
+    var t = v.px(tip); dotPx(ctx, t[0], t[1], 5.5, color);
+  }
+  ctx.save(); ctx.translate(q[0], q[1]); ctx.rotate(-th);
+  ctx.beginPath(); ctx.moveTo(sz * 1.5, 0); ctx.lineTo(-sz, sz * 0.8); ctx.lineTo(-sz * 0.5, 0); ctx.lineTo(-sz, -sz * 0.8);
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.restore();
+  if (text) label(v, p, text, color, (labelRight ? 1 : -1) * (10 + 5 * TS), 10 + 7 * TS, 'center', F_LABEL);
+}
+
+/* Boundary R = fn(φ₂) of the envelope around player 2 at c, heading th2: the point at
+   aspect a lies along LosCoords.losDirFromTarget(th2, a) at distance fn(a). */
+function envelopePoints(c, th2, fn, n) {
+  var pts = [];
+  for (var i = 0; i <= n; i++) {
+    var a = -PI + 2 * PI * i / n, ang = LC.losDirFromTarget(th2, a), r = fn(a);
+    pts.push([c[0] + r * Math.cos(ang), c[1] + r * Math.sin(ang)]);
+  }
+  return pts;
+}
+function drawEnvelope(v, C, c, th2, fillAlpha) {
+  var outer = envelopePoints(c, th2, LC.rHi, 240), inner = envelopePoints(c, th2, LC.rLo, 120), ctx = v.ctx;
+  ctx.beginPath();
+  [outer, inner].forEach(function (pts) {
+    pts.forEach(function (p, i) { var q = v.px(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+  });
+  ctx.fillStyle = rgba(C.max, fillAlpha); ctx.fill('evenodd');
+  polyline(v, outer, C.max, 2);
+  polyline(v, inner, C.min, 2);
+}
+
+// ------------------------------------------------------------------ 3-D view
+/* Axes as in D&S Fig. 3: X = φ₂, Y = φ₁ (radians), Z = kz·R.  Drag rotates;
+   shift-drag or middle-drag pans; wheel zooms; double-click resets. */
+var VIEWS = { iso: [-0.55, 0.42], side: [0, 0], front: [-PI / 2, 0], top: [0, PI / 2 - 0.001] };
+function View3D(cv) {
+  var v = this, mode = null, last = null;
+  this.cv = cv; this.kz = 0.5; this.zc = 1.55; this.reset();
+  noMiddleScroll(cv);
+  cv.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 && e.button !== 1) return;
+    mode = (e.button === 1 || e.shiftKey) ? 'pan' : 'rot';
+    last = pointerXY(cv, e); cv.setPointerCapture(e.pointerId); cv.classList.add('lx-dragging');
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!mode) return;
+    var p = pointerXY(cv, e), dx = p[0] - last[0], dy = p[1] - last[1];
+    if (mode === 'pan') { v.offX += dx; v.offY += dy; }
+    else { v.yaw += dx * 0.01; v.pitch = clamp(v.pitch + dy * 0.01, -0.2, PI / 2 - 0.001); }
+    last = p; requestDraw();
+  });
+  function end() { mode = null; cv.classList.remove('lx-dragging'); }
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', function (e) {
+    e.preventDefault(); v.zoom = clamp(v.zoom * Math.exp(-e.deltaY * 0.0012), 0.4, 5); requestDraw();
+  }, { passive: false });
+  cv.addEventListener('dblclick', function () { v.reset(); requestDraw(); });
+}
+View3D.prototype.reset = function () {
+  this.yaw = VIEWS.iso[0]; this.pitch = VIEWS.iso[1]; this.zoom = 1; this.offX = 0; this.offY = 0;
+};
+View3D.prototype.setView = function (name) {
+  this.reset(); this.yaw = VIEWS[name][0]; this.pitch = VIEWS[name][1]; requestDraw();
+};
+View3D.prototype.begin = function () {
+  var c = fitCanvas(this.cv);
+  this.ctx = c.ctx; this.w = c.w; this.h = c.h; this.s = Math.min(c.w, c.h) / 7.0 * this.zoom;
+  return this.ctx;
+};
+View3D.prototype.P = function (phi2, phi1, R) {
+  var cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+  var Z = R * this.kz - this.zc, x1 = phi2 * cy - phi1 * sy, y1 = phi2 * sy + phi1 * cy;
+  return [this.w / 2 + this.offX + this.s * x1, this.h / 2 + this.offY - this.s * (y1 * sp + Z * cp), y1 * cp - Z * sp];
+};
+
+function line3(v, pts, color, width, dash) {
+  var ctx = v.ctx;
+  ctx.beginPath();
+  pts.forEach(function (p, i) { var q = v.P(p[0], p[1], p[2]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+  ctx.strokeStyle = color; ctx.lineWidth = width || 1.5; ctx.setLineDash(dash || []);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function text3(v, p, text, color, font, dx, dy) {
+  var q = v.P(p[0], p[1], p[2]);
+  haloText(v.ctx, text, q[0] + (dx || 0), q[1] + (dy || 0), color, font || F_TICK, 'center', 'middle', palette().panel);
+}
+
+/* Faces of T₁ as quads, each tagged with the constraint it belongs to. */
+function buildBoxFaces(n) {
+  var faces = [], i;
+  for (i = 0; i < n; i++) {
+    var a = -PI + 2 * PI * i / n, b = -PI + 2 * PI * (i + 1) / n;
+    var ta = LC.rHi(a), tb = LC.rHi(b), ma = LC.rLo(a), mb = LC.rLo(b);
+    faces.push({ k: 'max', v: [[a, -BETA, ta], [b, -BETA, tb], [b, BETA, tb], [a, BETA, ta]] });
+    faces.push({ k: 'min', v: [[a, -BETA, ma], [b, -BETA, mb], [b, BETA, mb], [a, BETA, ma]] });
+    [-BETA, BETA].forEach(function (y) { faces.push({ k: 'bore', v: [[a, y, ma], [b, y, mb], [b, y, tb], [a, y, ta]] }); });
+  }
+  [-PI, PI].forEach(function (c) {
+    var lo = LC.rLo(c), hi = LC.rHi(c);
+    faces.push({ k: 'seam', v: [[c, -BETA, lo], [c, BETA, lo], [c, BETA, hi], [c, -BETA, hi]] });
+  });
+  return faces;
+}
+var BOX_FACES = buildBoxFaces(96);        // even n puts a node on the φ₂ = 0 ridge
+
+function drawAxes3D(v, C) {
+  line3(v, [[-PI - 0.4, 0, 0], [PI + 0.5, 0, 0]], C.ink2, 1.3);
+  line3(v, [[0, -1.3, 0], [0, 1.3, 0]], C.ink2, 1.3);
+  line3(v, [[0, 0, 0], [0, 0, 7]], C.ink2, 1.3);
+  [[-PI, '−π'], [-PI / 2, '−π/2'], [PI / 2, 'π/2'], [PI, 'π']].forEach(function (t) {
+    line3(v, [[t[0], -0.08, 0], [t[0], 0.08, 0]], C.ink2, 1.3);
+    text3(v, [t[0], -0.3, 0], t[1], C.ink2);
+  });
+  [[-PI / 4, '−π/4'], [PI / 4, 'π/4']].forEach(function (t) { text3(v, [0.32, t[0], 0], t[1], C.ink2); });
+  [2, 4, 6].forEach(function (r) { text3(v, [0, 0, r], String(r), C.ink2, F_TICK, -6 - 8 * TS, 0); });
+}
+function drawAxisNames3D(v, C) {
+  text3(v, [PI + 0.8, 0, 0], 'φ₂', C.ink, F_AXIS);
+  text3(v, [0, 1.6, 0], 'φ₁', C.ink, F_AXIS);
+  text3(v, [0, 0, 7.45], 'R', C.ink, F_AXIS);
+}
+function drawBoxEdges(v, C) {
+  var n = 192;
+  [-BETA, BETA].forEach(function (y) {
+    var top = [], bot = [];
+    for (var i = 0; i <= n; i++) { var a = -PI + 2 * PI * i / n; top.push([a, y, LC.rHi(a)]); bot.push([a, y, LC.rLo(a)]); }
+    line3(v, top, C.max, 1.8); line3(v, bot, C.min, 1.8);
+  });
+  [-PI, PI].forEach(function (c) {
+    var lo = LC.rLo(c), hi = LC.rHi(c);
+    line3(v, [[c, -BETA, lo], [c, BETA, lo], [c, BETA, hi], [c, -BETA, hi], [c, -BETA, lo]], C.seam, 1.5);
+  });
+  line3(v, [[0, -BETA, RBAR0], [0, BETA, RBAR0]], C.max, 2.4);     // the φ₂ = 0 ridge
+}
+/* Translucent T₁, painter-sorted. */
+function drawBox(v, C, fillAlpha) {
+  var ctx = v.ctx, col = { max: C.max, min: C.min, bore: C.bore, seam: C.seam };
+  drawAxes3D(v, C);
+  BOX_FACES.map(function (f) {
+    var q = f.v.map(function (p) { return v.P(p[0], p[1], p[2]); });
+    return { q: q, d: (q[0][2] + q[1][2] + q[2][2] + q[3][2]) / 4, k: f.k };
+  }).sort(function (a, b) { return b.d - a.d; }).forEach(function (p) {
+    ctx.beginPath();
+    p.q.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+    ctx.closePath(); ctx.fillStyle = rgba(col[p.k], fillAlpha); ctx.fill();
+  });
+  drawBoxEdges(v, C);
+}
+function dot3(v, C, phi2, phi1, R, color, radius) {
+  var Rc = Math.min(R, 7.5);
+  line3(v, [[phi2, phi1, Rc], [phi2, phi1, 0]], C.muted, 1, [3, 3]);
+  var f = v.P(phi2, phi1, 0), q = v.P(phi2, phi1, Rc);
+  dotPx(v.ctx, f[0], f[1], 2.5, C.muted);
+  dotPx(v.ctx, q[0], q[1], radius || 6, color, C.panel, 1.5);
+}
+/* The cross-section of T₁ at one φ₂, plus the max-range edge at φ₁ = 0 from the ridge to it. */
+function drawSlice(v, C, phi2) {
+  var lo = LC.rLo(phi2), hi = LC.rHi(phi2), ctx = v.ctx;
+  var q = [[phi2, -BETA, lo], [phi2, BETA, lo], [phi2, BETA, hi], [phi2, -BETA, hi]].map(function (p) { return v.P(p[0], p[1], p[2]); });
+  ctx.beginPath(); q.forEach(function (p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }); ctx.closePath();
+  ctx.fillStyle = rgba(C.max, 0.32); ctx.fill();
+  line3(v, [[phi2, -BETA, lo], [phi2, -BETA, hi]], C.bore, 3);
+  line3(v, [[phi2, BETA, lo], [phi2, BETA, hi]], C.bore, 3);
+  line3(v, [[phi2, -BETA, lo], [phi2, BETA, lo]], C.min, 4);
+  line3(v, [[phi2, -BETA, hi], [phi2, BETA, hi]], C.max, 5);
+  var path = [];
+  for (var i = 0; i <= 60; i++) { var a = phi2 * i / 60; path.push([a, 0, LC.rHi(a)]); }
+  line3(v, path, C.max, 3, [6, 4]);
+  text3(v, [phi2, BETA, hi], 'R̄ = ' + hi.toFixed(2), C.ink, F_LABEL, 0, -18 * TS);
+}
+/* A path through (R, φ₁, φ₂), broken wherever an angle wraps. */
+function statePath3(v, states, color, width) {
+  var seg = [];
+  function flush() { if (seg.length > 1) line3(v, seg, color, width); seg = []; }
+  states.forEach(function (s, i) {
+    var pr = states[i - 1];
+    if (pr && (Math.abs(s.phi1 - pr.phi1) > PI || Math.abs(s.phi2 - pr.phi2) > PI)) flush();
+    seg.push([s.phi2, s.phi1, Math.min(s.R, 7.5)]);
+  });
+  flush();
+}
+
+// ------------------------------------------------------------------ state
+var PRESETS = {
+  headon:  { p1: [-2, 0],    th1: 0,           p2: [2, 0],    th2: PI },
+  beam:    { p1: [-1.5, 0],  th1: 0,           p2: [1.5, 0],  th2: PI / 2 },
+  tail:    { p1: [-1.25, 0], th1: 0,           p2: [1.25, 0], th2: 0 },
+  tailfar: { p1: [-2, 0],    th1: 0,           p2: [2, 0],    th2: 0 },
+  nose:    { p1: [-2, 0],    th1: 60 * TO_RAD, p2: [2, 0],    th2: PI }
+};
+var S = {
+  world: { p1: [-1.8, -0.9], th1: 35 * TO_RAD, p2: [1.6, 0.9], th2: 115 * TO_RAD },
+  flight: null,          // { pts: [{t, w, s}], k: index shown, running, ended, entry: index | null, acc }
+  spin: { on: false, trail: [] },
+  rigid: null,           // { t, dev, s0 }
+  msg: '', envWorld: true, carry: false,
+  sweep: { phi2: 0, R: 4.5, playing: false }
+};
+function cloneWorld(w) { return { p1: w.p1.slice(), th1: w.th1, p2: w.p2.slice(), th2: w.th2 }; }
+function current() { return LC.worldToLos(S.world); }
+var CARRY = (function () {
+  var pts = [];
+  for (var i = 0; i < 48; i++) {
+    var a = -PI + 2 * PI * (i + 0.5) / 48, lo = LC.rLo(a), hi = LC.rHi(a);
+    for (var j = 0; j < 7; j++) pts.push({ phi2: a, R: lo + (hi - lo) * (j + 0.5) / 7 });
+  }
+  return pts;
+}());
+
+var vA = new View2D($('lxA'), 5.5, [0, 0], ['x', 'y']);
+var vB = new View2D($('lxB'), 5.0, [0, 1.4], ['x′', 'y′ (nose)']);
+var vC = new View3D($('lxC'));
+var vSW = new View2D($('lxSW'), 7.3, [-0.7, 0], ['x', 'y']);
+var vS3 = new View3D($('lxS3'));
+var VIEW2D = { A: vA, B: vB, SW: vSW };
+
+// ------------------------------------------------------------------ modes
+function stopSpin() { S.spin.on = false; S.spin.trail = []; syncSpin(); }
+function clearFlight() { S.flight = null; syncFly(); }
+function syncSpin() {
+  var b = $('lxSpin');
+  b.textContent = S.spin.on ? '❚❚ stop spin' : '↻ spin player 1';
+  b.classList.toggle('on', S.spin.on);
+}
+function syncFly() {
+  var F = S.flight, sl = $('lxScrub'), pb = $('lxPause');
+  if (!F) {
+    sl.disabled = true; sl.max = 0; sl.value = 0; $('lxScrubOut').textContent = 't = 0.00';
+    pb.disabled = true; pb.textContent = '❚❚ pause'; pb.classList.remove('on');
+    return;
+  }
+  sl.disabled = false; sl.max = F.pts.length - 1; sl.value = F.k;
+  $('lxScrubOut').textContent = 't = ' + F.pts[F.k].t.toFixed(2);
+  pb.disabled = !F.running && F.ended && F.k === F.pts.length - 1;
+  pb.textContent = F.running ? '❚❚ pause' : '▶ resume';
+  pb.classList.toggle('on', F.running);
+}
+/* A hand edit (drag, preset) ends the flight and the rigid motion; a spin keeps going. */
+function onHandEdit() { clearFlight(); S.rigid = null; S.spin.trail = []; S.msg = ''; }
+
+// ------------------------------------------------------------------ flight
+function sigma(which, s) {
+  var mode = $(which === 1 ? 'lxS1' : 'lxS2').value;          // read live: change it mid-flight
+  if (mode === 'pursuit') return clamp(-10 * s.phi1, -1, 1);
+  if (mode === 'evade') return clamp(-10 * BR.wrap(s.phi2 - PI), -1, 1);
+  return Number(mode);
+}
+function startFlight() {
+  stopSpin(); S.rigid = null;
+  var s = current();
+  S.flight = { pts: [{ t: 0, w: cloneWorld(S.world), s: s }], k: 0, running: true, ended: false,
+               entry: LC.inT1(s) ? 0 : null, acc: 0 };
+  syncFly(); requestDraw();
+}
+function flightStep(F) {
+  var last = F.pts[F.pts.length - 1];
+  var w = LC.rk4World(last.w, sigma(1, last.s), sigma(2, last.s), FLY_DT), s = LC.worldToLos(w);
+  F.pts.push({ t: last.t + FLY_DT, w: w, s: s });
+  if (F.entry === null && LC.inT1(s)) F.entry = F.pts.length - 1;
+  if (last.t + FLY_DT >= FLY_TMAX - 1e-9 || s.R < 0.05) { F.running = false; F.ended = true; }
+}
+/* Resume from the point shown: anything recorded after it is dropped and re-flown,
+   so a σ changed while paused takes effect from there. */
+function resumeFlight() {
+  var F = S.flight;
+  if (F.k < F.pts.length - 1) {
+    F.pts.length = F.k + 1; F.ended = false;
+    if (F.entry !== null && F.entry > F.k) F.entry = null;
+  }
+  if (F.ended) return;
+  F.running = true; F.acc = 0;
+}
+function flightMsg(F) {
+  var t = F.pts[F.k].t.toFixed(2);
+  var head = F.running ? 'Flying: t = ' + t : F.ended && F.k === F.pts.length - 1 ? 'Finished at t = ' + t
+           : 'Paused at t = ' + t + ' — scrub to review, resume to carry on from here';
+  if (F.entry !== null && F.entry <= F.k) head += ' · entered T₁ at t = ' + F.pts[F.entry].t.toFixed(2) +
+    ', R = ' + F.pts[F.entry].s.R.toFixed(2) + ' (green ring)';
+  return head;
+}
+
+// ------------------------------------------------------------------ animation step
+function stepAnim(dt) {
+  var F = S.flight;
+  if (S.rigid) {
+    var r = S.rigid;
+    S.world = LC.rigidMotion(S.world, RATE.rigid * dt, 2.1 * dt * Math.cos(3 * r.t), 2.1 * dt * Math.sin(3 * r.t));
+    r.t += dt; r.dev = Math.max(r.dev, LC.stateDiff(current(), r.s0));
+    S.msg = 'Rigid motion: the whole world rotates and translates. Largest change in (R, φ₁, φ₂) so far: ' +
+            r.dev.toExponential(1) + '. Only ψ changes.';
+    if (r.t >= RIGID_SECONDS) S.rigid = null;
+  }
+  if (S.spin.on) {
+    S.world.th1 = BR.wrap(S.world.th1 + RATE.spin * dt);
+    S.spin.trail.push(current());
+    if (S.spin.trail.length > SPIN_TRAIL) S.spin.trail.shift();
+    S.msg = 'Spinning player 1: only φ₁ changes, so the state runs parallel to the φ₁ axis and is in T₁ only while |φ₁| ≤ β.';
+  }
+  if (F && F.running) {
+    F.acc += RATE.fly * dt;
+    while (F.acc >= FLY_DT && F.running) { flightStep(F); F.acc -= FLY_DT; }
+    F.k = F.pts.length - 1;
+    S.world = cloneWorld(F.pts[F.k].w);
+  }
+  if (F) { S.msg = flightMsg(F); syncFly(); }
+  if (S.sweep.playing) { S.sweep.phi2 = BR.wrap(S.sweep.phi2 + RATE.sweep * dt); syncSweepInputs(); }
+}
+function animating() { return !!(S.rigid || S.spin.on || (S.flight && S.flight.running) || S.sweep.playing); }
+
+// ------------------------------------------------------------------ Coordinates tab
+function drawWorldA(C, s) {
+  var v = vA, w = S.world, F = S.flight;
+  v.begin(); drawGrid2D(v, C);
+  polyline(v, [[w.p1[0] - 0.8, w.p1[1]], [w.p1[0] + 3, w.p1[1]]], C.muted, 1, [5, 4]);
+  label(v, [w.p1[0] + 3, w.p1[1]], 'reference', C.muted, 4, 0);
+  if (S.envWorld) drawEnvelope(v, C, w.p2, w.th2, 0.10);
+  var u = [Math.cos(s.psi), Math.sin(s.psi)];
+  polyline(v, [[w.p1[0] - 0.6 * u[0], w.p1[1] - 0.6 * u[1]], [w.p2[0] + 0.6 * u[0], w.p2[1] + 0.6 * u[1]]], C.ink2, 1.3, [6, 4]);
+  label(v, [(w.p1[0] + w.p2[0]) / 2, (w.p1[1] + w.p2[1]) / 2], 'R = ' + s.R.toFixed(2), C.ink, 6, -14 * TS, 'left', F_LABEL);
+  if (F && F.pts.length > 1) {
+    var done = F.pts.slice(0, F.k + 1), rest = F.pts.slice(F.k);
+    [['p1', C.p1], ['p2', C.p2]].forEach(function (pc) {
+      if (rest.length > 1) polyline(v, rest.map(function (q) { return q.w[pc[0]]; }), rgba(pc[1], 0.22), 1.6);
+      if (done.length > 1) polyline(v, done.map(function (q) { return q.w[pc[0]]; }), rgba(pc[1], 0.75), 2);
+    });
+    if (F.entry !== null && F.entry <= F.k) { var q = v.px(F.pts[F.entry].w.p1); dotPx(v.ctx, q[0], q[1], 7, null, C.ok, 2.5); }
+  }
+  arcWorld(v, w.p1, 0.6, 0, s.psi, C.muted, 'ψ');
+  arcWorld(v, w.p1, 1.05, s.psi, -s.phi1, C.p1, 'φ₁');
+  arcWorld(v, w.p2, 1.05, s.psi + PI, -s.phi2, C.p2, 'φ₂');
+  aircraft(v, w.p1, w.th1, C.p1, '1', 1.6);
+  aircraft(v, w.p2, w.th2, C.p2, '2', 1.6);
+  drawAxes2D(v, C);
+}
+
+function drawTargetB(C, s) {
+  var v = vB, O = [0, 0], ctx = v.begin(), F = S.flight, i;
+  drawGrid2D(v, C);
+  drawEnvelope(v, C, O, PI / 2, 0.12);
+  if (S.carry) CARRY.forEach(function (p) {
+    var q = v.px(LC.attackerInTargetFrame(p.R, p.phi2)); dotPx(ctx, q[0], q[1], 2.8, hueFor(p.phi2));
+  });
+  var P = LC.attackerInTargetFrame(s.R, s.phi2);
+  var los = Math.atan2(-P[1], -P[0]);                 // from player 1 toward player 2
+  var r = 1.3, pp = v.px(P);
+  ctx.beginPath(); ctx.moveTo(pp[0], pp[1]);          // the ±β cone about the line of sight
+  for (i = 0; i <= 24; i++) {
+    var a = los - BETA + 2 * BETA * i / 24, q = v.px([P[0] + r * Math.cos(a), P[1] + r * Math.sin(a)]);
+    ctx.lineTo(q[0], q[1]);
+  }
+  ctx.closePath(); ctx.fillStyle = rgba(C.bore, 0.22); ctx.fill(); ctx.strokeStyle = C.bore; ctx.lineWidth = 1.4; ctx.stroke();
+  polyline(v, [O, P], C.ink2, 1.3, [6, 4]);
+  if (F && F.k > 0) polyline(v, F.pts.slice(0, F.k + 1).map(function (q) { return LC.attackerInTargetFrame(q.s.R, q.s.phi2); }), rgba(C.p1, 0.75), 2);
+  arcWorld(v, O, 0.95, PI / 2 + s.phi2, -s.phi2, C.p2, 'φ₂');
+  arcWorld(v, P, 0.8, los, -s.phi1, C.p1, 'φ₁');
+  aircraft(v, O, PI / 2, C.p2, '2', 1.2);
+  label(v, [0, 1.35], 'V₂', C.p2, 12, 0, 'left', F_LABEL);
+  aircraft(v, P, los - s.phi1, C.p1, '1', 1.2);
+  var ck = LC.t1Checks(s), inEnv = ck.min && ck.max;
+  ctx.font = F_AXIS; var nameW = ctx.measureText(v.axisNames[1]).width + 16;
+  ctx.font = F_STATUS; var stW = ctx.measureText('Nose outside the ±β cone').width + 12;
+  var y0 = nameW + stW > v.w ? 14 + SIZES.axis * TS * 1.3 : 10, dy = SIZES.status * TS * 1.35;
+  haloText(ctx, (inEnv ? 'Inside' : 'Outside') + ' the envelope', v.w - 8, y0, inEnv ? C.ok : C.bad, F_STATUS, 'right', 'top', C.panel);
+  haloText(ctx, 'Nose ' + (ck.bore ? 'within' : 'outside') + ' the ±β cone', v.w - 8, y0 + dy, ck.bore ? C.ok : C.bad, F_STATUS, 'right', 'top', C.panel);
+  drawAxes2D(v, C);
+}
+
+function drawStateC(C, s) {
+  var v = vC, ctx = v.begin(), F = S.flight;
+  drawBox(v, C, 0.14);
+  if (S.carry) CARRY.forEach(function (p) { var q = v.P(p.phi2, 0, p.R); dotPx(ctx, q[0], q[1], 2.6, hueFor(p.phi2)); });
+  if (S.spin.trail.length > 1) statePath3(v, S.spin.trail, C.p1, 2);
+  if (F && F.pts.length > 1) {
+    var all = F.pts.map(function (q) { return q.s; });
+    if (F.k < all.length - 1) statePath3(v, all.slice(F.k), rgba(C.p1, 0.25), 1.6);
+    statePath3(v, all.slice(0, F.k + 1), C.p1, 2.2);
+    if (F.entry !== null && F.entry <= F.k) { var e = F.pts[F.entry].s; dot3(v, C, e.phi2, e.phi1, e.R, C.ok, 4.5); }
+  }
+  dot3(v, C, s.phi2, s.phi1, s.R, LC.inT1(s) ? C.ok : C.bad, 7);
+  drawAxisNames3D(v, C);
+  if (S.carry) haloText(ctx, 'Grid-carry points drawn at φ₁ = 0', 8, 10, C.ink2, F_TEXT, 'left', 'top', C.panel);
+}
+
+function readoutCoords(s) {
+  var ck = LC.t1Checks(s), m = LC.margin(s);
+  function mark(b) { return '<b class="' + (b ? 'ok' : 'no') + '">' + (b ? '✓' : '✗') + '</b>'; }
+  $('lxRead').innerHTML = [
+    '<span><span class="k">R</span> ' + s.R.toFixed(3) + '</span>',
+    '<span><span class="k">φ₁</span> ' + fmtDeg(s.phi1) + '</span>',
+    '<span><span class="k">φ₂</span> ' + fmtDeg(s.phi2) + '</span>',
+    '<span><span class="k">ψ (dropped)</span> ' + fmtDeg(s.psi) + '</span>',
+    '<span>|φ₁| ≤ β = 45° ' + mark(ck.bore) + '</span>',
+    '<span>R ≥ R<sub>min</sub>(φ₂) = ' + LC.rLo(s.phi2).toFixed(3) + ' ' + mark(ck.min) + '</span>',
+    '<span>R &lt; R̄(φ₂) = ' + LC.rHi(s.phi2).toFixed(3) + ' ' + mark(ck.max) + '</span>',
+    '<span><span class="k">ℓ</span> ' + m.toFixed(3) + ' → <b class="' + (LC.inT1(s) ? 'ok">in T₁' : 'no">not in T₁') + '</b></span>'
+  ].join('');
+  $('lxMsg').textContent = S.msg;
+}
+
+function drawCoords() {
+  var C = palette(), s = current();
+  drawWorldA(C, s); drawTargetB(C, s); drawStateC(C, s); readoutCoords(s);
+}
+
+attach2D(vA, {                            // heading handles first, then bodies, else pan
+  panOnDrag: true,
+  hit: function (x, y) {
+    var w = S.world;
+    function near(p, r) { var q = vA.px(p); return Math.hypot(q[0] - x, q[1] - y) < r; }
+    function tip(p, th) { return [p[0] + 1.6 * Math.cos(th), p[1] + 1.6 * Math.sin(th)]; }
+    if (near(tip(w.p1, w.th1), 12)) return 'th1';
+    if (near(tip(w.p2, w.th2), 12)) return 'th2';
+    if (near(w.p1, 16)) return 'p1';
+    if (near(w.p2, 16)) return 'p2';
+    return null;
+  },
+  start: function () { onHandEdit(); },
+  drag: function (h, x, y) {
+    var p = vA.inv(x, y), w = S.world;
+    if (h === 'p1') w.p1 = p;
+    else if (h === 'p2') w.p2 = p;
+    else if (h === 'th1') w.th1 = Math.atan2(p[1] - w.p1[1], p[0] - w.p1[0]);
+    else if (h === 'th2') w.th2 = Math.atan2(p[1] - w.p2[1], p[0] - w.p2[0]);
+    S.spin.trail = [];
+  }
+});
+attach2D(vB, { panOnDrag: true });
+
+// ------------------------------------------------------------------ φ₂ Sweep tab
+function drawSweepWorld(C) {
+  var v = vSW, sw = S.sweep, P2 = [0, 0], P1 = [-sw.R, 0], th2 = PI - sw.phi2, ctx = v.begin(), i;
+  drawGrid2D(v, C);
+  var ring = [];
+  for (i = 0; i <= 120; i++) { var a = 2 * PI * i / 120; ring.push([RBAR0 * Math.cos(a), RBAR0 * Math.sin(a)]); }
+  polyline(v, ring, C.muted, 1, [3, 5]);
+  label(v, [RBAR0 * Math.cos(1.5), RBAR0 * Math.sin(1.5)], 'R̄(0) = 3 + π', C.ink2, 6, -4 * TS, 'left', F_TICK);
+  drawEnvelope(v, C, P2, th2, 0.14);
+  polyline(v, [P1, P2], C.ink2, 1.2, [6, 4]);
+  var hi = LC.rHi(sw.phi2), lo = LC.rLo(sw.phi2);
+  polyline(v, [P2, [-hi, 0]], C.max, 6);
+  polyline(v, [P2, [-lo, 0]], C.min, 6);
+  var e = v.px([-hi, 0]); dotPx(ctx, e[0], e[1], 5, C.max);
+  label(v, [-hi * 0.6, 0], 'R̄(φ₂) = ' + hi.toFixed(2), C.ink, 0, (sw.phi2 > 0 ? 1 : -1) * 18 * TS, 'center', F_LABEL);   // mid-segment, on the side away from the φ₂ arc (above the line when φ₂ > 0)
+  var c = v.px(P2);                                   // the "press and rotate" ring
+  ctx.beginPath(); ctx.arc(c[0], c[1], 1.6 * v.s, 0, 2 * PI);
+  ctx.strokeStyle = rgba(C.p2, 0.35); ctx.lineWidth = 1; ctx.setLineDash([2, 4]); ctx.stroke(); ctx.setLineDash([]);
+  arcWorld(v, P2, 1.1, PI, -sw.phi2, C.p2, 'φ₂');
+  aircraft(v, P2, th2, C.p2, '2', 1.6, true);
+  var q = v.px(P1), inside = sw.R >= lo && sw.R < hi;
+  dotPx(ctx, q[0], q[1], 14, null, inside ? C.ok : C.bad, 2.5);
+  aircraft(v, P1, 0, C.p1, '1', 0);
+  drawAxes2D(v, C);
+}
+
+function sweepFrame(w, h) {
+  var L = 30 + 24 * TS, Rp = 16, T = 12 + 14 * TS, Bp = 22 + 28 * TS;
+  return {
+    L: L, B: Bp,
+    x: function (d) { return L + (d + 180) / 360 * (w - L - Rp); },
+    y: function (r) { return h - Bp - r / 7 * (h - T - Bp); },
+    d: function (x) { return (x - L) / (w - L - Rp) * 360 - 180; }
+  };
+}
+function drawSweepUnrolled(C) {
+  var c = fitCanvas($('lxSU')), ctx = c.ctx, w = c.w, h = c.h, F = sweepFrame(w, h), sw = S.sweep, d, r, i;
+  function stroke(pts, col, lw) {
+    ctx.beginPath(); pts.forEach(function (p, j) { if (j) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke();
+  }
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath();
+  for (d = -180; d <= 180; d += 45) { ctx.moveTo(F.x(d), F.y(0)); ctx.lineTo(F.x(d), F.y(7)); }
+  for (r = 0; r <= 7; r++) { ctx.moveTo(F.x(-180), F.y(r)); ctx.lineTo(F.x(180), F.y(r)); }
+  ctx.stroke();
+  ctx.strokeStyle = C.ink2; ctx.lineWidth = 1.3; ctx.beginPath();
+  ctx.moveTo(F.x(-180), F.y(7)); ctx.lineTo(F.x(-180), F.y(0)); ctx.lineTo(F.x(180), F.y(0)); ctx.stroke();
+  var up = [], dn = [];
+  for (i = 0; i <= 360; i++) { d = -180 + i; up.push([F.x(d), F.y(LC.rHi(d * TO_RAD))]); dn.push([F.x(d), F.y(LC.rLo(d * TO_RAD))]); }
+  ctx.beginPath(); up.forEach(function (p, j) { if (j) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+  for (i = dn.length - 1; i >= 0; i--) ctx.lineTo(dn[i][0], dn[i][1]);
+  ctx.closePath(); ctx.fillStyle = rgba(C.max, 0.12); ctx.fill();
+  stroke(up, C.max, 2.4); stroke(dn, C.min, 2.4);
+  ctx.setLineDash([4, 4]); stroke([[F.x(180), F.y(0)], [F.x(180), F.y(7)]], C.seam, 1.3); ctx.setLineDash([]);
+  for (d = -180; d <= 180; d += 90) haloText(ctx, d + '°', F.x(d), F.y(0) + 7, C.ink2, F_TICK, 'center', 'top');
+  for (r = 0; r <= 7; r++) haloText(ctx, String(r), F.L - 8, F.y(r), C.ink2, F_TICK, 'right', 'middle');
+  haloText(ctx, 'φ₂', F.x(0), h - 8, C.ink, F_AXIS, 'center', 'bottom');
+  ctx.save(); ctx.translate(6 + 10 * TS, F.y(3.5)); ctx.rotate(-PI / 2);
+  haloText(ctx, 'R', 0, 0, C.ink, F_AXIS, 'center', 'middle'); ctx.restore();
+  haloText(ctx, 'nose-on', F.x(0), F.y(RBAR0) - 8, C.ink2, F_TEXT, 'center', 'bottom', C.panel);
+  haloText(ctx, 'tail', F.x(-160), F.y(3.0) + 6, C.ink2, F_TEXT, 'center', 'top', C.panel);
+  haloText(ctx, 'tail', F.x(160), F.y(3.0) + 6, C.ink2, F_TEXT, 'center', 'top', C.panel);
+  d = sw.phi2 * TO_DEG;
+  var hi = LC.rHi(sw.phi2), lo = LC.rLo(sw.phi2), inside = sw.R >= lo && sw.R < hi;
+  ctx.globalAlpha = 0.35; stroke([[F.x(d), F.y(lo)], [F.x(d), F.y(hi)]], C.max, 10); ctx.globalAlpha = 1;
+  dotPx(ctx, F.x(d), F.y(hi), 5.5, C.max); dotPx(ctx, F.x(d), F.y(lo), 5.5, C.min);
+  ctx.setLineDash([5, 4]); stroke([[F.x(-180), F.y(sw.R)], [F.x(180), F.y(sw.R)]], C.muted, 1); ctx.setLineDash([]);
+  dotPx(ctx, F.x(d), F.y(Math.min(sw.R, 7)), 6, inside ? C.ok : C.bad);
+  var rtxt = 'R̄ = ' + hi.toFixed(2); ctx.font = F_LABEL;
+  var fitsRight = F.x(d) + 11 + ctx.measureText(rtxt).width <= w - 4;
+  haloText(ctx, rtxt, F.x(d) + (fitsRight ? 11 : -11), F.y(hi), C.ink, F_LABEL, fitsRight ? 'left' : 'right', 'middle', C.panel);
+}
+function drawSweep3D(C) {
+  var v = vS3, sw = S.sweep;
+  v.begin(); drawBox(v, C, 0.07); drawSlice(v, C, sw.phi2);
+  var inside = sw.R >= LC.rLo(sw.phi2) && sw.R < LC.rHi(sw.phi2);
+  dot3(v, C, sw.phi2, 0, sw.R, inside ? C.ok : C.bad, 6.5);
+  drawAxisNames3D(v, C);
+}
+function readoutSweep() {
+  var sw = S.sweep, a = Math.abs(sw.phi2) * TO_DEG, hi = LC.rHi(sw.phi2), lo = LC.rLo(sw.phi2);
+  var words = a < 20 ? 'pointed at player 1' : a < 70 ? 'turned partly away' : a < 110 ? 'beam-on'
+            : a < 160 ? 'mostly turned away' : 'tail-on to player 1';
+  var inside = sw.R >= lo && sw.R < hi;
+  $('lxSweepRead').innerHTML = [
+    '<span><span class="k">φ₂</span> <span class="big">' + fmtDeg(sw.phi2) + '</span> <span class="k">player 2 ' + words + '</span></span>',
+    '<span><span class="k">R̄(φ₂)</span> <span class="big">' + hi.toFixed(3) + '</span> <span class="k">= ' + (100 * hi / RBAR0).toFixed(1) + '% of R̄(0)</span></span>',
+    '<span><span class="k">R<sub>min</sub>(φ₂)</span> ' + lo.toFixed(3) + '</span>',
+    '<span><span class="k">player 1 at R = ' + sw.R.toFixed(2) + ', φ₁ = 0:</span> <b class="' + (inside ? 'ok">inside T₁' : 'no">outside T₁') + '</b></span>'
+  ].join('');
+}
+function drawSweep() {
+  var C = palette();
+  drawSweepWorld(C); drawSweepUnrolled(C); drawSweep3D(C); readoutSweep();
+}
+function syncSweepInputs() {
+  $('lxPhi2').value = (S.sweep.phi2 * TO_DEG).toFixed(1); $('lxPhi2Out').textContent = fmtDeg(S.sweep.phi2);
+  $('lxR').value = S.sweep.R; $('lxROut').textContent = S.sweep.R.toFixed(2);
+}
+function stopPlay() { S.sweep.playing = false; $('lxPlay').textContent = '▶ play'; $('lxPlay').classList.remove('on'); }
+
+attach2D(vSW, {                           // press anywhere turns player 2; player 1 sets R
+  panOnDrag: false,
+  hit: function (x, y) { var q = vSW.px([-S.sweep.R, 0]); return Math.hypot(q[0] - x, q[1] - y) < 16 ? 'R' : 'phi2'; },
+  start: function (h, x, y) { stopPlay(); sweepDrag(h, x, y); },
+  drag: sweepDrag
+});
+function sweepDrag(h, x, y) {
+  var p = vSW.inv(x, y);
+  if (h === 'R') S.sweep.R = clamp(-p[0], 0.2, 7);
+  else S.sweep.phi2 = BR.wrap(PI - Math.atan2(p[1], p[0]));
+  syncSweepInputs();
+}
+(function dragSweepPlot() {
+  var cv = $('lxSU'), active = false;
+  function set(x) {
+    var d = clamp(sweepFrame(cv.clientWidth / UI.line, cv.clientHeight / UI.line).d(x), -180, 180);
+    S.sweep.phi2 = d >= 180 ? -PI : BR.wrap(d * TO_RAD);
+    syncSweepInputs(); requestDraw();
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    active = true; cv.setPointerCapture(e.pointerId); stopPlay(); set(pointerXY(cv, e)[0]);
+  });
+  cv.addEventListener('pointermove', function (e) { if (active) set(pointerXY(cv, e)[0]); });
+  cv.addEventListener('pointerup', function () { active = false; });
+  cv.addEventListener('pointercancel', function () { active = false; });
+}());
+
+// ------------------------------------------------------------------ capture: PNG, video and GIF
+/* Selected panels side by side, each under its title, with the tab's legend and
+   (optionally) its readout beneath.  Panels are copied from their on-screen
+   canvases, which are backed at >= 2x. */
+var CAP_KEYS = { coords: { read: 'lxRead', name: 'coordinates' }, sweep: { read: 'lxSweepRead', name: 'phi2sweep' } };
+function buildCaptureBars() {
+  each('.lx-capbar', function (bar) {
+    var page = bar.closest('.lx'), tabName = bar.getAttribute('data-lx-capfor');
+    var html = '<div class="ctl"><label>capture</label>';
+    each('.card[data-lx-cap]', function (card) {
+      html += '<label class="lx-chk"><input type="checkbox" data-lx-capid="' + card.getAttribute('data-lx-cap') + '" checked> ' +
+              card.getAttribute('data-title').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</label>';
+    }, page);
+    html += '<label class="lx-chk"><input type="checkbox" class="lx-caplegend" checked> legend</label>' +
+            '<label class="lx-chk"><input type="checkbox" class="lx-capstats" checked> stats</label></div>' +
+            '<button class="lx-png" title="save the selected panels, with titles, as one PNG">save PNG</button>' +
+            '<button class="lx-rec" title="record the selected panels, with titles, as a video">● record</button>' +
+            '<div class="ctl"><label>GIF</label>' +
+            (tabName === 'coords'
+              ? '<select class="lx-gifwho" title="which aircraft turns through 360°">' +
+                '<option value="1">turn player 1</option><option value="2">turn player 2</option></select>'
+              : '<span class="lx-chk" title="player 2 turns through 360°">turn player 2</span>') +
+            '<select class="lx-gifn" title="frames in one full turn"><option value="72">72 frames</option>' +
+            '<option value="120" selected>120 frames</option><option value="180">180 frames</option></select>' +
+            '<select class="lx-gifw" title="GIF width in pixels"><option value="1200">1200 px</option>' +
+            '<option value="1600" selected>1600 px</option><option value="2400">2400 px</option>' +
+            '<option value="0">full size</option></select>' +
+            '<button class="lx-gif" title="render one full turn, frame by frame, into a looping GIF">make GIF</button></div>' +
+            '<div class="ctl lx-sizes" title="sizes for the panels and every capture; defaults live in SIZES in this file">' +
+            '<label>text size</label><input type="range" class="lx-textsize" min="100" max="300" step="10">' +
+            '<output class="lx-textout"></output>' +
+            '<label>lines &amp; markers</label><input type="range" class="lx-linesize" min="100" max="250" step="10">' +
+            '<output class="lx-lineout"></output>' +
+            '<button class="lx-sizereset" title="back to textScale and lineScale in SIZES">reset</button></div>' +
+            '<span class="lx-recstat"></span>';
+    bar.innerHTML = html;
+    bar.querySelector('.lx-textsize').addEventListener('input', function () { setSizes(+this.value / 100, UI.line); });
+    bar.querySelector('.lx-linesize').addEventListener('input', function () { setSizes(UI.text, +this.value / 100); });
+    bar.querySelector('.lx-sizereset').addEventListener('click', function () { setSizes(SIZES.textScale, SIZES.lineScale); });
+    bar.querySelector('.lx-png').addEventListener('click', function () { savePng(tabName); });
+    bar.querySelector('.lx-rec').addEventListener('click', function () {
+      if (REC.active) stopRecording(); else startRecording(tabName);
+    });
+    bar.querySelector('.lx-gif').addEventListener('click', function () { makeGif(tabName); });
+  });
+}
+function syncSizeInputs() {
+  each('.lx-textsize', function (i) { i.value = Math.round(UI.text * 100); });
+  each('.lx-linesize', function (i) { i.value = Math.round(UI.line * 100); });
+  each('.lx-textout', function (o) { o.textContent = Math.round(UI.text * 100) + '%'; });
+  each('.lx-lineout', function (o) { o.textContent = Math.round(UI.line * 100) + '%'; });
+}
+function setSizes(text, line) {
+  UI = { text: text, line: line }; applySizes(); syncSizeInputs();
+  try { localStorage.setItem(SIZE_KEY, JSON.stringify(UI)); } catch (e) { /* private window */ }
+  requestDraw();
+}
+function capturePanels(tabName) {
+  var page = $(PAGES[tabName]), bar = page.querySelector('.lx-capbar'), out = [];
+  each('.card[data-lx-cap]', function (card) {
+    var id = card.getAttribute('data-lx-cap'), box = bar.querySelector('[data-lx-capid="' + id + '"]');
+    if (box && box.checked) out.push({ id: id, cv: card.querySelector('canvas'), title: card.getAttribute('data-title') });
+  }, page);
+  return out;
+}
+
+/* DOM -> text runs { t, sub, bold, color }, so subscripts, bold and the ✓/✗
+   colours of the page survive into the image. */
+function domSegs(node, st, out, C) {
+  Array.prototype.forEach.call(node.childNodes, function (n) {
+    if (n.nodeType === 3) {
+      var t = n.textContent.replace(/\s+/g, ' ');
+      if (t) out.push({ t: t, sub: st.sub, bold: st.bold, color: st.color });
+    } else if (n.nodeType === 1 && n.nodeName !== 'I') {
+      var cl = n.classList, s2 = { sub: st.sub || n.nodeName === 'SUB', bold: st.bold || n.nodeName === 'B' || cl.contains('big'),
+                                   color: cl.contains('ok') ? C.ok : cl.contains('no') ? C.bad : cl.contains('k') ? C.ink2 : st.color };
+      domSegs(n, s2, out, C);
+    }
+  });
+  return out;
+}
+function trimSegs(segs) {
+  if (segs.length) { segs[0].t = segs[0].t.replace(/^\s+/, ''); segs[segs.length - 1].t = segs[segs.length - 1].t.replace(/\s+$/, ''); }
+  return segs.filter(function (g) { return g.t; });
+}
+function captureLegend(tabName) {
+  var page = $(PAGES[tabName]), C = palette(), items = [];
+  if (!page.querySelector('.lx-caplegend').checked) return items;
+  each('.key > span', function (sp) {
+    var i = sp.querySelector('i');
+    if (i) items.push({ color: getComputedStyle(i).backgroundColor, segs: trimSegs(domSegs(sp, { color: C.ink2 }, [], C)) });
+  }, page);
+  return items;
+}
+/* Read live, every frame, so a recording or GIF shows the numbers changing. */
+function captureStats(tabName) {
+  var C = palette(), items = [];
+  if (!$(PAGES[tabName]).querySelector('.lx-capstats').checked) return items;
+  Array.prototype.forEach.call($(CAP_KEYS[tabName].read).children, function (sp) {
+    items.push({ segs: trimSegs(domSegs(sp, { color: C.ink }, [], C)) });
+  });
+  return items;
+}
+function segFont(g, size) { return (g.bold ? '700 ' : '') + Math.round(g.sub ? size * 0.72 : size) + 'px ' + FAM; }
+function richWidth(ctx, segs, size) {
+  return segs.reduce(function (w, g) { ctx.font = segFont(g, size); return w + ctx.measureText(g.t).width; }, 0);
+}
+function drawRich(ctx, segs, x, y, size, color) {
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  segs.forEach(function (g) {
+    ctx.font = segFont(g, size); ctx.fillStyle = g.color || color;
+    ctx.fillText(g.t, x, g.sub ? y + size * 0.28 : y);
+    x += ctx.measureText(g.t).width;
+  });
+}
+/* Greedy rows; returns the number of items in each row. */
+function flowRows(widths, avail, gap) {
+  var rows = [], n = 0, w = 0;
+  widths.forEach(function (iw) {
+    if (n && w + gap + iw > avail) { rows.push(n); n = 0; w = 0; }
+    w += (n ? gap : 0) + iw; n++;
+  });
+  if (n) rows.push(n);
+  return rows;
+}
+
+/* Caption sizes (px at 1x, before the capture's device scale) from SIZES and the text slider. */
+function capSizes() {
+  var t = SIZES.captureTitle * UI.text, x = SIZES.captureText * UI.text;
+  return { title: t, titleH: t * 1.85, text: x, line: x * 1.75, swatch: x * 1.4, swatchH: Math.max(4, x * 0.3),
+           gapItem: x * 1.4, gapStat: x * 1.7 };
+}
+/* Every panel title gets the same font size.  A title too wide for its panel is first
+   split onto two lines at the best word break; only if a line still does not fit does
+   the common size come down. */
+function titleLayout(ctx, panels, fs0, padX) {
+  function width(t, fs) { ctx.font = '700 ' + fs + 'px ' + FAM; return ctx.measureText(t).width; }
+  function split(t, fs, maxW) {
+    if (width(t, fs) <= maxW) return [t];
+    var words = t.split(' '), best = null;
+    for (var i = 1; i < words.length; i++) {
+      var a = words.slice(0, i).join(' '), b = words.slice(i).join(' '), m = Math.max(width(a, fs), width(b, fs));
+      if (!best || m < best.m) best = { m: m, lines: [a, b] };
+    }
+    return best ? best.lines : [t];
+  }
+  var fs = fs0;
+  panels.forEach(function (p) {
+    split(p.title, fs0, p.cv.width - padX).forEach(function (ln) {
+      var w = width(ln, fs0); if (w > p.cv.width - padX) fs = Math.min(fs, fs0 * (p.cv.width - padX) / w);
+    });
+  });
+  fs = Math.floor(fs);
+  var per = panels.map(function (p) { return split(p.title, fs, p.cv.width - padX); });
+  return { fs: fs, per: per, lines: Math.max.apply(null, per.map(function (l) { return l.length; })) };
+}
+function captureLayout(tabName, panels) {
+  var sc = Math.max(1, panels[0].cv.width / Math.max(1, panels[0].cv.clientWidth)), CAP = capSizes();
+  var mctx = document.createElement('canvas').getContext('2d');
+  var TL = titleLayout(mctx, panels, CAP.title * sc, 4 * sc);
+  var pad = Math.round(18 * sc), gap = Math.round(18 * sc), titleH = Math.round(TL.fs * (1.22 * TL.lines + 0.55));
+  var x = pad, slots = [], maxH = 0;
+  panels.forEach(function (p, i) {
+    slots.push({ x: x, y: pad + titleH, w: p.cv.width, h: p.cv.height, cv: p.cv, lines: TL.per[i] });
+    x += p.cv.width + gap; maxH = Math.max(maxH, p.cv.height);
+  });
+  var W = x - gap + pad, avail = W - 2 * pad, size = CAP.text * sc, sw = CAP.swatch * sc;
+  var legend = captureLegend(tabName), stats = captureStats(tabName);
+  legend.forEach(function (it) { it.w = sw + 8 * sc + richWidth(mctx, it.segs, size); });
+  var legendRows = flowRows(legend.map(function (it) { return it.w; }), avail, CAP.gapItem * sc);
+  // stats change as the scene moves, so rows are sized with 15% slack and then held fixed
+  var statRows = flowRows(stats.map(function (it) { return 1.15 * richWidth(mctx, it.segs, size); }), avail, CAP.gapStat * sc);
+  var lineH = Math.round(CAP.line * sc), below = legendRows.length + statRows.length;
+  var H = pad + titleH + maxH + (below ? Math.round(10 * sc) + below * lineH : 0) + pad;
+  return { tab: tabName, W: W + (W % 2), H: H + (H % 2), sc: sc, CAP: CAP, titleH: titleH, titleFs: TL.fs, slots: slots, size: size, sw: sw, lineH: lineH,
+           legend: legend, legendRows: legendRows, statRows: statRows, textY: pad + titleH + maxH + Math.round(10 * sc) };
+}
+function drawCapture(ctx, L) {
+  var C = palette(), sc = L.sc, CAP = L.CAP;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, L.W, L.H);
+  L.slots.forEach(function (s) {
+    var fs = L.titleFs;
+    ctx.font = '700 ' + fs + 'px ' + FAM;
+    ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    s.lines.forEach(function (ln, j) { ctx.fillText(ln, s.x + 2 * sc, s.y - L.titleH + fs * (0.3 + 1.22 * (j + 0.5))); });
+    ctx.drawImage(s.cv, s.x, s.y, s.w, s.h);
+    ctx.strokeStyle = '#dfe3e8'; ctx.lineWidth = sc; ctx.strokeRect(s.x + 0.5 * sc, s.y + 0.5 * sc, s.w - sc, s.h - sc);
+  });
+  var row = 0;
+  function drawRows(items, counts, gapI, swatch) {
+    var i = 0;
+    counts.forEach(function (n) {
+      var its = items.slice(i, i + n); i += n;
+      its.forEach(function (it) { it.dw = (swatch ? L.sw + 8 * sc : 0) + richWidth(ctx, it.segs, L.size); });
+      var total = its.reduce(function (a, it) { return a + it.dw; }, 0) + gapI * (its.length - 1);
+      var x = (L.W - total) / 2, y = L.textY + (row + 0.5) * L.lineH;
+      its.forEach(function (it) {
+        var tx = x;
+        if (swatch) { ctx.fillStyle = it.color; ctx.fillRect(x, y - CAP.swatchH * sc / 2, L.sw, CAP.swatchH * sc); tx += L.sw + 8 * sc; }
+        drawRich(ctx, it.segs, tx, y, L.size, C.ink);
+        x += it.dw + gapI;
+      });
+      row++;
+    });
+  }
+  drawRows(L.legend, L.legendRows, CAP.gapItem * sc, true);
+  if (L.statRows.length) drawRows(captureStats(L.tab), L.statRows, CAP.gapStat * sc, false);
+}
+function stamp() {
+  var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+}
+function captureName(tabName, panels, ext, extra) {
+  return 'layer0_' + CAP_KEYS[tabName].name + (extra ? '_' + extra : '') + '_' +
+         panels.map(function (p) { return p.id; }).join('-') + '_' + stamp() + '.' + ext;
+}
+function download(blob, name) {
+  var a = document.createElement('a'), url = URL.createObjectURL(blob);
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+function recStatus(tabName, text, live) {
+  var st = $(PAGES[tabName]).querySelector('.lx-recstat');
+  st.textContent = text; st.classList.toggle('live', !!live);
+}
+function drawTab(tabName) { if (tabName === 'coords') drawCoords(); else drawSweep(); }
+function savePng(tabName) {
+  if (GIF.busy) return;
+  var panels = capturePanels(tabName);
+  if (!panels.length) { recStatus(tabName, 'Tick at least one panel.'); return; }
+  drawTab(tabName);
+  var L = captureLayout(tabName, panels), cv = document.createElement('canvas');
+  cv.width = L.W; cv.height = L.H; drawCapture(cv.getContext('2d'), L);
+  cv.toBlob(function (b) { download(b, captureName(tabName, panels, 'png')); recStatus(tabName, 'Saved PNG.'); }, 'image/png');
+}
+function pickMime() {
+  // H.264 MP4 first (plays in PowerPoint); a bare 'video/mp4' can mean VP9-in-MP4,
+  // which PowerPoint will not play, so WebM is preferred over it.
+  var types = ['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1.4D401F', 'video/mp4;codecs=avc1.42E01E',
+               'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  for (var i = 0; i < types.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported(types[i])) return types[i];
+  return '';
+}
+function startRecording(tabName) {
+  if (GIF.busy) return;
+  var panels = capturePanels(tabName);
+  if (!panels.length) { recStatus(tabName, 'Tick at least one panel.'); return; }
+  var mime = pickMime();
+  if (!mime || !HTMLCanvasElement.prototype.captureStream) { recStatus(tabName, 'This browser cannot record video; use Chrome or Edge.'); return; }
+  drawTab(tabName);
+  var L = captureLayout(tabName, panels), cv = document.createElement('canvas');
+  cv.width = L.W; cv.height = L.H; drawCapture(cv.getContext('2d'), L);
+  var rec = new MediaRecorder(cv.captureStream(30), { mimeType: mime, videoBitsPerSecond: 12e6 });
+  var chunks = [], ext = mime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+  rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = function () {
+    download(new Blob(chunks, { type: mime.split(';')[0] }), captureName(tabName, panels, ext));
+    recStatus(tabName, 'Saved ' + ext.toUpperCase() + (ext === 'webm' ? ' (this browser has no MP4 recorder)' : '') + '.');
+  };
+  REC = { active: true, rec: rec, cv: cv, ctx: cv.getContext('2d'), L: L, tab: tabName, t0: performance.now() };
+  rec.start(250);
+  each('.lx-rec', function (b) { b.textContent = '■ stop'; b.classList.add('on'); });
+  requestDraw();
+}
+function stopRecording() {
+  if (!REC.active) return;
+  var r = REC; REC = { active: false };
+  try { r.rec.stop(); } catch (e) { /* already stopped */ }
+  each('.lx-rec', function (b) { b.textContent = '● record'; b.classList.remove('on'); });
+}
+function recordFrame() {
+  drawCapture(REC.ctx, REC.L);
+  var s = Math.floor((performance.now() - REC.t0) / 1000);
+  recStatus(REC.tab, '● REC ' + Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60), true);
+}
+
+// ------------------------------------------------------------------ GIF: one full turn
+/* Frames are rendered deterministically (not in real time): frame k sets the turning
+   angle to start + 2πk/N, redraws the tab, composites the capture and quantizes it.
+   One global 255-colour palette (index 255 = transparent) is built from four sample
+   frames; after the first frame only the changed rectangle is stored, with unchanged
+   pixels transparent, so the file stays small.  The loop is seamless because frame N
+   would equal frame 0. */
+function sleep0() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+/* Palette: bins of 5 bits per channel; the most populated bins first, skipping any
+   too close to one already taken, so small but distinct colours (the state dot, the
+   ✓/✗ marks) still get an entry. */
+function gifHistogram(data, H) {
+  for (var i = 0; i < data.length; i += 4) {
+    var key = ((data[i] >> 3) << 10) | ((data[i + 1] >> 3) << 5) | (data[i + 2] >> 3);
+    H.n[key]++; H.r[key] += data[i]; H.g[key] += data[i + 1]; H.b[key] += data[i + 2];
+  }
+}
+function gifPalette(H) {
+  var bins = [], i, k, out = [];
+  for (k = 0; k < 32768; k++) if (H.n[k]) bins.push({ n: H.n[k], r: H.r[k] / H.n[k], g: H.g[k] / H.n[k], b: H.b[k] / H.n[k] });
+  bins.sort(function (a, b) { return b.n - a.n; });
+  [40, 24, 12, 0].forEach(function (d) {
+    var d2 = d * d;
+    for (i = 0; i < bins.length && out.length < 255; i++) {
+      var c = bins[i]; if (c.used) continue;
+      var ok = out.every(function (o) { var dr = o[0] - c.r, dg = o[1] - c.g, db = o[2] - c.b; return dr * dr + dg * dg + db * db > d2; });
+      if (ok) { c.used = true; out.push([c.r, c.g, c.b]); }
+    }
+  });
+  var pal = new Uint8Array(768);
+  out.forEach(function (c, j) { pal[3 * j] = Math.round(c[0]); pal[3 * j + 1] = Math.round(c[1]); pal[3 * j + 2] = Math.round(c[2]); });
+  return { bytes: pal, n: out.length };
+}
+function gifQuantize(data, P, map, out) {
+  for (var i = 0, j = 0; i < data.length; i += 4, j++) {
+    var key = ((data[i] >> 3) << 10) | ((data[i + 1] >> 3) << 5) | (data[i + 2] >> 3), m = map[key];
+    if (m < 0) {
+      var r = (key >> 10) * 8 + 4, g = ((key >> 5) & 31) * 8 + 4, b = (key & 31) * 8 + 4, best = 1e9;
+      for (var q = 0; q < P.n; q++) {
+        var dr = P.bytes[3 * q] - r, dg = P.bytes[3 * q + 1] - g, db = P.bytes[3 * q + 2] - b, e = dr * dr + dg * dg + db * db;
+        if (e < best) { best = e; m = q; }
+      }
+      map[key] = m;
+    }
+    out[j] = m;
+  }
+}
+
+/* LZW for GIF image data (the same scheme as omggif's encoder).  The code table is a
+   flat Int32Array keyed by (prefix << 8 | k); a generation stamp in the high bits
+   makes "clear" free. */
+var LZW_TABLE = null, LZW_GEN = 0;
+function gifLzw(idx, n, out) {
+  if (!LZW_TABLE) LZW_TABLE = new Int32Array(1 << 20);
+  var T = LZW_TABLE, min = 8, clear = 256, eoi = 257, next = 258, size = 9, p = 0, cur = 0, shift = 0, gen = ++LZW_GEN;
+  function emit(c) { cur |= c << shift; shift += size; while (shift >= 8) { out[p++] = cur & 255; cur >>>= 8; shift -= 8; } }
+  emit(clear);
+  var ib = idx[0];
+  for (var i = 1; i < n; i++) {
+    var k = idx[i], key = (ib << 8) | k, e = T[key];
+    if ((e >>> 12) === gen) { ib = e & 4095; continue; }
+    emit(ib);
+    if (next === 4096) { emit(clear); next = eoi + 1; size = min + 1; gen = ++LZW_GEN; }
+    else { if (next >= (1 << size)) size++; T[key] = (gen << 12) | next; next++; }
+    ib = k;
+  }
+  emit(ib); emit(eoi);
+  if (shift > 0) out[p++] = cur & 255;
+  return p;
+}
+function GifWriter(w, h, palette, delayCs) {
+  this.parts = []; this.w = w; this.h = h; this.delay = delayCs;
+  var head = [71, 73, 70, 56, 57, 97, w & 255, w >> 8, h & 255, h >> 8, 0xF7, 0, 0];
+  this.parts.push(new Uint8Array(head), palette);
+  this.parts.push(new Uint8Array([0x21, 0xFF, 0x0B, 78, 69, 84, 83, 67, 65, 80, 69, 50, 46, 48, 3, 1, 0, 0, 0]));  // loop forever
+}
+GifWriter.prototype.frame = function (x, y, w, h, idx, transparent) {
+  var d = this.delay;
+  this.parts.push(new Uint8Array([0x21, 0xF9, 4, (1 << 2) | (transparent ? 1 : 0), d & 255, d >> 8, 255, 0,
+                                  0x2C, x & 255, x >> 8, y & 255, y >> 8, w & 255, w >> 8, h & 255, h >> 8, 0, 8]));
+  var raw = new Uint8Array(Math.ceil(w * h * 1.6) + 64), n = gifLzw(idx, w * h, raw);
+  var blocks = new Uint8Array(n + Math.ceil(n / 255) + 1), q = 0;
+  for (var i = 0; i < n; i += 255) {
+    var len = Math.min(255, n - i); blocks[q++] = len; blocks.set(raw.subarray(i, i + len), q); q += len;
+  }
+  blocks[q++] = 0;
+  this.parts.push(blocks.subarray(0, q));
+};
+GifWriter.prototype.finish = function () { this.parts.push(new Uint8Array([0x3B])); return new Blob(this.parts, { type: 'image/gif' }); };
+
+async function makeGif(tabName) {
+  if (GIF.busy || REC.active) return;
+  var panels = capturePanels(tabName);
+  if (!panels.length) { recStatus(tabName, 'Tick at least one panel.'); return; }
+  var bar = $(PAGES[tabName]).querySelector('.lx-capbar');
+  var N = +bar.querySelector('.lx-gifn').value, wantW = +bar.querySelector('.lx-gifw').value;
+  var who = tabName === 'coords' ? bar.querySelector('.lx-gifwho').value : '2';
+  var delay = Math.max(2, Math.round(1000 / N));          // about 10 s per full turn
+
+  // hold everything still, and remember it
+  var keep = { world: cloneWorld(S.world), spinOn: S.spin.on, spinTrail: S.spin.trail, flight: S.flight,
+               rigid: S.rigid, playing: S.sweep.playing, phi2: S.sweep.phi2, msg: S.msg };
+  GIF.busy = true;
+  S.spin.on = false; S.rigid = null; S.sweep.playing = false; if (S.flight) S.flight.running = false;
+  each('.lx-capbar button, .lx-capbar select, .lx-capbar input', function (b) { b.disabled = true; });
+
+  var setK;
+  if (tabName === 'coords') {
+    var w0 = cloneWorld(S.world), key = who === '1' ? 'th1' : 'th2', path = [];
+    setK = function (k) { S.world = cloneWorld(w0); S.world[key] = BR.wrap(w0[key] + 2 * PI * k / N); };
+    for (var k = 0; k <= N; k++) { setK(k % N); path.push(current()); }
+    S.flight = null; S.spin.trail = path; S.msg = '';       // the whole turn as a fixed path; the dot moves along it
+  } else {
+    var p0 = S.sweep.phi2;
+    setK = function (k) { S.sweep.phi2 = BR.wrap(p0 + 2 * PI * k / N); syncSweepInputs(); };
+  }
+  try {
+    setK(0); drawTab(tabName);
+    var L = captureLayout(tabName, panels);
+    var full = document.createElement('canvas'); full.width = L.W; full.height = L.H;
+    var fctx = full.getContext('2d');
+    var scale = wantW > 0 ? Math.min(1, wantW / L.W) : 1;
+    var gw = Math.round(L.W * scale), gh = Math.round(L.H * scale);
+    var gc = document.createElement('canvas'); gc.width = gw; gc.height = gh;
+    var gctx = gc.getContext('2d', { willReadFrequently: true });
+    gctx.imageSmoothingEnabled = true; gctx.imageSmoothingQuality = 'high';
+    function renderFrame(k) {
+      setK(k); drawTab(tabName); drawCapture(fctx, L);
+      gctx.drawImage(full, 0, 0, gw, gh);
+      return gctx.getImageData(0, 0, gw, gh).data;
+    }
+    // palette from four frames spread over the turn
+    var H = { n: new Uint32Array(32768), r: new Float64Array(32768), g: new Float64Array(32768), b: new Float64Array(32768) };
+    [0, N >> 2, N >> 1, (3 * N) >> 2].forEach(function (k) { gifHistogram(renderFrame(k), H); });
+    var P = gifPalette(H), map = new Int16Array(32768).fill(-1);
+    var gif = new GifWriter(gw, gh, P.bytes, delay);
+    var prev = new Uint8Array(gw * gh), cur = new Uint8Array(gw * gh);
+    for (var f = 0; f < N; f++) {
+      gifQuantize(renderFrame(f), P, map, cur);
+      if (f === 0) { gif.frame(0, 0, gw, gh, cur, false); prev.set(cur); }
+      else {
+        var x0 = gw, y0 = gh, x1 = -1, y1 = -1, x, y, i;
+        for (y = 0; y < gh; y++) for (x = 0, i = y * gw; x < gw; x++, i++) {
+          if (cur[i] !== prev[i]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        }
+        if (x1 < 0) { gif.frame(0, 0, 1, 1, new Uint8Array([255]), true); }
+        else {
+          var bw = x1 - x0 + 1, bh = y1 - y0 + 1, sub = new Uint8Array(bw * bh), j = 0;
+          for (y = y0; y <= y1; y++) for (x = x0, i = y * gw + x0; x <= x1; x++, i++, j++) {
+            if (cur[i] === prev[i]) sub[j] = 255; else { sub[j] = cur[i]; prev[i] = cur[i]; }
+          }
+          gif.frame(x0, y0, bw, bh, sub, true);
+        }
+      }
+      recStatus(tabName, 'GIF: frame ' + (f + 1) + ' / ' + N, true);
+      await sleep0();
+    }
+    var blob = gif.finish();
+    download(blob, captureName(tabName, panels, 'gif', 'turn-player' + who));
+    recStatus(tabName, 'Saved GIF, ' + gw + ' × ' + gh + ' px, ' + N + ' frames, ' + (blob.size / 1048576).toFixed(1) + ' MB.');
+  } catch (err) {
+    recStatus(tabName, 'GIF failed: ' + err.message);
+  } finally {
+    S.world = keep.world; S.spin.on = keep.spinOn; S.spin.trail = keep.spinTrail; S.flight = keep.flight;
+    S.rigid = keep.rigid; S.sweep.playing = keep.playing; S.sweep.phi2 = keep.phi2; S.msg = keep.msg;
+    syncSweepInputs(); syncFly(); syncSpin();
+    each('.lx-capbar button, .lx-capbar select, .lx-capbar input', function (b) { b.disabled = false; });
+    GIF.busy = false; requestDraw();
+  }
+}
+
+// ------------------------------------------------------------------ controls
+each('[data-lx-preset]', function (b) {
+  b.addEventListener('click', function () {
+    onHandEdit(); S.world = cloneWorld(PRESETS[b.getAttribute('data-lx-preset')]); requestDraw();
+  });
+});
+each('.lx-views[data-lx-for]', function (g) {
+  g.addEventListener('click', function (e) {
+    var name = e.target.getAttribute('data-lx-view'); if (!name) return;
+    (g.getAttribute('data-lx-for') === 'C' ? vC : vS3).setView(name);
+  });
+});
+each('[data-lx-reset]', function (b) {
+  b.addEventListener('click', function () { VIEW2D[b.getAttribute('data-lx-reset')].reset(); requestDraw(); });
+});
+$('lxRigid').onclick = function () {
+  stopSpin(); clearFlight(); S.rigid = { t: 0, dev: 0, s0: current() }; requestDraw();
+};
+$('lxSpin').onclick = function () {
+  if (S.spin.on) { S.spin.on = false; S.msg = ''; }
+  else { clearFlight(); S.rigid = null; S.spin.on = true; S.spin.trail = []; }
+  syncSpin(); requestDraw();
+};
+$('lxFly').onclick = startFlight;
+$('lxPause').onclick = function () {
+  var F = S.flight; if (!F) return;
+  if (F.running) F.running = false; else resumeFlight();
+  syncFly(); requestDraw();
+};
+$('lxScrub').oninput = function () {
+  var F = S.flight; if (!F) return;
+  F.running = false; F.k = clamp(+this.value, 0, F.pts.length - 1);
+  S.world = cloneWorld(F.pts[F.k].w); S.msg = flightMsg(F); syncFly(); requestDraw();
+};
+$('lxClear').onclick = function () { clearFlight(); S.spin.trail = []; S.msg = ''; requestDraw(); };
+$('lxEnv').onclick = function () { S.envWorld = !S.envWorld; this.classList.toggle('on', S.envWorld); requestDraw(); };
+$('lxCarry').onclick = function () { S.carry = !S.carry; this.classList.toggle('on', S.carry); requestDraw(); };
+$('lxPhi2').oninput = function () {
+  S.sweep.phi2 = +this.value >= 180 ? -PI : BR.wrap(+this.value * TO_RAD); stopPlay(); syncSweepInputs(); requestDraw();
+};
+$('lxR').oninput = function () { S.sweep.R = +this.value; syncSweepInputs(); requestDraw(); };
+$('lxPlay').onclick = function () {
+  S.sweep.playing = !S.sweep.playing;
+  this.textContent = S.sweep.playing ? '❚❚ pause' : '▶ play'; this.classList.toggle('on', S.sweep.playing);
+  requestDraw();
+};
+each('[data-lx-phi2]', function (b) {
+  b.addEventListener('click', function () {
+    S.sweep.phi2 = BR.wrap(+b.getAttribute('data-lx-phi2') * TO_RAD); stopPlay(); syncSweepInputs(); requestDraw();
+  });
+});
+window.addEventListener('resize', function () { if (tab !== 'barrier') requestDraw(); });
+
+// ------------------------------------------------------------------ loop
+var pending = false, lastTs = null;
+function requestDraw() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
+function frame(ts) {
+  pending = false;
+  if (GIF.busy) { lastTs = null; return; }             // makeGif drives the drawing itself
+  if (tab === 'barrier') { lastTs = null; return; }   // hidden: stop until shown again
+  var dt = lastTs === null ? 0 : Math.min(0.05, (ts - lastTs) / 1000);
+  stepAnim(dt);
+  if (tab === 'coords') drawCoords(); else drawSweep();
+  if (REC.active) recordFrame();
+  if (animating() || REC.active) { lastTs = ts; requestDraw(); } else lastTs = null;
+}
+
+buildCaptureBars(); syncSizeInputs();
+syncSweepInputs(); syncFly(); syncSpin();
+showTab(savedTab() || 'barrier');
 }());
 </script>
 </body>
