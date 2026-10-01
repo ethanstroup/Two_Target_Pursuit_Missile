@@ -1,6 +1,6 @@
 # Layer 1 — status
 
-**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-09-15**
+**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-09-18**
 Plan of record: `claude/Layer1_Plan.md`. Spec of record: `claude/ProblemStatement.md`.
 
 | Milestone | State |
@@ -12,9 +12,56 @@ Plan of record: `claude/Layer1_Plan.md`. Spec of record: `claude/ProblemStatemen
 re-run and green under all three choices. One proposed amendment to §2.1 — see
 "The ell weighting" below; it is a one-line revert and it wants your decision
 before the 201³ run.
-| M3 full two-player solve, converged in horizon and grid | not started |
-| M4 acceptance against Layer 0 | not started |
-| M5 mutual-kill / arrival-time comparison | not started |
+| M3 full two-player solve, converged in horizon and grid | **DONE** — `solve_m3.py` + `grid_study.py`, all checks pass |
+| M4 acceptance against Layer 0 | not started — unblocked |
+| M5 mutual-kill / arrival-time comparison | not started — unblocked |
+
+**2026-09-18.** M3 closed. Full record: `claude/Layer1_M3_2026-09-18.md`. Headline
+numbers and the one grid rule that came out of it are below; the fields M4 and M5
+need are in `m3_out/`.
+
+### M3 in brief
+
+Four grids solved, two overnight-scale. Converged in horizon by τ = 6 (the zero
+level set's motion falls to 0.24 % of its own node count; a tail fit from τ ≤ 6
+predicts an independent τ = 10 run to 0.004 % of grid volume). Converged in grid:
+the barrier moves **0.159 coarse cells** under 2× refinement, with zero
+disagreements further than 3 cells from it. Winning zone 12.08 % of the grid,
+outer edge R = 6.100, inside `R_hi(0) = 6.1416`.
+
+Plan §10's pre-flight is discharged: the mirror game is built from scratch and
+solved, giving `V_2 = V_1 ∘ S` to 6.5e-13 with zero winning-zone disagreement. So
+`t_2* = t_1* ∘ S` is an axis transpose and M5 needs no second solve.
+
+### The grid rule — read this before choosing `n_phi`
+
+**`n_phi` must NOT be a multiple of 8.** β = π/4 lands exactly on a grid node when
+it is (node index `0.625 * n_phi`), and that is the target set's own kink. The
+reflection symmetry — exact in the continuum, since `ell` is Rf-invariant to 4e-15
+and the dynamics are Rf-equivariant — then degrades badly:
+
+| grid | β on a node? | `t_1*` mirror mismatch | M5 smoke test (raw) |
+|---|---|---|---|
+| 101 × 100 | no | 0 nodes | 100.0000 % |
+| 201 × 200 | **yes** | **21 642 nodes** (2.2 % of the zone) | 98.8407 % |
+| 101 × 102 | no | 0 nodes | 100.0000 % |
+| 201 × 204 | no | **0 nodes** | **100.0000 %** |
+
+Use the nested pair **`101 × 102` / `201 × 204`**: both keep β off-node and
+204 = 2 × 102 still nests, so the grid study stays exact subsampling.
+
+Projecting onto the symmetry also fixes it, and `grid_study.py` reports that — but
+M5 must not be measured on projected data, since its question is whether anything
+*besides* the symmetry diagonal appears.
+
+### Inner-boundary mask
+
+The extrapolation condition at `R = R_min` leaks: it produces small blobs of
+barely-negative V at R = 0.200 and 0.318 that forward simulation shows are
+unreachable (`min ell` = +0.41 to +0.54). They are the only grid-study
+disagreements not adjacent to the barrier, and left in they made the win-alone
+component count come out at exactly D&S's five. **Use `R_MARGIN = 0.45` in M4's
+tests**; `{V ≤ 0}` should not be quoted without it.
 
 ## Tooling decision (Plan §3)
 
@@ -237,8 +284,25 @@ layer1/cmp_scaling.py  does the weighting move the computed zero level set? (it 
 layer1/README_LAYER1.md  this file
 ```
 
-Still to be created, per Plan §9: `solve_m3.py` (converged solve + grid study, emits
-V and t1*), `test_m4.py` (acceptance A–E + the negative control), `mutual_kill.py` (M5).
+Added at M3:
+
+```
+layer1/solve_m3.py        the march: pre-flight, horizon convergence, emits V and t_1*
+layer1/grid_study.py      nested-grid comparison + the exact-symmetry checks
+layer1/zone_structure.py  connected components of {V<=0}, phi-periodic
+layer1/win_alone.py       components of W_1 = {V_1<=0} \ {V_2<=0}, with the R mask
+layer1/sym_test.py        the beta-on-node isolation experiment
+layer1/m3_out/            m3_<grid>_fields.npz   V and t_1* (float32; sign of V exact,
+                          round-trip error 4.7e-07 against a 0.059 cell scale)
+                          Vsnap_101x102_T6.npz   V(.,tau) every 0.5, for M4 test C1
+                          m3_<grid>.json         convergence diagnostics
+```
+
+Env switches: `M3_PREFLIGHT=0`, `M3_SNAP_EVERY` (solve_m3); `R_MARGIN` (win_alone,
+grid_study); `COARSE` / `FINE` (grid_study); `LAYER1_ELL_SCALING` (everything).
+
+Still to be created, per Plan §9: `test_m4.py` (acceptance A–E + the negative
+control), `mutual_kill.py` (M5).
 
 Run any suite under a different weighting with `LAYER1_ELL_SCALING=raw|plan|sdist`.
 

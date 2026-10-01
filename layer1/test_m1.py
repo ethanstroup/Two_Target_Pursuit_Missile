@@ -30,6 +30,10 @@ def report(name, ok, msg=''):
         FAILS.append(name)
 
 
+# ==========================================
+# SECTION 0 - ENVIRONMENT SANITY CHECKS
+# (float64 enabled, Rbar_0 correct, params imported not re-declared)
+# ==========================================
 print('=' * 92)
 print('0.  Environment   (ell scaling: %s)' % E.SCALING)
 print('=' * 92)
@@ -40,6 +44,10 @@ report('Rbar_0 is 3 + pi, not 6.14', abs(E.RBAR0 - (3 + np.pi)) == 0.0,
 report('layer1 parameters are layer0 objects, not re-entered',
        (E.BETA is B.BETA) and (E.A1 is B.A1) and (E.B1 is B.B1) and (E.RBAR0 is B.RBAR0))
 
+# ==========================================
+# SECTION 1 - ELL SIGN VS. BARRIER.IN_TARGET
+# (dense 181^3 grid + 4M random points, exact sign match)
+# ==========================================
 print()
 print('=' * 92)
 print('1.  ell sign vs. barrier.in_target  --  dense grid, exact')
@@ -87,6 +95,10 @@ report('random sample, 4e6 points', mis_rand == 0, '%d mismatches' % mis_rand)
 frac = np.count_nonzero(in_target) / n
 print('        target-set occupancy on the dense grid: %.4f%% of nodes' % (100 * frac))
 
+# ==========================================
+# SECTION 2 - ELL ON THE TARGET-SET BOUNDARY ITSELF
+# (ell == 0 exactly on each face; sign flips correctly across each)
+# ==========================================
 print()
 print('=' * 92)
 print('2.  ell sign on the target-set boundary itself')
@@ -132,6 +144,10 @@ for p2 in p2s:
         ok = False
 report('ell changes sign across all three faces', ok)
 
+# ==========================================
+# SECTION 3 - DYNAMICS VS. BARRIER.STATE_DOT
+# (raw f(x,sigma) bit-identical to layer0, 2e4 random points)
+# ==========================================
 print()
 print('=' * 92)
 print('3.  Dynamics vs. barrier.state_dot')
@@ -150,6 +166,10 @@ for _ in range(20000):
 report('f(x,sigma) identical to barrier.state_dot  (2e4 random points)', worst == 0.0,
        'max |diff| = %.2e' % worst)
 
+# ==========================================
+# SECTION 4 - HAMILTONIAN VS. BARRIER.HAMILTONIAN_STAR  (THE M1 GATE)
+# (ulp-scored agreement on 2e5 random gradients + degenerate-gradient cases)
+# ==========================================
 print()
 print('=' * 92)
 print('4.  Hamiltonian vs. barrier.hamiltonian_star  --  the M1 gate')
@@ -217,6 +237,10 @@ for label, (lr, l1, l2) in [
     e = np.abs(g - w).max()
     report('H matches with %s' % label, e < 1e-13, 'max |diff| = %.2e' % e)
 
+# ==========================================
+# SECTION 5 - OPTIMAL FEEDBACK LAW VS. D&S EQS. (21)-(22)
+# (sigma* = sign(lambda) confirmed; H attained at that bang-bang pair)
+# ==========================================
 print()
 print('=' * 92)
 print("5.  Optimal feedback law vs. D&S Eqs. (21)-(22)")
@@ -240,6 +264,10 @@ fvals = jax.jit(jax.vmap(lambda x, uu, dd: dyn(x, uu, dd, 0.0)))(
 e = np.abs(np.sum(np.asarray(fvals) * np.asarray(grads[:20000]), -1) - want[:20000]).max()
 report('H is attained at (sigma_1*, sigma_2*)', e < 1e-13, 'max |diff| = %.2e' % e)
 
+# ==========================================
+# SECTION 6 - THE FOUR GRID TRAPS OF LAYER1_PLAN SEC. 3
+# (periodicity, R_min/R_max + extrapolation BC, real kinks, dissipation bounds)
+# ==========================================
 print()
 print('=' * 92)
 print('6.  Grid: the four traps of Layer1_Plan Sec. 3')
@@ -286,6 +314,10 @@ report('trap 4: |dH/dV_i| bound == |L|/R + 1',
 report('trap 4: bound <= 2/R_min + 1 = %.1f' % (2 / hji.R_MIN_DEFAULT + 1),
        pm[:, 1].max() <= 2 / hji.R_MIN_DEFAULT + 1 + 1e-12, 'max %.4f' % pm[:, 1].max())
 
+# ==========================================
+# SECTION 7 - ELL ON AN ACTUAL SOLVER GRID
+# (the literal V(x,0) array the PDE march will start from)
+# ==========================================
 print()
 print('=' * 92)
 print('7.  ell on an actual solver grid (the array the PDE will start from)')
@@ -312,6 +344,10 @@ report('V0 Lipschitz constant in R equals the analytic weight (%.4f)' % want,
 print('        one-cell value change (the tolerance unit for M2): %.5f'
       % E.value_scale(g))
 
+# ==========================================
+# SECTION 8 - CONDITIONING OF ELL
+# (|grad ell| ~ 1 goal from Plan Sec. 2.1, measured under raw/plan/sdist)
+# ==========================================
 print()
 print('=' * 92)
 print('8.  Conditioning of ell  --  Plan Sec. 2.1\'s stated goal, measured')
@@ -340,6 +376,9 @@ if cond[E.SCALING][3] > 2.0:
     print('        the zero level set and tests A-E are weight-invariant -- but it is the')
     print('        opposite of what Plan Sec. 2.1 asks the weighting to achieve.')
 
+# ==========================================
+# SUMMARY - PASS/FAIL ROLLUP
+# ==========================================
 print()
 print('=' * 92)
 print(('M1 COMPLETE -- all checks passed' if not FAILS else

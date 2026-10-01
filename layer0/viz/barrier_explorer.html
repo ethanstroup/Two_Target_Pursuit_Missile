@@ -933,19 +933,25 @@ Frame.prototype.clip = function () {
 Frame.prototype.unclip = function () { this.g.restore(); };
 /* Grid lines stay recessive; the frame, the ticks and the names are the axis
    and are drawn to be read at a glance. */
-Frame.prototype.axes = function (xl, yl) {
-  var g = this.g, i, v;
+/* xAng / yAng mark an angle axis: its data are degrees (as everywhere in this
+   file) but it is ticked and labelled in radians, like Layer 1. */
+Frame.prototype.ticks = function (a0, a1, ang, px) {
+  var out = [], i;
+  if (ang) {
+    return angleTicks(Math.min(a0, a1) * D, Math.max(a0, a1) * D, Math.max(2, Math.min(7, Math.floor(px / 60) + 1)))
+      .map(function (t) { return { v: t.v / D, lab: t.lab }; });
+  }
+  for (i = 0; i <= 4; i++) { var v = a0 + (a1 - a0) * i / 4; out.push({ v: v, lab: fmt(v) }); }
+  return out;
+};
+Frame.prototype.axes = function (xl, yl, xAng, yAng) {
+  var g = this.g, self = this;
   var L = this.p.l, R = this.w - this.p.r, T = this.p.t, Bm = this.h - this.p.b;
+  var xt = this.ticks(this.x0, this.x1, xAng, R - L), yt = this.ticks(this.y0, this.y1, yAng, Bm - T);
 
   g.strokeStyle = AX_GRID; g.lineWidth = 1;
-  for (i = 0; i <= 4; i++) {
-    v = this.x0 + (this.x1 - this.x0) * i / 4;
-    g.beginPath(); g.moveTo(this.X(v), T); g.lineTo(this.X(v), Bm); g.stroke();
-  }
-  for (i = 0; i <= 4; i++) {
-    v = this.y0 + (this.y1 - this.y0) * i / 4;
-    g.beginPath(); g.moveTo(L, this.Y(v)); g.lineTo(R, this.Y(v)); g.stroke();
-  }
+  xt.forEach(function (t) { g.beginPath(); g.moveTo(self.X(t.v), T); g.lineTo(self.X(t.v), Bm); g.stroke(); });
+  yt.forEach(function (t) { g.beginPath(); g.moveTo(L, self.Y(t.v)); g.lineTo(R, self.Y(t.v)); g.stroke(); });
 
   g.strokeStyle = AX_LINE; g.lineWidth = 1.6;
   g.strokeRect(L, T, R - L, Bm - T);
@@ -953,18 +959,16 @@ Frame.prototype.axes = function (xl, yl) {
   g.lineWidth = 1.4;
   g.font = AX_TICK_FONT;
   g.fillStyle = AX_TICK;
-  for (i = 0; i <= 4; i++) {
-    v = this.x0 + (this.x1 - this.x0) * i / 4;
-    g.beginPath(); g.moveTo(this.X(v), Bm); g.lineTo(this.X(v), Bm + 5); g.stroke();
+  xt.forEach(function (t) {
+    g.beginPath(); g.moveTo(self.X(t.v), Bm); g.lineTo(self.X(t.v), Bm + 5); g.stroke();
     g.textAlign = 'center';
-    g.fillText(fmt(v), this.X(v), Bm + 16);
-  }
-  for (i = 0; i <= 4; i++) {
-    v = this.y0 + (this.y1 - this.y0) * i / 4;
-    g.beginPath(); g.moveTo(L, this.Y(v)); g.lineTo(L - 5, this.Y(v)); g.stroke();
+    g.fillText(t.lab, self.X(t.v), Bm + 16);
+  });
+  yt.forEach(function (t) {
+    g.beginPath(); g.moveTo(L, self.Y(t.v)); g.lineTo(L - 5, self.Y(t.v)); g.stroke();
     g.textAlign = 'right';
-    g.fillText(fmt(v), L - 8, this.Y(v) + 3.5);
-  }
+    g.fillText(t.lab, L - 8, self.Y(t.v) + 3.5);
+  });
 
   g.font = AX_NAME_FONT; g.fillStyle = AX_NAME;
   g.textAlign = 'right';
@@ -989,6 +993,38 @@ Frame.prototype.dot = function (x, y, color, r, ring) {
   if (ring) { g.strokeStyle = color; g.lineWidth = 1.2; g.stroke(); }
   else { g.fillStyle = color; g.fill(); }
 };
+
+/* Ticks for an angle axis, in radians, labelled the way Layer 1's explorer labels
+   them: multiples of pi/2, pi/4 or pi/8 as -pi, pi/2, 3pi/4 ... while they fit,
+   and round decimal radians once the view is zoomed in past that.  lo < hi, in
+   radians; returns [{ v (radians), lab }]: the densest set with at most maxN
+   ticks, as Layer 1 thins its angle ticks to what the axis can carry. */
+function angleTicks(lo, hi, maxN) {
+  var PI = Math.PI, steps = [[PI, 1], [PI / 2, 2], [PI / 4, 4], [PI / 8, 8],
+      [0.2], [0.1], [0.05], [0.02], [0.01], [0.005], [0.002], [0.001]];
+  var best = null;
+  for (var k = 0; k < steps.length; k++) {
+    var st = steps[k][0], vals = [];
+    for (var i = Math.ceil(lo / st - 1e-9); i * st <= hi + 1e-9; i++) vals.push(i * st);
+    if (vals.length > maxN) break;
+    if (vals.length) best = { st: steps[k], vals: vals };
+  }
+  if (!best) return lo <= 0 && hi >= 0 ? [{ v: 0, lab: '0' }] : [];
+  return best.vals.map(function (x) {
+    return { v: x, lab: best.st[1] ? piLabel(x, best.st[1]) : decLabel(x, best.st[0]) };
+  });
+}
+function piLabel(x, den) {
+  var k = Math.round(x / (Math.PI / den));
+  if (k === 0) return '0';
+  var a = Math.abs(k), b = den;
+  for (var g = a; g > 1; g--) if (a % g === 0 && b % g === 0) { a /= g; b /= g; break; }
+  return (k < 0 ? '−' : '') + (a === 1 ? '' : a) + 'π' + (b === 1 ? '' : '/' + b);
+}
+function decLabel(x, st) {
+  var d = Math.max(0, Math.ceil(-Math.log10(st) - 1e-9)), t = x.toFixed(d);
+  return Number(t) === 0 ? '0' : t.replace('-', '−');
+}
 
 function fmt(v) {
   var a = Math.abs(v);
@@ -1172,11 +1208,11 @@ function drawTable2(F, xk, yk) {
 var FACES = {
   cA: { x: function (t, i) { return t.a2[i] / D; },
         y: function (t, i) { return t.a1[i] / D; },
-        xl: 'φ₂ [deg]', yl: 'φ₁ [deg]', xk: 'phi2', yk: 'phi1',
+        xl: 'φ₂', yl: 'φ₁', xk: 'phi2', yk: 'phi1',
         flipX: true, flipY: false, ref: 'p1' },
   cB: { x: function (t, i) { return t.a2[i] / D; },
         y: function (t, i) { return t.R[i]; },
-        xl: 'φ₂ [deg]', yl: 'R', xk: 'phi2', yk: 'R',
+        xl: 'φ₂', yl: 'R', xk: 'phi2', yk: 'R',
         flipX: true, flipY: true, ref: 'R' }
 };
 
@@ -1219,7 +1255,7 @@ function faceFrame(id, cv, c) {
 function drawFace(id) {
   var cv = document.getElementById(id), f = FACES[id];
   var F = faceFrame(id, cv, fit(cv));
-  F.axes(f.xl, f.yl);
+  F.axes(f.xl, f.yl, /^phi/.test(f.xk), /^phi/.test(f.yk));
   F.clip();
   drawReference(F, f.ref);
   if (id === 'cA') drawZones(F);
@@ -1483,13 +1519,13 @@ function drawTarget(g, P) {
 }
 
 /* Three labelled axes rather than a bare tripod.  Each carries tick marks and
-   the data value at each tick (degrees, or R), which the view had no way of
+   the data value at each tick (radians, or R), which the view had no way of
    showing before -- so a shape in it could be seen but not read. */
 function drawAxes3d(g, P) {
   var A = -0.62, Z = 0.62, NT = 4;
   var axes = [
-    { d: 0, off: [0, -1, 0], name: 'φ₂ [deg]' },
-    { d: 1, off: [-1, 0, 0], name: 'φ₁ [deg]' },
+    { d: 0, off: [0, -1, 0], name: 'φ₂' },
+    { d: 1, off: [-1, 0, 0], name: 'φ₁' },
     { d: 2, off: [-1, 0, 0], name: 'R' }
   ];
 
@@ -1518,12 +1554,22 @@ function drawAxes3d(g, P) {
     if (nt >= 1) {
       g.font = AX_TICK_FONT; g.fillStyle = AX_TICK; g.strokeStyle = AX_TICK;
       g.lineWidth = 1.4; g.textAlign = 'center'; g.textBaseline = 'middle';
-      for (var i = 1; i <= nt; i++) {    // i = 0 is the corner the three axes
-        var u = A + (Z - A) * i / nt;    // share: their labels would stack
-        var a = at(u, 0), b = at(u, 0.05), lab = at(u, 0.135);
-        g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
-        g.fillText(fmt(P.box.c[ax.d] + u * P.box.s[ax.d]), lab[0], lab[1]);
+      var c0 = P.box.c[ax.d], s0 = P.box.s[ax.d], ticks = [];
+      if (ax.d < 2) {                    // angles: data in degrees, ticks in radians
+        angleTicks((c0 + A * s0) * D, (c0 + Z * s0) * D, nt + 1).forEach(function (t) {
+          ticks.push({ u: (t.v / D - c0) / s0, lab: t.lab });
+        });
+      } else {
+        for (var i = 1; i <= nt; i++) {
+          var uu = A + (Z - A) * i / nt; ticks.push({ u: uu, lab: fmt(c0 + uu * s0) });
+        }
       }
+      ticks.forEach(function (t) {       // not at the corner the three axes share:
+        if (t.u < A + 0.06 * (Z - A)) return;   // their labels would stack there
+        var a = at(t.u, 0), b = at(t.u, 0.05), lab = at(t.u, 0.135);
+        g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+        g.fillText(t.lab, lab[0], lab[1]);
+      });
     }
 
     // The name goes past the far end ALONG the axis; tick labels are offset
@@ -2723,10 +2769,16 @@ function drawAxes3D(v, C) {
   [[-PI / 4, '−π/4'], [PI / 4, 'π/4']].forEach(function (t) { text3(v, [0.32, t[0], 0], t[1], C.ink2); });
   [2, 4, 6].forEach(function (r) { text3(v, [0, 0, r], String(r), C.ink2, F_TICK, -6 - 8 * TS, 0); });
 }
+/* Axis names past the ends of the axes, kept inside the panel: at larger text sizes
+   a name near the edge would otherwise run off it. */
 function drawAxisNames3D(v, C) {
-  text3(v, [PI + 0.8, 0, 0], 'φ₂', C.ink, F_AXIS);
-  text3(v, [0, 1.6, 0], 'φ₁', C.ink, F_AXIS);
-  text3(v, [0, 0, 7.45], 'R', C.ink, F_AXIS);
+  var ctx = v.ctx, halo = palette().panel;
+  [[[PI + 0.8, 0, 0], 'φ₂'], [[0, 1.6, 0], 'φ₁'], [[0, 0, 7.45], 'R']].forEach(function (n) {
+    var q = v.P(n[0][0], n[0][1], n[0][2]);
+    ctx.font = F_AXIS;
+    var hw = ctx.measureText(n[1]).width / 2 + 6, hh = SIZES.axis * TS * 0.7;
+    haloText(ctx, n[1], clamp(q[0], hw, v.w - hw), clamp(q[1], hh, v.h - hh), C.ink, F_AXIS, 'center', 'middle', halo);
+  });
 }
 function drawBoxEdges(v, C) {
   var n = 192;
@@ -3089,7 +3141,8 @@ function drawSweepUnrolled(C) {
   ctx.closePath(); ctx.fillStyle = rgba(C.max, 0.12); ctx.fill();
   stroke(up, C.max, 2.4); stroke(dn, C.min, 2.4);
   ctx.setLineDash([4, 4]); stroke([[F.x(180), F.y(0)], [F.x(180), F.y(7)]], C.seam, 1.3); ctx.setLineDash([]);
-  for (d = -180; d <= 180; d += 90) haloText(ctx, d + '°', F.x(d), F.y(0) + 7, C.ink2, F_TICK, 'center', 'top');
+  var PI_LAB = { '-180': '−π', '-90': '−π/2', '0': '0', '90': 'π/2', '180': 'π' };      // radians, as in Layer 1
+  for (d = -180; d <= 180; d += 90) haloText(ctx, PI_LAB[d], F.x(d), F.y(0) + 7, C.ink2, F_TICK, 'center', 'top');
   for (r = 0; r <= 7; r++) haloText(ctx, String(r), F.L - 8, F.y(r), C.ink2, F_TICK, 'right', 'middle');
   haloText(ctx, 'φ₂', F.x(0), h - 8, C.ink, F_AXIS, 'center', 'bottom');
   ctx.save(); ctx.translate(6 + 10 * TS, F.y(3.5)); ctx.rotate(-PI / 2);

@@ -47,6 +47,14 @@ It loads `../barrier.js`, `./bup_curves.js` and `./los_coords.js` as plain scrip
     orientation as the face (φ₂, φ₁) panel, and switches to free 3-D.
   - The default view (az −155°, el 22°) has φ₂ increasing to the left, as printed. The
     3-D box is proportioned φ₂ : φ₁ : R = 2 : 1 : 1, with one scale for both screen axes.
+- **angle axes are in radians**, like Layer 1's `ell_explorer.html`. This covers the φ₁ and φ₂
+  axes of the 3-D view, both face panels and the teaching tabs. The axis names carry no unit,
+  since the π ticks make it plain.
+  - Ticks sit at multiples of π/2, π/4 or π/8 (−π, −π/2, 0, π/2, π …) while those fit the
+    axis, as dense as the axis can carry.
+  - In a view zoomed in past that, they switch to round decimal radians (0.1, 0.05 …).
+  - Data are still stored in degrees internally; only the ticks and labels changed.
+  - Readouts, the status line and the φ₂ slider still show degrees.
 - **resizing panels** — drag the gutter between two panels to move the split, a panel's
   bottom edge to change its row's height, or the grip in its bottom-right corner to do both.
   Canvases fill their panels and redraw as they change. The layout is remembered in this
