@@ -16,6 +16,16 @@ them is the semipermeable sheet.
 | `bup_curves.js` | its twin, for the browser — cross-checked point by point by `test_viz.py` |
 | `visualize.py` | the static figure set → `figs/` |
 | `barrier_explorer.html` | interactive explorer; open it straight from the filesystem |
+| `explorer.css` | responsive presentation styles; local and dependency-free |
+| `workspace_chrome.js`, `test_workspace_chrome.js` | compact navigation and settings drawer; focus, Escape, and tab-switch checks with DOM doubles |
+| `dock_layout.js` | pure split-tree operations, minimum sizes, drop zones, and saved-layout validation |
+| `dock_workspace.js`, `dock_workspace.css` | drag-to-dock, split resizing, keyboard controls, and layout persistence |
+| `test_dock_layout.js`, `test_dock_workspace.js` | docking model and controller tests; controller tests use DOM doubles, not visual browser checks |
+| `barrier_export.js` | barrier appearance controls, PNG composition, growth GIF timing, progress, and cancellation |
+| `barrier_render_cache.js` | exact prefix bounds and cached curve simplification for live drawing; original integration samples are retained |
+| `test_barrier_render_cache.js`, `benchmark_barrier_render.js` | error-bound, playback, and cache checks; repeatable CPU/draw-command benchmark using canvas doubles |
+| `gif_encoder.js` | shared local GIF encoder used by all three views |
+| `test_barrier_export.js`, `test_barrier_render.js`, `test_gif_encoder.py` | export/controller checks, renderer checks with canvas doubles, and independent GIF decoding with Pillow |
 | `los_coords.js` | world frame (x, y, heading) ↔ (R, φ₁, φ₂), for the coordinates tabs; T₁ comes from `../barrier.js` |
 | `test_los_coords.js` | 11 checks on `los_coords.js`, including against `../../heuristic_simulator/sim.js`; `test_viz.py` §10 runs it |
 | `test_viz.py` | 45 acceptance checks, plus the 11 from `test_los_coords.js` |
@@ -31,7 +41,108 @@ python3 layer0/viz/visualize.py [outdir] [--tau 1.5] [--nseed 45]
 ```
 
 The explorer needs no build and no server — open `barrier_explorer.html` in a browser.
-It loads `../barrier.js`, `./bup_curves.js` and `./los_coords.js` as plain scripts.
+It loads `../barrier.js`, `./bup_curves.js`, `./los_coords.js`, `./dock_layout.js`,
+`./dock_workspace.js`, `./workspace_chrome.js`, `./gif_encoder.js`, `./barrier_export.js`,
+and `./barrier_render_cache.js` as plain scripts. Keep `explorer.css` and
+`dock_workspace.css` beside it for the interface styles.
+
+### Explorer interface
+
+The three views are **Barrier surface**, **Coordinates**, and **Aspect sweep**.
+The boundary-family selector, backward-time slider, Play, Reset views, and Export PNG
+sit together directly above the barrier plots. One slim status row combines the surface
+stage, trajectory count, and selected range/angles.
+
+The buttons beside the view tabs open a right-side settings drawer on **Barrier surface**:
+
+- **Display:** visible layers, hover selection, isolation, seed count, and view presets.
+- **Export & appearance:** PNG, growth GIF, and text/line sizing.
+- **Layout:** arrangement presets, Reset layout, and docking/resizing instructions.
+- **Help:** the introductory explanation, notation, and plot gestures.
+
+The drawer overlays the page without moving or resizing the plots. You can continue
+interacting with the visible workspace while it is open. Switch sections inside the
+drawer, close it with **×** or **Esc**, or click its active toolbar button again. Closing
+returns keyboard focus to the opener. Escape remains available to active docking gestures
+and modal export/Move dialogs. Switching view tabs closes the barrier drawer.
+
+All six workspace panels remain available, including physical geometry, costates,
+invariants, and the complete state readout. **Legend & branches** and **Numerical details**
+remain below the workspace. Coordinates and Aspect sweep retain their own expandable
+**Export & appearance** controls, including video recording; **Fly this engagement**
+holds the coordinate view's flight controls.
+
+Arrow keys, Home, and End navigate the view tabs. Branch controls and disclosures work
+with the keyboard.
+
+### Docking and resizing
+
+All six panels on the **Barrier surface** page share a docking workspace:
+
+- Drag a panel by its title bar. A shaded preview shows the destination. Drop near another
+  panel's **left, right, top, or bottom edge** to create a split, or in its **center** to swap
+  their positions. Empty slots collapse automatically. The page scrolls near the viewport
+  edge while dragging, so bottom panels can be moved up.
+- Drag any divider to resize its neighboring panels. Minimum sizes keep plots usable.
+  Focus a divider and use arrow keys to resize with the keyboard; Shift makes larger steps.
+- Drag the handle below the entire workspace to change its height. It also supports Up/Down
+  keys and Shift for larger adjustments.
+- **Esc**, pointer cancellation, or loss of focus cancels an in-progress drag or resize.
+  Releasing a dragged panel outside a valid destination leaves the layout unchanged.
+- Each title bar's **Move** button provides an alternative: choose a target panel and a
+  direction, or choose **Swap places**. This also works with the keyboard.
+- **Analysis · 3D + costates** places Costates & invariants beside the 3D view in one step.
+  **Overview** / **Reset layout** restores the original six-panel arrangement.
+- Dock positions, split ratios, and workspace height persist locally in this browser.
+  Existing view transforms and canvas elements survive a move. Corrupt saved layouts fall
+  back to Overview; if browser storage is unavailable, docking still works for the session.
+- Below 760 px, panels stack in the layout's traversal order; use **Move** to reorder them.
+  Returning to a wider window restores the desktop splits. Complex desktop layouts can
+  scroll horizontally instead of squeezing panels below their minimum sizes.
+
+Run the docking checks with:
+
+```sh
+node --test layer0/viz/test_dock_layout.js layer0/viz/test_dock_workspace.js
+```
+
+### Barrier export and appearance
+
+Open **Export & appearance** on **Barrier surface**:
+
+- Choose the plots to include: 3D surface, either projection, engagement geometry, and/or
+  costates & invariants. By default the 3D view sits beside the two stacked projections
+  in the exported image. Other selections use one or two columns. Panel proportions follow
+  their current docked sizes. The state readout is not part of the image.
+- **Save PNG** captures the current τ, family, visible layers, and camera. The main toolbar's
+  **Export PNG** uses these same panel choices. Image widths are 1200, 1600, or 2400 px.
+- **Make growth GIF** renders from τ = 0 to **GIF maximum τ** (0.01–6). Set the growth
+  duration (2–20 seconds) and number of frames (60, 90, 120, or 180). The final frame holds
+  for one additional second before looping. More frames require at least 0.02 seconds per
+  frame; an incompatible duration shows a validation message.
+- GIFs retain the current family, layer visibility, camera, selected trajectory, and marker
+  fraction. Automatic plot bounds use the requested maximum τ for the entire animation;
+  existing manual zoom and pan are honored. Canvases retain their dimensions while exporting.
+- Rendering shows progress and supports **Cancel export** or **Esc**. Success, cancellation,
+  and errors restore the previous τ and resume Play if it was running.
+- **Text size** (100–300%) scales plot labels, tick values, exported titles, and the export
+  caption. **Lines & markers** (100–250%) scales strokes, dots, and arrowheads. Changes appear
+  in the live plots and both export formats. These settings persist locally and have their
+  own **Reset appearance**, separate from the other tabs' appearance settings.
+- **3D surface transparency** (0–100%, default 50%) fades the barrier sheet and target-set
+  shading without fading trajectories, outlines, or markers. At 100%, surface fills are
+  hidden. The setting is saved with the other appearance controls and applies to PNG/GIF
+  exports as well. The 2D projections are unaffected.
+- All processing is local; exports need no network, server, or additional browser libraries.
+
+Export checks (the Python check needs Pillow and Node.js on PATH):
+
+```sh
+node --test layer0/viz/test_barrier_export.js layer0/viz/test_barrier_render.js
+python layer0/viz/test_gif_encoder.py
+```
+
+### Plot interactions
 
 - **τ = 0** draws the (BUP) alone, over the target-set boundaries with the Table 2 points
   overlaid, for direct comparison against the printed figures. Raise τ to sweep the sheet.
@@ -55,15 +166,14 @@ It loads `../barrier.js`, `./bup_curves.js` and `./los_coords.js` as plain scrip
   - In a view zoomed in past that, they switch to round decimal radians (0.1, 0.05 …).
   - Data are still stored in degrees internally; only the ticks and labels changed.
   - Readouts, the status line and the φ₂ slider still show degrees.
-- **resizing panels** — drag the gutter between two panels to move the split, a panel's
-  bottom edge to change its row's height, or the grip in its bottom-right corner to do both.
-  Canvases fill their panels and redraw as they change. The layout is remembered in this
-  browser; **reset layout** puts it back.
-- **select** (toolbar) turns hover-selecting and click-pinning on and off. Off, moving or
+- **resizing panels** — drag the split dividers or the workspace's bottom height handle.
+  Canvases fill their panels and redraw as they change; see Docking and resizing above.
+- **Hover selection** (Display & sampling) turns hover-selecting and click-pinning on and off. Off, moving or
   clicking the mouse over a view changes nothing and no trajectory is highlighted; rotate,
   pan and zoom still work, and the lower panels keep the last selection.
-- **click** selects a trajectory in any of the three views; **play** then walks the marker
-  along it as τ elapses, and **focus** hides everything else while you watch.
+- **click** selects a trajectory in any of the three views; **Play** then walks the marker
+  along it as τ elapses, and **Isolate selection** hides the other trajectories while you watch.
+  Switching to another tab pauses the barrier animation.
 - **corner + universal** on maximum range adds the two barrier pieces that are not
   roots of Eq. (32): trajectories seeded on the φ₂ = 0 corner edge O–e₁ (and O–e₁′), with
   the corner costate of Eqs. (39)–(41), and the universal line of player 1 from d₁ (and d₁′),
@@ -99,8 +209,43 @@ It loads `../barrier.js`, `./bup_curves.js` and `./los_coords.js` as plain scrip
   at Q₁ (φ₂ = ±90°), where σ₂ changes sign by Eq. (65) — N₁–Q₁ (−1,−1) and Q₁–m₁ (−1,+1)
   on φ₁ = +β. Q₁ itself is singular (the evader's universal line starts there), so each
   half ends 1e−4 rad short of it. Chips show the control pair on each piece.
+  On the primed wall, **N₁′–Q₁′ is deep red** and **Q₁′–m₁′ is light red** for their
+  trajectories and surfaces. BUP seed curves remain black in every view. The unprimed
+  wall retains its blue trajectory and surface colors.
   **all on** restores everything; the on/off state survives changing τ or the seed count.
-- **save PNG** stitches the three trajectory views into one image for a deck.
+- **Export PNG** captures the panels chosen in **Export & appearance**, under their titles.
+
+### Growth performance
+
+The current family's trajectories are integrated through τ = 6 when the family, seed
+count, or corner/universal setting changes. Scrubbing and Play use those existing samples;
+they do not load data or repeat integration.
+
+- Exact prefix bounds are cached in blocks and shared by the projections and 3D view.
+  Backwards scrubbing, hidden branches, and isolated trajectories retain their correct bounds.
+- Live trajectory lines use a cached subdivision hierarchy with a maximum approximation
+  error of 0.35 CSS pixels after projection. Zooming refines the lines as needed. The seed
+  and current endpoint remain exact. Integration samples, selection, switches, state
+  readouts, costates, and invariants retain their full numerical resolution.
+- PNG/GIF exports draw every original trajectory sample at high resolution. Live canvases
+  use native screen resolution and reuse their backing bitmap until their size changes.
+- Surface cells use stable stations and include the growing endpoint. Old cells no longer
+  change spacing on each playback step.
+- Play and high-frequency interaction redraws share the browser's animation-frame queue.
+  Playback uses elapsed time at the original speed and pauses its clock in background tabs.
+
+Run performance-related checks and the drawing benchmark with:
+
+```sh
+node --test layer0/viz/test_barrier_render_cache.js layer0/viz/test_barrier_render.js
+node layer0/viz/benchmark_barrier_render.js
+```
+
+The benchmark uses no-op canvas calls, so its CPU timings are **not browser FPS**.
+At 45 seeds/branch (184 maximum-range trajectories, 547,126 samples), the optimization
+reduced `lineTo` calls at τ = 6 from 1,708,305 to 123,951 and eliminated the ten repeated
+canvas dimension assignments per frame. Use `--baseline` to compare against the currently
+committed HTML; this is useful while evaluating an uncommitted rendering change.
 
 ## Coordinates tabs
 

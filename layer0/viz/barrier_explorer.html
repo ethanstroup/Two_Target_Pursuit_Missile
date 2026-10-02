@@ -25,11 +25,15 @@
                      AutoCAD / Fusion 360; in 3-D it translates the whole scene
     click            select a trajectory, in any of the three views
     double-click     reset that view
+    title-bar drag   dock at another panel edge; center drop swaps panels
+    divider drag     resize neighboring panels (Esc cancels)
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Layer 0 — barrier sheet explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Barrier Explorer · Layer 0</title>
 <style>
   :root {
     --c0: #1f5fa8;  --c1: #c1442a;  --c2: #8a5cc7;  --sw: #8a5cc7;
@@ -67,12 +71,7 @@
   button.on { background: var(--c0); border-color: var(--c0); color: #fff; }
   .status { color: var(--ink3); font-size: 12px; font-variant-numeric: tabular-nums; }
 
-  /* Panel layout.  Every panel is resizable: drag the gutter between two panels,
-     a panel's bottom edge, or the grip in its bottom-right corner.  The track
-     sizes are set from JS (applyLayout); these are only the pre-script defaults. */
-  .grid { display: grid; grid-template-columns: 1.3fr 10px 1fr; grid-template-rows: 640px; }
-  .row2 { display: grid; grid-template-columns: 1fr 10px 1fr 10px 1fr;
-          grid-template-rows: 330px; margin-top: 10px; }
+  /* Shared plot cards; the first page's layout is managed by dock_workspace.js. */
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     padding: 9px 10px 6px;
@@ -85,48 +84,12 @@
   .cv > canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
   .readbody { flex: 1 1 auto; min-height: 0; overflow: auto; }
 
-  .gutter { position: relative; }
-  .gutter.gv { cursor: col-resize; }
-  .gutter.gh { cursor: row-resize; }
-  .gutter::after {
-    content: ''; position: absolute; border-radius: 2px; background: transparent;
-    transition: background 0.12s;
-  }
-  .gutter.gv::after { left: 4px; width: 2px; top: 8px; bottom: 8px; }
-  .gutter.gh::after { top: 4px; height: 2px; left: 8px; right: 8px; }
-  .gutter:hover::after, .gutter.drag::after { background: #9aa3ad; }
-  .rz-b {
-    position: absolute; left: 12px; right: 16px; bottom: -6px; height: 11px;
-    cursor: row-resize; z-index: 3;
-  }
-  .rz-b::after {
-    content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px;
-    border-radius: 2px; background: transparent; transition: background 0.12s;
-  }
-  .rz-b:hover::after, .rz-b.drag::after { background: #9aa3ad; }
-  .rz-c {
-    position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px;
-    cursor: nwse-resize; z-index: 4;
-  }
-  .rz-c::before {        /* the grip: two short diagonals inside the corner */
-    content: ''; position: absolute; right: 8px; bottom: 8px; width: 8px; height: 8px;
-    background:
-      linear-gradient(135deg, transparent 45%, #b8c0c9 45%, #b8c0c9 58%, transparent 58%),
-      linear-gradient(135deg, transparent 72%, #b8c0c9 72%, #b8c0c9 85%, transparent 85%);
-  }
-  .rz-c:hover::before, .rz-c.drag::before {
-    background:
-      linear-gradient(135deg, transparent 45%, #4a5058 45%, #4a5058 58%, transparent 58%),
-      linear-gradient(135deg, transparent 72%, #4a5058 72%, #4a5058 85%, transparent 85%);
-  }
-  body.resizing, body.resizing * { cursor: var(--rzcur) !important; user-select: none; }
   .card h2 {
     font-size: 12px; font-weight: 600; margin: 0 0 5px;
     display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   }
   .card h2 span { font-weight: 400; color: var(--ink3); font-size: 11px;
                   font-variant-numeric: tabular-nums; }
-  .stack { display: grid; grid-template-rows: 1fr 10px 1fr; min-height: 0; min-width: 0; }
   canvas { display: block; width: 100%; }
   #c3d { cursor: grab; }
   #c3d:active { cursor: grabbing; }
@@ -200,116 +163,89 @@
   .lx-missing { padding: 16px; border: 1px solid #e6c9c4; border-left: 4px solid var(--no);
                 border-radius: 8px; background: #fff; }
 </style>
+<link rel="stylesheet" href="./explorer.css">
+<link rel="stylesheet" href="./dock_workspace.css">
 </head>
 <body>
 
-<h1>Layer 0 — the barrier as a swept surface</h1>
-<nav class="lx-tabs">
-  <button data-lx-tab="barrier" class="on">Barrier Sheet</button>
-  <button data-lx-tab="coords" title="world frame (x, y) → (R, φ₁, φ₂), and the firing envelope → T₁">Coordinates</button>
-  <button data-lx-tab="sweep" title="turn player 2 and watch the max range and the T₁ slice change">φ₂ Sweep</button>
+<header class="app-header">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path d="M7 29 20 7l13 22H7Z" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M7 29c8-15 18-15 26 0M20 7v26" stroke="currentColor" stroke-width="1.5" opacity=".55"/>
+      <circle cx="20" cy="18" r="3" fill="currentColor"/>
+    </svg>
+    <div><h1>Barrier Explorer</h1></div>
+  </div>
+  <div class="project-meta"><span>AE 8900</span><span class="layer-badge">Layer 0</span><span>1v1 · Davidovitz &amp; Shinar</span></div>
+</header>
+<main>
+<div class="workspace-nav">
+<nav class="lx-tabs" role="tablist" aria-label="Explorer views">
+  <button id="tabBarrier" data-lx-tab="barrier" class="on" role="tab" aria-selected="true" aria-controls="pageBarrier">Barrier surface</button>
+  <button id="tabCoords" data-lx-tab="coords" role="tab" aria-selected="false" aria-controls="pageCoords" tabindex="-1">Coordinates</button>
+  <button id="tabSweep" data-lx-tab="sweep" role="tab" aria-selected="false" aria-controls="pageSweep" tabindex="-1">Aspect sweep</button>
 </nav>
-
-<div id="pageBarrier">
-<div class="sub">
-  The boundary of the usable part is a <b>curve</b>. Every point on it is a terminal
-  condition: state on the target-set boundary, costate from transversality (Eq. 20).
-  Integrating the coupled state–costate system <b>backward</b> under σ₁* = −sign λ₁,
-  σ₂* = +sign λ₂ gives one barrier trajectory per point, and the bundle of them is the
-  semipermeable surface. At <code>τ = 0</code> only the (BUP) is drawn, over the
-  target-set boundaries and the Table 2 points; raise τ to sweep the sheet.
-  Maths comes from <code>../barrier.js</code> and <code>bup_curves.js</code>;
-  |FI−1| and |H*| are the integration's own error certificate.
+<div class="workspace-tools" id="workspaceTools" role="group" aria-label="Barrier workspace tools">
+  <button data-workspace-tool="display" aria-expanded="false" aria-controls="drawerDisplay">Display</button>
+  <button data-workspace-tool="export" aria-expanded="false" aria-controls="barrierCapture">Export &amp; appearance</button>
+  <button data-workspace-tool="layout" aria-expanded="false" aria-controls="drawerLayout">Layout</button>
+  <button data-workspace-tool="help" aria-expanded="false" aria-controls="drawerHelp">Help</button>
+</div>
 </div>
 
-<div class="bar">
-  <div class="ctl">
-    <label for="fam">family</label>
+<section id="pageBarrier" role="tabpanel" aria-labelledby="tabBarrier">
+<div class="bar main-controls">
+  <div class="ctl family-control">
+    <label for="fam">Family</label>
     <select id="fam"></select>
   </div>
-  <div class="ctl">
-    <label for="tau">retrograde τ</label>
+  <div class="ctl time-control">
+    <label for="tau" title="Normalized time integrated backward from the seed">Time <span>τ</span></label>
+    <div class="time-inputs">
     <input type="range" id="tau" min="0" max="600" step="1" value="0">
-    <input type="text" class="num" id="tauNum" value="0.00">
+    <input type="number" class="num" id="tauNum" value="0.00" min="0" max="6" step="0.01" aria-label="Backward time, numeric value">
+    </div>
   </div>
-  <div class="ctl">
-    <label for="ns">seeds/branch</label>
-    <input type="range" id="ns" min="9" max="121" step="2" value="45">
-    <output id="nsOut">45</output>
-  </div>
-  <button id="play">▶ play</button>
-  <button id="focus">focus</button>
-  <button id="showSw" class="on">switches</button>
-  <button id="showSheet" class="on">sheet</button>
-  <button id="showT2" class="on">Table 2</button>
-  <button id="showMark" class="on">marker</button>
-  <button id="pick" class="on" title="hovering selects the nearest trajectory and follows it; clicking pins one. Turn off when it gets in the way — rotate, pan and zoom still work, and the lower panels keep the last selection">select</button>
-  <button id="showZones" class="on">capture zones</button>
-  <button id="showTarget" class="on" title="the target set of Eqs. (6)-(9), semi-transparent, with its usable parts shaded (3-D view)">target set</button>
-  <button id="showExtra" class="on" title="max range: seeds on the φ₂ = 0 corner edge O–e₁ and the universal line from d₁ · off-boresight: seeds on the wall's max-range corner B₁A₁ and min-range corner N₁Z₁m₁">corner + universal</button>
-  <button id="fig8">Fig. 8 view</button>
-  <button id="reset">reset views</button>
-  <button id="resetLayout" title="put every panel back to its default size">reset layout</button>
-  <button id="png">save PNG</button>
+  <button id="play" class="primary-action">▶ Play</button>
+  <button id="reset" title="Reset the orientation, pan and zoom of all barrier views">Reset views</button>
+  <button id="png" class="export-action">Export PNG <span aria-hidden="true">↗</span></button>
 </div>
-<div class="bar" style="padding:7px 12px"><span class="status" id="status"></span></div>
-
-<div class="grid" id="gTop">
-  <div class="card" id="k3d">
-    <h2>the bundle in (φ₂, φ₁, R) <span id="h3d"></span></h2>
+<div class="workspace-meta" aria-label="Workspace status">
+  <p><span class="stage-dot" aria-hidden="true"></span><strong id="stageLabel" aria-describedby="stageHint">Seed curve</strong><span id="bundleCount" class="mono"></span></p>
+  <span id="stageHint" class="sr-only">Press Play or move the time slider to grow the surface.</span>
+  <div class="workspace-selection"><span>Selected</span><span id="selectionSummary" class="selection-summary mono"></span></div>
+</div>
+<div class="dock-viewport" id="dockViewport">
+  <div id="dockWorkspace" class="dock-workspace" aria-label="Dockable analysis panels">
+<div class="card" id="k3d">
+    <h2>Barrier surface <span>(φ₂, φ₁, R)</span></h2>
+    <div id="h3d" class="view-meta"></div>
     <div class="cv c3dwrap">
-      <canvas id="c3d"></canvas>
+      <canvas id="c3d" role="img" aria-label="Three-dimensional barrier trajectories in phi 2, phi 1, and range. Selected values are available in the State and controls panel."></canvas>
       <div class="viewbtns">
         <button id="lockR" class="lockbtn on" type="button"></button>
         <button id="topView" class="lockbtn" type="button"
                 title="look straight down on the (φ₂, φ₁) plane, turned to match the face (φ₂, φ₁) panel — switches to free 3-D">top view</button>
       </div>
     </div>
-    <div class="key">
-      <span><i style="background:#111"></i>the (BUP) seed curve</span>
-      <span><i class="dot" style="background:var(--sw)"></i>located control switch</span>
-      <span id="markKey"><i class="dot" style="background:#111"></i>marked point</span>
-      <span id="extraKey" style="display:contents"></span>
-      <span id="tsKey"><i style="background:rgba(93,107,121,0.45);height:9px"></i>target set T₁
-        &nbsp;<i style="background:rgba(15,159,181,0.55);height:9px"></i>usable parts (UP)₁ — the family shown is darker</span>
-      <span style="flex-basis:100%;height:0"></span>
-      <span style="color:var(--ink2)">segments — click to hide / show:</span>
-      <span id="branchKey" style="display:contents"></span>
-      <span class="seglink" id="segAll">all on</span>
-      <span style="color:var(--ink3)">hover scrubs along a curve · click pins one ("select" turns both off) ·
-        drag rotates · wheel-drag or shift-drag pans · wheel zooms ·
-        drag a panel's edge or corner to resize it</span>
-    </div>
-    <div class="rz-b" data-rz="topH"></div>
-    <div class="rz-c" data-rz="topH" data-gut="top:0"></div>
+    <div class="canvas-guide"><span>Drag to rotate <span aria-hidden="true">·</span> Scroll to zoom <span aria-hidden="true">·</span> Click a curve to pin</span><span class="view-tag">3D</span></div>
   </div>
-  <div class="gutter gv" data-gut="top:0"></div>
-
-  <div class="stack" id="gStack">
-    <div class="card" id="kA">
-      <h2>face (φ₂, φ₁) <span>φ₂ increases to the left, as printed</span></h2>
-      <div class="cv"><canvas id="cA"></canvas></div>
+<div class="card" id="kA">
+      <h2>Angle projection <span>φ₂ ← · φ₁ ↑</span></h2>
+      <div class="cv"><canvas id="cA" role="img" aria-label="Angle projection of the barrier trajectories"></canvas></div>
     </div>
-    <div class="gutter gh" data-gut="stack:0"></div>
-    <div class="card" id="kB">
-      <h2>face (φ₂, R) <span>R increases downward, as printed</span></h2>
-      <div class="cv"><canvas id="cB"></canvas></div>
-      <div class="rz-b" data-rz="topH"></div>
+<div class="card" id="kB">
+      <h2>Range projection <span>φ₂ ← · R ↓</span></h2>
+      <div class="cv"><canvas id="cB" role="img" aria-label="Range projection of the barrier trajectories"></canvas></div>
     </div>
-  </div>
-</div>
-
-<div class="row2" id="gBot">
-  <div class="card" id="kG">
-    <h2>engagement geometry <span>at the marked point</span></h2>
+<div class="card" id="kG">
+    <h2>Engagement geometry <span>At the selected point</span></h2>
     <div class="cv"><canvas id="cG"></canvas></div>
     <div class="note" id="gnote"></div>
-    <div class="rz-b" data-rz="botH"></div>
-    <div class="rz-c" data-rz="botH" data-gut="bot:0"></div>
   </div>
-  <div class="gutter gv" data-gut="bot:0"></div>
-  <div class="card" id="kI">
-    <h2>costates and invariants <span>selected trajectory</span></h2>
+<div class="card" id="kI">
+    <h2>Costates &amp; invariants <span>Along the selected path</span></h2>
     <div class="cv"><canvas id="cI"></canvas></div>
     <div class="key">
       <span><i style="background:var(--c0)"></i>λ<sub>R</sub></span>
@@ -317,12 +253,9 @@
       <span><i style="background:var(--c2)"></i>λ₂</span>
       <span><i style="background:var(--ok)"></i>log₁₀|H*|</span>
     </div>
-    <div class="rz-b" data-rz="botH"></div>
-    <div class="rz-c" data-rz="botH" data-gut="bot:1"></div>
   </div>
-  <div class="gutter gv" data-gut="bot:1"></div>
-  <div class="card" id="kR">
-    <h2>readout <span id="rsub"></span></h2>
+<div class="card" id="kR">
+    <h2>State &amp; controls</h2><div id="rsub" class="view-meta"></div>
     <div class="readbody" id="readbody">
       <table class="read" id="read"></table>
       <div class="note">
@@ -330,27 +263,56 @@
         shooter's own angle, both range bounds on the target's aspect angle.
       </div>
     </div>
-    <div class="rz-b" data-rz="botH"></div>
+  </div>
   </div>
 </div>
-</div><!-- /pageBarrier -->
+<div id="dockHeightHandle" class="dock-height-handle" role="separator" aria-orientation="horizontal" aria-label="Resize workspace height" tabindex="0"><span>Drag to adjust workspace height</span></div>
+<p id="dockAnnouncement" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+<dialog id="dockMoveDialog" class="dock-dialog" aria-labelledby="dockMoveTitle">
+  <h2 id="dockMoveTitle">Move panel</h2><p>Choose a neighboring panel and where this panel should fit.</p>
+  <label for="dockMoveTarget">Next to</label><select id="dockMoveTarget"></select>
+  <label for="dockMovePosition">Position</label><select id="dockMovePosition"><option value="right">Right</option><option value="left">Left</option><option value="top">Above</option><option value="bottom">Below</option><option value="center">Swap places</option></select>
+  <div class="dock-dialog-actions"><button id="dockMoveCancel">Cancel</button><button id="dockMoveApply" class="primary-action">Move panel</button></div>
+</dialog>
+<div class="plot-key key" aria-label="Essential plot legend"><span><i style="background:#111"></i>Seed curve</span><span><i class="dot" style="background:var(--sw)"></i>Control switch</span><span><i style="background:rgba(15,159,181,0.55);height:9px"></i>Usable part</span><span><i style="background:rgba(93,107,121,0.45);height:9px"></i>Target set</span></div>
+<details class="disclosure legend-details">
+  <summary>Legend &amp; branches <span class="summary-hint">Identify features or hide individual segments</span></summary>
+  <div class="disclosure-body">
+    <div class="key">
+      <span><i style="background:#111"></i>BUP seed curve</span>
+      <span><i class="dot" style="background:var(--sw)"></i>Control switch</span>
+      <span id="markKey"><i class="dot" style="background:#111"></i>Selected point</span>
+      <span id="extraKey" style="display:contents"></span>
+      <span id="tsKey"><i style="background:rgba(93,107,121,0.45);height:9px"></i>Target set T₁
+        &nbsp;<i style="background:rgba(15,159,181,0.55);height:9px"></i>Usable parts · active family shaded darker</span>
+    </div>
+    <div class="branch-heading">Visible branches <button class="seglink" id="segAll">Show all</button></div>
+    <div id="branchKey" class="key"></div>
+    <p class="note">Control pairs are shown in parentheses. The projection axes follow the orientation of the published figures.</p>
+  </div>
+</details>
+
+
+<details class="disclosure numerical-details"><summary>Numerical details <span class="summary-hint">Integration residuals and build statistics</span></summary><div class="disclosure-body"><p class="status" id="status"></p><p class="note">FI is the first integral; H* is the optimized Hamiltonian. Residuals describe these integrated trajectories, not validation of a complete outcome partition.</p></div></details>
+</section><!-- /pageBarrier -->
 
 <!-- ======================================================= coordinates tab -->
-<div id="pageCoords" class="lx" hidden>
-  <div class="sub">
+<section id="pageCoords" class="lx" role="tabpanel" aria-labelledby="tabCoords" hidden>
+  <div class="page-intro"><div><div class="eyebrow">From aircraft to state space</div><h2>One engagement. Three perspectives.</h2><p>Drag either aircraft or its heading handle and follow the same state across all three views.</p></div>
+  <details class="help-disclosure"><summary>About the coordinates</summary><div class="help-body">
     How a world-frame picture of two aircraft becomes the state (R, φ₁, φ₂) of D&amp;S Fig. 1, and
     how the firing envelope of Fig. 2 becomes the target set T₁ of Fig. 3. The target-frame panel
     is drawn from (R, φ₁, φ₂) alone: the world position and ψ are gone. In the world and target-frame
-    panels the wheel zooms and dragging empty space pans; double-click or <b>reset</b> restores the view. Maths:
-    <code>los_coords.js</code>; the target set is <code>../barrier.js</code>'s own Rlo, Rhi and β.
-  </div>
-  <div class="bar">
-    <div class="ctl"><label>presets</label>
-      <button data-lx-preset="headon">head-on</button>
-      <button data-lx-preset="beam">beam</button>
-      <button data-lx-preset="tail">tail chase</button>
-      <button data-lx-preset="tailfar">tail, too far</button>
-      <button data-lx-preset="nose">nose off (|φ₁| &gt; β)</button>
+    panels the wheel zooms and dragging empty space pans; double-click or <b>reset</b> restores the view.
+    <p>The boresight constraint depends on the shooter's angle φ₁. The minimum and maximum ranges depend on the target's aspect φ₂.</p>
+  </div></details></div>
+  <div class="bar coordinate-presets">
+    <div class="ctl"><label>Starting geometry</label>
+      <button data-lx-preset="headon">Head-on</button>
+      <button data-lx-preset="beam">Beam</button>
+      <button data-lx-preset="tail">Tail chase</button>
+      <button data-lx-preset="tailfar">Beyond range</button>
+      <button data-lx-preset="nose">Outside boresight</button>
     </div>
     <div class="ctl"><label>show</label>
       <button id="lxRigid" title="rotate and translate the whole world: (R, φ₁, φ₂) do not move">rigid motion</button>
@@ -359,7 +321,7 @@
     <button id="lxEnv" class="on" title="draw the envelope around player 2 in the world frame; it turns with player 2">envelope in world</button>
     <button id="lxCarry" title="sample points inside the envelope, coloured by φ₂, and carry them into (R, φ₁, φ₂)">grid carry</button>
   </div>
-  <div class="bar">
+  <details class="disclosure flight-details"><summary>Fly this engagement <span class="summary-hint">Choose controls, animate, and scrub the trajectory</span></summary><div class="bar">
     <div class="ctl"><label for="lxS1">σ₁</label>
       <select id="lxS1"><option value="pursuit">pursuit (turn to LOS)</option><option value="0">straight</option>
         <option value="1">+1 (right turn)</option><option value="-1">−1 (left turn)</option></select>
@@ -374,8 +336,8 @@
       <output id="lxScrubOut">t = 0.00</output>
     </div>
     <button id="lxClear">clear trail</button>
-  </div>
-  <div class="bar lx-capbar" data-lx-capfor="coords"></div>
+  </div></details>
+  <details class="disclosure capture-details"><summary>Export &amp; appearance <span class="summary-hint">PNG, video, GIF, and plot sizes</span></summary><div class="bar lx-capbar" data-lx-capfor="coords"></div></details>
   <div class="lx-grid">
     <div class="card" data-lx-cap="world" data-title="World Frame (x, y)"
          data-hint="drag an aircraft or its nose handle · wheel zooms · drag pans">
@@ -415,29 +377,30 @@
   </div>
   <div class="lx-read" id="lxRead"></div>
   <div class="lx-msg" id="lxMsg"></div>
-</div>
+</section>
 
 <!-- ======================================================= phi2 sweep tab -->
-<div id="pageSweep" class="lx" hidden>
-  <div class="sub">
+<section id="pageSweep" class="lx" role="tabpanel" aria-labelledby="tabSweep" hidden>
+  <div class="page-intro"><div><div class="eyebrow">Target aspect &amp; firing range</div><h2>A turn changes the envelope.</h2><p>Rotate player 2 to see how target aspect changes the available shot for player 1.</p></div>
+  <details class="help-disclosure"><summary>About this sweep</summary><div class="help-body">
     Player 1 holds φ₁ = 0 at range R while player 2 turns. The envelope is fixed to player 2's
     body, so it turns with it, and the maximum range along the line of sight is R̄(φ₂): largest
     nose-on (φ₂ = 0, R̄ = 3 + π) and smallest tail-on (φ₂ = ±180°, R̄ = 3). Each φ₂ is one
     slice of the T₁ box.
-  </div>
+  </div></details></div>
   <div class="bar">
-    <div class="ctl"><label for="lxPhi2">φ₂</label>
+    <div class="ctl"><label for="lxPhi2">Target aspect φ₂</label>
       <input type="range" id="lxPhi2" min="-180" max="180" step="0.5" value="0">
       <output id="lxPhi2Out">0.0°</output>
       <button id="lxPlay">▶ play</button>
       <button data-lx-phi2="0">0°</button><button data-lx-phi2="90">90°</button><button data-lx-phi2="180">180°</button>
     </div>
-    <div class="ctl"><label for="lxR">player 1 range R</label>
+    <div class="ctl"><label for="lxR">Range R</label>
       <input type="range" id="lxR" min="0.2" max="7" step="0.05" value="4.5">
       <output id="lxROut">4.50</output>
     </div>
   </div>
-  <div class="bar lx-capbar" data-lx-capfor="sweep"></div>
+  <details class="disclosure capture-details"><summary>Export &amp; appearance <span class="summary-hint">PNG, video, GIF, and plot sizes</span></summary><div class="bar lx-capbar" data-lx-capfor="sweep"></div></details>
   <div class="lx-grid">
     <div class="card" data-lx-cap="world" data-title="World Frame (x, y)"
          data-hint="press and drag to turn player 2 · drag player 1 for R · wheel zooms · shift-drag pans">
@@ -472,14 +435,119 @@
     <span><i class="lx-p2"></i>Player 2</span>
   </div>
   <div class="lx-read" id="lxSweepRead"></div>
-</div>
+</section>
+</main>
+<footer class="app-footer"><span>AE 8900 · Two-target pursuit</span><span>Layer 0 / Single-target barrier reconstruction</span></footer>
+
+<aside id="workspaceDrawer" class="workspace-drawer" aria-labelledby="drawerTitle" hidden>
+  <div class="drawer-header"><div><span class="eyebrow">Barrier surface</span><h2 id="drawerTitle">Display &amp; sampling</h2></div><button id="drawerClose" aria-label="Close settings" title="Close settings (Esc)">×</button></div>
+  <div class="drawer-navigation" role="group" aria-label="Settings sections">
+    <button data-workspace-tool="display" aria-expanded="false" aria-controls="drawerDisplay">Display</button>
+    <button data-workspace-tool="export" aria-expanded="false" aria-controls="barrierCapture">Export</button>
+    <button data-workspace-tool="layout" aria-expanded="false" aria-controls="drawerLayout">Layout</button>
+    <button data-workspace-tool="help" aria-expanded="false" aria-controls="drawerHelp">Help</button>
+  </div>
+  <div class="drawer-content">
+    <section id="drawerDisplay" data-drawer-panel="display" aria-label="Display and sampling" hidden>
+<div class="options-grid">
+<div class="option-group"><h3>Visible layers</h3><div class="option-buttons">
+  <button id="showSheet" class="on">Barrier sheet</button>
+  <button id="showTarget" class="on" title="Show the target set and shade the usable parts in 3D">Target set</button>
+  <button id="showZones" class="on" title="Show the capture-zone shading in the angle projection">Capture zones</button>
+  <button id="showSw" class="on">Control switches</button>
+  <button id="showT2" class="on">Table 2 points</button>
+  <button id="showExtra" class="on" title="Include seeds on corner edges and the maximum-range universal lines">Corners &amp; universal lines</button>
+</div></div>
+<div class="option-group"><h3>Inspect a trajectory</h3><div class="option-buttons">
+  <button id="pick" class="on" title="Hover to inspect a trajectory and click to pin it">Hover selection</button>
+  <button id="showMark" class="on">Point marker</button>
+  <button id="focus" title="Show only the selected trajectory">Isolate selection</button>
+</div><p>Pin with a click. Press Esc to release.</p></div>
+<div class="option-group"><h3>Sampling &amp; views</h3>
+  <div class="ctl">
+    <label for="ns">Seeds per branch</label>
+    <input type="range" id="ns" min="9" max="121" step="2" value="45">
+    <output id="nsOut">45</output>
+  </div>
+  <div class="option-buttons"><button id="fig8">D&amp;S Fig. 8 view</button>
+  </div>
+</div></div>
+    </section>
+    <section id="barrierCapture" data-drawer-panel="export" aria-label="Export and appearance" hidden>
+<div class="barrier-export-body">
+    <fieldset class="export-panels"><legend>Include panels</legend>
+      <label><input type="checkbox" data-barrier-panel="c3d" checked> 3D surface</label>
+      <label><input type="checkbox" data-barrier-panel="cA" checked> Angle projection</label>
+      <label><input type="checkbox" data-barrier-panel="cB" checked> Range projection</label>
+      <label><input type="checkbox" data-barrier-panel="cG"> Engagement geometry</label>
+      <label><input type="checkbox" data-barrier-panel="cI"> Costates &amp; invariants</label>
+    </fieldset>
+    <div class="export-settings">
+      <div class="ctl"><label for="barrierExportWidth">Image width</label><select id="barrierExportWidth"><option value="1200">1200 px</option><option value="1600" selected>1600 px</option><option value="2400">2400 px</option></select></div>
+      <button id="barrierPng">Save PNG</button>
+      <div class="ctl"><label for="barrierMaxTau">GIF maximum τ</label><input type="number" id="barrierMaxTau" min="0.01" max="6" step="0.01" value="1.5" class="num"></div>
+      <div class="ctl"><label for="barrierGifSeconds">Growth duration (s)</label><input type="number" id="barrierGifSeconds" min="2" max="20" step="1" value="6" class="num"></div>
+      <div class="ctl"><label for="barrierGifFrames">Frames</label><select id="barrierGifFrames"><option value="60">60</option><option value="90" selected>90</option><option value="120">120</option><option value="180">180</option></select></div>
+      <button id="barrierGif" class="primary-action">Make growth GIF</button>
+    </div>
+    <p class="note">GIFs grow from τ = 0 to your maximum (up to 6), hold the final surface for one second, then repeat. They use the current family, visible layers, and camera, with fixed axes throughout.</p>
+    <div class="export-appearance">
+      <div class="ctl"><label for="barrierTextSize">Text size</label><input type="range" id="barrierTextSize" min="100" max="300" step="10" value="100"><output id="barrierTextOut" for="barrierTextSize">100%</output></div>
+      <div class="ctl"><label for="barrierLineSize">Lines &amp; markers</label><input type="range" id="barrierLineSize" min="100" max="250" step="10" value="100"><output id="barrierLineOut" for="barrierLineSize">100%</output></div>
+      <div class="ctl"><label for="barrierTransparency">3D surface transparency</label><input type="range" id="barrierTransparency" min="0" max="100" step="5" value="50" aria-describedby="barrierTransparencyHint"><output id="barrierTransparencyOut" for="barrierTransparency">50%</output></div>
+      <span class="note" id="barrierTransparencyHint">Higher values fade the surface shading so trajectories are easier to see. At 100%, only lines and markers remain. Applies to 3D plots and exports.</span>
+      <button id="barrierStyleReset">Reset appearance</button>
+      <span class="note">Applies to the live plots and their exports.</span>
+    </div>
+    <p id="barrierExportStatus" class="export-status" role="status" aria-live="polite"></p>
+  </div>
+    </section>
+    <section id="drawerLayout" data-drawer-panel="layout" aria-label="Workspace layout" hidden>
+      <div class="drawer-section"><h3>Panel arrangement</h3>
+        <div class="dock-layout-controls"><label for="dockPreset">Layout preset</label><select id="dockPreset"><option value="default">Overview</option><option value="analysis">Analysis · 3D + costates</option><option value="custom" disabled>Custom</option></select><button id="resetLayout" title="Restore the default panel arrangement and sizes">Reset layout</button></div>
+        <p class="note">Your arrangement and panel sizes are saved in this browser.</p>
+      </div>
+      <div class="drawer-section"><h3>Arrange your workspace</h3><p id="dockHint">Drag panel headers to dock. Drag dividers to resize.</p>
+        <ul><li>Drop on a panel edge to split, or in its center to swap places.</li><li>Use a panel’s <b>Move</b> button to choose a destination with the keyboard.</li><li>Drag a divider to resize panels. Focus it and use arrow keys for precise adjustments.</li><li>Drag the handle below the workspace to change its total height.</li><li>Press <b>Esc</b> to cancel a drag or resize.</li></ul>
+        <p class="note">The Analysis preset places Costates &amp; invariants beside the 3D surface.</p>
+      </div>
+    </section>
+    <section id="drawerHelp" data-drawer-panel="help" aria-label="How to read the barrier view" hidden>
+      <div class="drawer-section drawer-help"><h3>Start with a curve. Trace the boundary.</h3><p>Move backward in time to see a family of trajectories grow into a barrier surface.</p>
+
+  <h3>From terminal states to a surface</h3>
+  The boundary of the usable part is a <b>curve</b>. Every point on it is a terminal
+  condition: state on the target-set boundary, costate from transversality (Eq. 20).
+  Integrating the coupled state–costate system <b>backward</b> under σ₁* = −sign λ₁,
+  σ₂* = +sign λ₂ gives one barrier trajectory per point, and the bundle of them is the
+  semipermeable surface. At <code>τ = 0</code> only the (BUP) is drawn, over the
+  target-set boundaries and the Table 2 points; raise τ to sweep the sheet.
+  <p>These are single-target barrier families. They do not yet form the complete two-target outcome partition.</p>
+  <dl class="glossary"><dt>R</dt><dd>Range, normalized by minimum turn radius.</dd><dt>φ₁ / φ₂</dt><dd>Line-of-sight angles in each aircraft's frame.</dd><dt>τ</dt><dd>Normalized time integrated backward from the seed.</dd></dl>
+  <p>Plot angles use radians; numerical readouts use degrees. Drag to rotate, scroll to zoom, and Shift-drag to pan. Hover to inspect a trajectory; click to pin it. Double-click a view to reset it.</p>
+
+      </div>
+    </section>
+  </div>
+</aside>
+<dialog id="barrierExportDialog" class="dock-dialog" aria-labelledby="barrierExportTitle">
+  <h2 id="barrierExportTitle">Rendering export</h2><p id="barrierExportProgress">Preparing the view…</p>
+  <progress id="barrierExportMeter" max="100" value="0" aria-label="Export progress"></progress>
+  <div class="dock-dialog-actions"><button id="barrierExportCancel">Cancel export</button></div>
+</dialog>
 
 <script src="../barrier.js"></script>
 <script src="./bup_curves.js"></script>
 <script src="./los_coords.js"></script>
+<script src="./dock_layout.js"></script>
+<script src="./dock_workspace.js"></script>
+<script src="./workspace_chrome.js"></script>
+<script src="./gif_encoder.js"></script>
+<script src="./barrier_export.js"></script>
+<script src="./barrier_render_cache.js"></script>
 <script>
 'use strict';
-var B = window.Barrier, C = window.BupCurves;
+var B = window.Barrier, C = window.BupCurves, RenderCache = window.BarrierRenderCache;
 
 /* Both modules arrive as plain <script src> loads, so if either file is not
    where this page expects it the browser fails the load silently and every
@@ -522,12 +590,13 @@ var SW = '#8a5cc7', BUP = '#111111', OK = '#1a7f4b';
 var CORNER = '#1a7f4b';       // trajectories seeded on the phi_2 = 0 corner edge,
                               // and on the max-range corner of the off-boresight wall
 var CORNER_MIN = '#c1442a';   // the min-range corner of the off-boresight wall
-// the off-boresight wall's (BUP), split at Q_1: two related blues, far enough
-// apart to tell at a glance (normal-vision dE 17.3, validated against #fcfcfb)
-var WALL_NQ = '#1f4f96', WALL_QM = '#3a86d0';
+// Primed wall halves use deep and light red; unprimed halves retain their blues.
+var WALL_NQ = '#1f4f96', WALL_NQ_PRIME = '#c52b35', WALL_QM = '#3a86d0', WALL_QM_PRIME = '#e27d83';
 var UNIV = '#e08a00';         // the universal line of player 1 -- sigma_1 = 0
-var TS_FILL = 'rgba(93,107,121,0.075)', TS_EDGE = 'rgba(55,64,74,0.55)';
-var UP_FILL = 'rgba(15,159,181,0.42)', UP_FILL_OTHER = 'rgba(15,159,181,0.13)',
+// Target-set tints are multiplied by the same surface opacity as the sheet.
+// At the default 50% transparency, their original shading is preserved.
+var TS_FILL = 'rgba(93,107,121,0.15)', TS_EDGE = 'rgba(55,64,74,0.55)';
+var UP_FILL = 'rgba(15,159,181,0.84)', UP_FILL_OTHER = 'rgba(15,159,181,0.26)',
     UP_EDGE = 'rgba(8,110,126,0.95)';
 
 /* Axis furniture. Deliberately dark and weighted: on the 3-D view especially,
@@ -536,9 +605,11 @@ var AX_LINE = '#3f4750';      // frame and 3-D axis lines
 var AX_TICK = '#2c333a';      // tick marks and their numbers
 var AX_GRID = '#e1e6ea';      // gridlines, which stay recessive
 var AX_NAME = '#14171a';      // axis names
-var AX_TICK_FONT = '600 10.5px -apple-system, Segoe UI, sans-serif';
-var AX_NAME_FONT = '600 11.5px -apple-system, Segoe UI, sans-serif';
+var AX_TICK_FONT = '500 11.5px -apple-system, Segoe UI, sans-serif';
+var AX_NAME_FONT = '600 13px -apple-system, Segoe UI, sans-serif';
 var TAU_FULL = 6.0, DT = 2e-3;
+var BUI = { text: 1, line: 1, transparency: 0.5 }, BARRIER_CAPTURE = null;
+function barrierFont(value) { return window.BarrierExport.font(value, BUI.text); }
 
 /* Table 2, "Coordinates of significant points", p. 155 — [name, R, phi_1, phi_2]
    with the angles in degrees, exactly as printed. */
@@ -668,6 +739,8 @@ function rebuild() {
   if (bore && S.showExtra) addBoresightExtras(n, S.family === 'bore+' ? +1 : -1);
   S.flat = [];
   S.branches.forEach(function (b) { b.trajs.forEach(function (t) { S.flat.push(t); }); });
+  // Prepare display caches once; the original trajectories remain the numerical source.
+  S.flat.forEach(function (t) { RenderCache.prepare(t); RenderCache.curve(t, t.tau.length - 1, 0.001); });
   S.sel = Math.min(S.sel, Math.max(S.flat.length - 1, 0));
   S.pinned = null;
   keepSelectionVisible();
@@ -677,6 +750,7 @@ function rebuild() {
   S.flat.forEach(function (t) {
     fi = Math.max(fi, t.fiErr); h = Math.max(h, t.hErr); nsw += t.switches.length;
   });
+  document.getElementById('bundleCount').textContent = S.flat.length + ' trajectories · ' + S.branches.length + ' segments';
   document.getElementById('status').textContent =
     res.label + ' · ' + res.branches.length + ' branch' +
     (res.branches.length > 1 ? 'es' : '') + ' of the (BUP)' + (bore ? ' (split at Q₁)' : '') +
@@ -794,9 +868,9 @@ function splitAtQ1(seeds, family) {
   function mid(p) { return p[Math.floor(p.length / 2)]; }
   return [
     { name: 'wall (BUP) N₁' + pr + '–Q₁' + pr + ' ' + pairLabel(B.controls(mid(nq))), seeds: nq,
-      color: WALL_NQ },
+      color: family === 'bore-' ? WALL_NQ_PRIME : WALL_NQ },
     { name: 'wall (BUP) Q₁' + pr + '–m₁' + pr + ' ' + pairLabel(B.controls(mid(qm))), seeds: qm,
-      color: WALL_QM }
+      color: family === 'bore-' ? WALL_QM_PRIME : WALL_QM }
   ];
 }
 
@@ -891,18 +965,31 @@ function classifyTable2() {
 // ---------------------------------------------------------------------------
 
 function fit(cv) {
-  var r = window.devicePixelRatio || 1;
-  var w = cv.clientWidth, h = cv.clientHeight;
-  cv.width = Math.round(w * r); cv.height = Math.round(h * r);
+  var ratio = BARRIER_CAPTURE && BARRIER_CAPTURE.ratios && BARRIER_CAPTURE.ratios[cv.id];
+  // Live views use native screen resolution. Captures still render at 2x or
+  // their requested output resolution, whichever is greater.
+  var r = BARRIER_CAPTURE ? Math.max(2, window.devicePixelRatio || 1, ratio || 1) : (window.devicePixelRatio || 1);
+  var size = BARRIER_CAPTURE && BARRIER_CAPTURE.sizes[cv.id];
+  var w = size ? size.w : cv.clientWidth, h = size ? size.h : cv.clientHeight;
+  var width = Math.round(w * r), height = Math.round(h * r);
+  if (cv.width !== width || cv.height !== height) {
+    cv.width = width; cv.height = height; cv._barrierSaved = false;
+  }
   var g = cv.getContext('2d');
+  // Restore the clean context state without reallocating the canvas bitmap.
+  if (cv._barrierSaved) g.restore();
   g.setTransform(r, 0, 0, r, 0, 0);
   g.clearRect(0, 0, w, h);
+  g.save(); cv._barrierSaved = true;
   return { g: g, w: w, h: h };
 }
 
 function Frame(g, w, h, pad) {
   this.g = g; this.w = w; this.h = h;
-  this.p = pad || { l: 46, r: 12, t: 17, b: 31 };
+  pad = pad || { l: 46, r: 12, t: 17, b: 31 };
+  var sx = Math.min(BUI.text, Math.max(1, (w - 70) / (pad.l + pad.r)));
+  var sy = Math.min(BUI.text, Math.max(1, (h - 50) / (pad.t + pad.b)));
+  this.p = { l: pad.l * sx, r: pad.r * sx, t: pad.t * sy, b: pad.b * sy };
 }
 Frame.prototype.setDomain = function (x0, x1, y0, y1) {
   this.x0 = x0; this.x1 = x1; this.y0 = y0; this.y1 = y1;
@@ -938,10 +1025,11 @@ Frame.prototype.unclip = function () { this.g.restore(); };
 Frame.prototype.ticks = function (a0, a1, ang, px) {
   var out = [], i;
   if (ang) {
-    return angleTicks(Math.min(a0, a1) * D, Math.max(a0, a1) * D, Math.max(2, Math.min(7, Math.floor(px / 60) + 1)))
+    return angleTicks(Math.min(a0, a1) * D, Math.max(a0, a1) * D, Math.max(2, Math.min(7, Math.floor(px / (60 * BUI.text)) + 1)))
       .map(function (t) { return { v: t.v / D, lab: t.lab }; });
   }
-  for (i = 0; i <= 4; i++) { var v = a0 + (a1 - a0) * i / 4; out.push({ v: v, lab: fmt(v) }); }
+  var count = Math.max(1, Math.min(4, Math.floor(px / (50 * BUI.text))));
+  for (i = 0; i <= count; i++) { var v = a0 + (a1 - a0) * i / count; out.push({ v: v, lab: fmt(v) }); }
   return out;
 };
 Frame.prototype.axes = function (xl, yl, xAng, yAng) {
@@ -949,28 +1037,28 @@ Frame.prototype.axes = function (xl, yl, xAng, yAng) {
   var L = this.p.l, R = this.w - this.p.r, T = this.p.t, Bm = this.h - this.p.b;
   var xt = this.ticks(this.x0, this.x1, xAng, R - L), yt = this.ticks(this.y0, this.y1, yAng, Bm - T);
 
-  g.strokeStyle = AX_GRID; g.lineWidth = 1;
+  g.strokeStyle = AX_GRID; g.lineWidth = (1) * BUI.line;
   xt.forEach(function (t) { g.beginPath(); g.moveTo(self.X(t.v), T); g.lineTo(self.X(t.v), Bm); g.stroke(); });
   yt.forEach(function (t) { g.beginPath(); g.moveTo(L, self.Y(t.v)); g.lineTo(R, self.Y(t.v)); g.stroke(); });
 
-  g.strokeStyle = AX_LINE; g.lineWidth = 1.6;
+  g.strokeStyle = AX_LINE; g.lineWidth = (1.6) * BUI.line;
   g.strokeRect(L, T, R - L, Bm - T);
 
-  g.lineWidth = 1.4;
-  g.font = AX_TICK_FONT;
+  g.lineWidth = (1.4) * BUI.line;
+  g.font = barrierFont(AX_TICK_FONT);
   g.fillStyle = AX_TICK;
   xt.forEach(function (t) {
     g.beginPath(); g.moveTo(self.X(t.v), Bm); g.lineTo(self.X(t.v), Bm + 5); g.stroke();
     g.textAlign = 'center';
-    g.fillText(t.lab, self.X(t.v), Bm + 16);
+    g.fillText(t.lab, self.X(t.v), Bm + 16 * BUI.text);
   });
   yt.forEach(function (t) {
     g.beginPath(); g.moveTo(L, self.Y(t.v)); g.lineTo(L - 5, self.Y(t.v)); g.stroke();
     g.textAlign = 'right';
-    g.fillText(t.lab, L - 8, self.Y(t.v) + 3.5);
+    g.fillText(t.lab, L - 8, self.Y(t.v) + 3.5 * BUI.text);
   });
 
-  g.font = AX_NAME_FONT; g.fillStyle = AX_NAME;
+  g.font = barrierFont(AX_NAME_FONT); g.fillStyle = AX_NAME;
   g.textAlign = 'right';
   g.fillText(xl, R, this.h - 3);
   g.textAlign = 'left';
@@ -978,7 +1066,7 @@ Frame.prototype.axes = function (xl, yl, xAng, yAng) {
 };
 Frame.prototype.poly = function (xs, ys, color, lw, alpha) {
   var g = this.g, i;
-  g.strokeStyle = color; g.lineWidth = lw;
+  g.strokeStyle = color; g.lineWidth = (lw) * BUI.line;
   g.globalAlpha = alpha === undefined ? 1 : alpha;
   g.beginPath();
   for (i = 0; i < xs.length; i++) {
@@ -989,8 +1077,8 @@ Frame.prototype.poly = function (xs, ys, color, lw, alpha) {
 };
 Frame.prototype.dot = function (x, y, color, r, ring) {
   var g = this.g;
-  g.beginPath(); g.arc(this.X(x), this.Y(y), r || 2, 0, 2 * Math.PI);
-  if (ring) { g.strokeStyle = color; g.lineWidth = 1.2; g.stroke(); }
+  g.beginPath(); g.arc(this.X(x), this.Y(y), (r || 2) * BUI.line, 0, 2 * Math.PI);
+  if (ring) { g.strokeStyle = color; g.lineWidth = (1.2) * BUI.line; g.stroke(); }
   else { g.fillStyle = color; g.fill(); }
 };
 
@@ -1075,16 +1163,18 @@ function drawSegmentKey() {
   var el = document.getElementById('branchKey');
   el.innerHTML = S.branches.map(function (b, bi) {
     var nm = b.name.replace(/ (\([^)]*\))$/, ' <b>$1</b>');
-    return '<span class="seg' + (S.hidden[b.name] ? ' off' : '') + '" data-bi="' + bi +
+    return '<button type="button" aria-pressed="' + !S.hidden[b.name] + '" class="seg' + (S.hidden[b.name] ? ' off' : '') + '" data-bi="' + bi +
            '"><i style="background:' + b.color + (b.universal ? ';height:4px' : '') +
-           '"></i>' + nm + '</span>';
+           '"></i>' + nm + '</button>';
   }).join('');
   Array.prototype.forEach.call(el.querySelectorAll('.seg'), function (node) {
     node.onclick = function () {
+      var restoreFocus = document.activeElement === this, bi = this.getAttribute('data-bi');
       var b = S.branches[+this.getAttribute('data-bi')];
       if (S.hidden[b.name]) delete S.hidden[b.name]; else S.hidden[b.name] = true;
       keepSelectionVisible();
       drawSegmentKey();
+      if (restoreFocus) el.querySelector('[data-bi="' + bi + '"]').focus();
       draw();
     };
   });
@@ -1105,7 +1195,7 @@ function keepSelectionVisible() {
 
 function drawReference(F, kind) {
   var g = F.g, i, xs = [], ys = [], q;
-  g.setLineDash([5, 4]);
+  g.setLineDash([5, 4].map(function (v) { return v * BUI.line; }));
   if (kind === 'p1') {
     [B.PARAMS.beta, -B.PARAMS.beta].forEach(function (b) {
       F.poly([F.x0, F.x1], [b / D, b / D], '#9aa3ad', 1, 0.9);
@@ -1163,7 +1253,7 @@ function drawZones(F) {
     g.fill();
   });
   // the phi_2 = 0 corner segment O - f_1 - e_1, the zones' straight edge
-  g.strokeStyle = '#1a7f4b'; g.lineWidth = 2.2; g.setLineDash([6, 3]);
+  g.strokeStyle = '#1a7f4b'; g.lineWidth = (2.2) * BUI.line; g.setLineDash([6, 3].map(function (v) { return v * BUI.line; }));
   g.beginPath();
   g.moveTo(F.X(0), F.Y(0));
   g.lineTo(F.X(0), F.Y(36.07));
@@ -1174,19 +1264,19 @@ function drawZones(F) {
 
   // f_1 and its mirror, as tabulated in Table 2. On this segment f_1 is where the
   // universal-line costate is semipermeable, Rbar_0 tan(phi_1/2) = 1
-  g.font = '10px -apple-system, Segoe UI, sans-serif';
+  g.font = barrierFont('10px -apple-system, Segoe UI, sans-serif');
   [18.5, -18.5].forEach(function (a1, k) {
     g.fillStyle = '#1a7f4b';
-    g.beginPath(); g.arc(F.X(0), F.Y(a1), 4.2, 0, 2 * Math.PI); g.fill();
-    g.strokeStyle = '#fff'; g.lineWidth = 1.1; g.stroke();
-    g.fillText(k ? 'f1\u2032' : 'f1', F.X(0) + 7, F.Y(a1) - 4);
+    g.beginPath(); g.arc(F.X(0), F.Y(a1), 4.2 * BUI.line, 0, 2 * Math.PI); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = (1.1) * BUI.line; g.stroke();
+    g.fillText(k ? 'f1\u2032' : 'f1', F.X(0) + 7 * BUI.line, F.Y(a1) - 4 * BUI.line);
   });
 }
 
 function drawTable2(F, xk, yk) {
   if (!S.showT2) return;
   var g = F.g;
-  g.font = '9px -apple-system, Segoe UI, sans-serif';
+  g.font = barrierFont('9px -apple-system, Segoe UI, sans-serif');
   TABLE2.forEach(function (p, i) {
     var val = { R: p[1], phi1: p[2], phi2: p[3] };
     var x = val[xk], y = val[yk];
@@ -1196,7 +1286,7 @@ function drawTable2(F, xk, yk) {
     F.dot(x, y, on ? '#111' : '#b8c0c9', on ? 3.2 : 2.2, !on);
     if (on) {
       g.fillStyle = '#111'; g.textAlign = 'left';
-      g.fillText(p[0].replace('_', ''), F.X(x) + 5, F.Y(y) - 3);
+      g.fillText(p[0].replace('_', ''), F.X(x) + 5 * BUI.line, F.Y(y) - 3 * BUI.line);
     }
   });
 }
@@ -1216,18 +1306,26 @@ var FACES = {
         flipX: true, flipY: true, ref: 'R' }
 };
 
-function autoBounds(fx, fy) {
-  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+var boundsCache = null;
+function bundleBounds() {
+  var tau = BARRIER_CAPTURE ? BARRIER_CAPTURE.maxTau : S.tau;
+  var mask = JSON.stringify(S.hidden), focus = S.focus ? S.sel : -1;
+  if (boundsCache && boundsCache.flat === S.flat && boundsCache.tau === tau && boundsCache.mask === mask && boundsCache.focus === focus) return boundsCache.range;
+  var b = [Infinity, -Infinity, Infinity, -Infinity, Infinity, -Infinity];
   S.flat.forEach(function (t) {
     if (!visible(t)) return;
-    var m = cut(t, S.tau), i;
-    for (i = 0; i <= m; i++) {
-      var x = fx(t, i), y = fy(t, i);
-      if (x < x0) x0 = x; if (x > x1) x1 = x;
-      if (y < y0) y0 = y; if (y > y1) y1 = y;
-    }
+    var q = RenderCache.bounds(t, cut(t, tau));
+    for (var k = 0; k < 6; k += 2) { b[k] = Math.min(b[k], q[k]); b[k + 1] = Math.max(b[k + 1], q[k + 1]); }
   });
-  if (!isFinite(x0)) return [0, 1, 0, 1];
+  boundsCache = { flat: S.flat, tau: tau, mask: mask, focus: focus, range: b };
+  return b;
+}
+function autoBounds(xk, yk) {
+  var b = bundleBounds();
+  if (!isFinite(b[0])) return [0, 1, 0, 1];
+  var keys = { phi2: 0, phi1: 2, R: 4 }, x = keys[xk], y = keys[yk];
+  var xs = x === 4 ? 1 : 1 / D, ys = y === 4 ? 1 : 1 / D;
+  var x0 = b[x] * xs, x1 = b[x + 1] * xs, y0 = b[y] * ys, y1 = b[y + 1] * ys;
   var mx = 0.07 * (x1 - x0) + 0.5, my = 0.07 * (y1 - y0) + 0.02;
   return [x0 - mx, x1 + mx, y0 - my, y1 + my];
 }
@@ -1245,7 +1343,7 @@ function faceFrame(id, cv, c) {
   var F = new Frame(c ? c.g : null,
                     c ? c.w : cv.clientWidth,
                     c ? c.h : cv.clientHeight);
-  var b = autoBounds(f.x, f.y);
+  var b = autoBounds(f.xk, f.yk);
   F.setDomain(f.flipX ? b[1] : b[0], f.flipX ? b[0] : b[1],
               f.flipY ? b[2] : b[3], f.flipY ? b[3] : b[2]);
   F.applyView(view(id));
@@ -1260,26 +1358,31 @@ function drawFace(id) {
   drawReference(F, f.ref);
   if (id === 'cA') drawZones(F);
 
+  // Bound live line simplification to 0.35 CSS pixels after this projection.
+  var pixelScale = Math.hypot((F.w - F.p.l - F.p.r) / ((F.x1 - F.x0) * D),
+    (F.h - F.p.t - F.p.b) / ((F.y1 - F.y0) * (f.yk === 'R' ? 1 : D)));
   S.branches.forEach(function (br) {
     br.trajs.forEach(function (t, k) {
       if (!visible(t)) return;
       var m = cut(t, S.tau), xs = [], ys = [], i;
       if (m === 0) return;
-      for (i = 0; i <= m; i++) { xs.push(f.x(t, i)); ys.push(f.y(t, i)); }
+      RenderCache.curve(t, m, BARRIER_CAPTURE ? 0 : 0.35 / pixelScale).forEach(function (i) {
+        xs.push(f.x(t, i)); ys.push(f.y(t, i));
+      });
       var on = S.pick && t === selected();
       if (br.universal) {
         F.poly(xs, ys, on ? '#000' : UNIV, on ? 3.0 : 2.8, 1);
         if (m === t.tau.length - 1 && id === 'cA') {   // flown all the way: mark c_1
-          F.dot(xs[m], ys[m], UNIV, 4.2);
-          F.g.fillStyle = '#7a4a00'; F.g.font = '600 10.5px -apple-system, Segoe UI, sans-serif';
+          F.dot(xs[xs.length - 1], ys[ys.length - 1], UNIV, 4.2);
+          F.g.fillStyle = '#7a4a00'; F.g.font = barrierFont('600 10.5px -apple-system, Segoe UI, sans-serif');
           F.g.textAlign = 'right';            // left of the point: f_1's label is to its right
-          F.g.fillText(t.seed[2] < 0 ? 'c₁' : 'c₁′', F.X(xs[m]) - 7, F.Y(ys[m]) + 14);
+          F.g.fillText(t.seed[2] < 0 ? 'c₁' : 'c₁′', F.X(xs[xs.length - 1]) - 7, F.Y(ys[ys.length - 1]) + 14);
           F.g.textAlign = 'left';
         }
         return;
       }
       F.poly(xs, ys, on ? '#000' : shade(br.color, k, br.trajs.length),
-             on ? 2.0 : 0.8, on ? 1 : 0.7);
+             on ? 2.0 : 1.2, on ? 1 : 0.7);
     });
     // the seed curve itself, always drawn -- at tau = 0 it is the whole picture.
     // A branch cut at the phi_2 = +/-pi seam is drawn as separate runs.
@@ -1325,10 +1428,8 @@ function drawFace(id) {
 var BOX_L = [2.0, 1.0, 1.0];
 
 function make3d(c) {
-  var bx = autoBounds(function (t, i) { return t.a2[i] / D; },
-                      function (t, i) { return t.a1[i] / D; });
-  var bz = autoBounds(function (t, i) { return t.a2[i] / D; },
-                      function (t, i) { return t.R[i]; });
+  var bx = autoBounds('phi2', 'phi1');
+  var bz = autoBounds('phi2', 'R');
   if (S.showTarget) {                 // frame the whole target set, as in Fig. 3
     var TB = targetBounds();
     bx = [Math.min(bx[0], TB[0]), Math.max(bx[1], TB[1]),
@@ -1355,6 +1456,7 @@ function make3d(c) {
     // centre and span per axis, so a normalized coordinate u maps back to the
     // data value c + u*s -- which is what the 3-D tick labels print
     box: { c: [cx, cy, cz], s: [sx, sy, sz] },
+    pixelScale: Math.abs(sc) * Math.hypot(BOX_L[0] / (D * sx), BOX_L[1] / (D * sy), BOX_L[2] / sz),
     norm: function (t, i) {
       return [(t.a2[i] / D - cx) / sx, (t.a1[i] / D - cy) / sy, (t.R[i] - cz) / sz];
     },
@@ -1505,15 +1607,20 @@ function drawTarget(g, P) {
     if (close) g.closePath();
   }
   g.fillStyle = TS_FILL;
-  TARGET.faces.forEach(function (f) { path(f, true); g.fill(); });
-  g.strokeStyle = TS_EDGE; g.lineWidth = 1;
+  g.globalAlpha = 1 - BUI.transparency;
+  if (g.globalAlpha > 0) TARGET.faces.forEach(function (f) { path(f, true); g.fill(); });
+  g.globalAlpha = 1;
+  g.strokeStyle = TS_EDGE; g.lineWidth = (1) * BUI.line;
   TARGET.edges.forEach(function (e) { path(e, false); g.stroke(); });
   TARGET.ups.forEach(function (u) {
     path(u.poly, true);
     var mine = u.fam === S.family;       // the family shown is emphasized
-    g.fillStyle = mine ? UP_FILL : UP_FILL_OTHER; g.fill();
+    g.fillStyle = mine ? UP_FILL : UP_FILL_OTHER;
+    g.globalAlpha = 1 - BUI.transparency;
+    if (g.globalAlpha > 0) g.fill();
+    g.globalAlpha = 1;
     g.strokeStyle = mine ? UP_EDGE : 'rgba(8,110,126,0.45)';
-    g.lineWidth = mine ? 1.6 : 0.8;
+    g.lineWidth = (mine ? 1.6 : 0.8) * BUI.line;
     g.stroke();
   });
 }
@@ -1542,18 +1649,18 @@ function drawAxes3d(g, P) {
     }
 
     var p0 = at(A, 0), p1 = at(Z, 0);
-    g.strokeStyle = AX_LINE; g.lineWidth = 1.8; g.lineCap = 'round';
+    g.strokeStyle = AX_LINE; g.lineWidth = (1.8) * BUI.line; g.lineCap = 'round';
     g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke();
 
     // Rotating the view foreshortens an axis, and four labels on forty pixels
     // of screen are unreadable.  Thin the ticks to what the projected length
     // can actually carry, and drop them entirely once it cannot carry one.
     var len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
-    var nt = Math.min(NT, Math.floor(len / 58));
+    var nt = Math.min(NT, Math.floor(len / (58 * BUI.text)));
 
     if (nt >= 1) {
-      g.font = AX_TICK_FONT; g.fillStyle = AX_TICK; g.strokeStyle = AX_TICK;
-      g.lineWidth = 1.4; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = barrierFont(AX_TICK_FONT); g.fillStyle = AX_TICK; g.strokeStyle = AX_TICK;
+      g.lineWidth = (1.4) * BUI.line; g.textAlign = 'center'; g.textBaseline = 'middle';
       var c0 = P.box.c[ax.d], s0 = P.box.s[ax.d], ticks = [];
       if (ax.d < 2) {                    // angles: data in degrees, ticks in radians
         angleTicks((c0 + A * s0) * D, (c0 + Z * s0) * D, nt + 1).forEach(function (t) {
@@ -1566,7 +1673,7 @@ function drawAxes3d(g, P) {
       }
       ticks.forEach(function (t) {       // not at the corner the three axes share:
         if (t.u < A + 0.06 * (Z - A)) return;   // their labels would stack there
-        var a = at(t.u, 0), b = at(t.u, 0.05), lab = at(t.u, 0.135);
+        var a = at(t.u, 0), b = at(t.u, 0.05), lab = at(t.u, 0.135 * Math.sqrt(BUI.text));
         g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
         g.fillText(t.lab, lab[0], lab[1]);
       });
@@ -1576,9 +1683,9 @@ function drawAxes3d(g, P) {
     // across it, so the two cannot collide at any viewing angle.
     var ux = len > 1e-6 ? (p1[0] - p0[0]) / len : 0;
     var uy = len > 1e-6 ? (p1[1] - p0[1]) / len : -1;
-    g.font = AX_NAME_FONT; g.fillStyle = AX_NAME;
+    g.font = barrierFont(AX_NAME_FONT); g.fillStyle = AX_NAME;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(ax.name, p1[0] + ux * 50, p1[1] + uy * 50);
+    g.fillText(ax.name, p1[0] + ux * 50 * Math.sqrt(BUI.text), p1[1] + uy * 50 * Math.sqrt(BUI.text));
     g.textBaseline = 'alphabetic';
   });
   g.lineCap = 'butt';
@@ -1592,7 +1699,8 @@ function draw3d() {
   drawAxes3d(g, P);
   drawTarget(g, P);
 
-  if (S.showSheet && !S.focus && S.tau > 0) {
+  var sheetVisible = S.showSheet && !S.focus && S.tau > 0 && BUI.transparency < 1;
+  if (sheetVisible) {
     S.branches.forEach(function (br) {
       if (S.hidden[br.name]) return;
       for (var k = 0; k + 1 < br.trajs.length; k++) {
@@ -1600,11 +1708,14 @@ function draw3d() {
         if (Z.breakBefore) continue;               // no strip across the seam
         var m = Math.min(cut(A, S.tau), cut(Z, S.tau));
         if (m < 1) continue;
-        var step = Math.max(1, Math.floor(m / 60));
-        g.globalAlpha = 0.5; g.fillStyle = shade(br.color, k, br.trajs.length);
-        for (var i = 0; i + step <= m; i += step) {
-          var p1 = put(A, i), p2 = put(A, i + step),
-              p3 = put(Z, i + step), p4 = put(Z, i);
+        // Stable stations stop old surface cells from changing spacing on
+        // every frame; include the exact growing endpoint in the final cell.
+        var step = Math.max(1, Math.ceil((Math.min(A.tau.length, Z.tau.length) - 1) / 120));
+        g.globalAlpha = 1 - BUI.transparency; g.fillStyle = shade(br.color, k, br.trajs.length);
+        for (var i = 0; i < m; i += step) {
+          var end = Math.min(i + step, m);
+          var p1 = put(A, i), p2 = put(A, end),
+              p3 = put(Z, end), p4 = put(Z, i);
           g.beginPath();
           g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]);
           g.lineTo(p3[0], p3[1]); g.lineTo(p4[0], p4[1]);
@@ -1622,16 +1733,16 @@ function draw3d() {
       if (m === 0) return;
       var on = S.pick && t === selected();
       g.strokeStyle = on ? '#000' : br.universal ? UNIV : shade(br.color, k, br.trajs.length);
-      g.lineWidth = on ? 2.0 : br.universal ? 2.8 : 0.6;
-      g.globalAlpha = on || br.universal ? 1 : (S.showSheet && !S.focus ? 0.5 : 0.85);
+      g.lineWidth = (on ? 2.0 : br.universal ? 2.8 : sheetVisible ? 1.0 : 1.3) * BUI.line;
+      g.globalAlpha = on || br.universal ? 1 : 0.85;
       g.beginPath();
-      for (var i = 0; i <= m; i++) {
+      RenderCache.curve(t, m, BARRIER_CAPTURE ? 0 : 0.35 / P.pixelScale).forEach(function (i) {
         var p = put(t, i);
         if (i === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
-      }
+      });
       g.stroke(); g.globalAlpha = 1;
     });
-    g.strokeStyle = BUP; g.lineWidth = 2.2;
+    g.strokeStyle = BUP; g.lineWidth = (2.2) * BUI.line;
     g.beginPath();
     var started = false;
     br.trajs.forEach(function (t) {
@@ -1650,7 +1761,7 @@ function draw3d() {
       t.switches.forEach(function (s) {
         if (s.tau > S.tau) return;
         var p = put(t, cut(t, s.tau));
-        g.beginPath(); g.arc(p[0], p[1], 2.0, 0, 2 * Math.PI); g.fill();
+        g.beginPath(); g.arc(p[0], p[1], 2.0 * BUI.line, 0, 2 * Math.PI); g.fill();
       });
     });
   }
@@ -1659,14 +1770,14 @@ function draw3d() {
   if (sel && S.showMark && S.pick) {
     var p = put(sel, cut(sel, S.tau * S.mark));
     if (S.pinned !== null) {
-      g.strokeStyle = '#000'; g.lineWidth = 1.4;
-      g.beginPath(); g.arc(p[0], p[1], 8, 0, 2 * Math.PI); g.stroke();
+      g.strokeStyle = '#000'; g.lineWidth = (1.4) * BUI.line;
+      g.beginPath(); g.arc(p[0], p[1], 8 * BUI.line, 0, 2 * Math.PI); g.stroke();
     }
     g.fillStyle = '#000';
-    g.beginPath(); g.arc(p[0], p[1], 4.5, 0, 2 * Math.PI); g.fill();
+    g.beginPath(); g.arc(p[0], p[1], 4.5 * BUI.line, 0, 2 * Math.PI); g.fill();
     g.fillStyle = '#fff';
     var q = put(sel, 0);
-    g.beginPath(); g.arc(q[0], q[1], 2.6, 0, 2 * Math.PI); g.fill();
+    g.beginPath(); g.arc(q[0], q[1], 2.6 * BUI.line, 0, 2 * Math.PI); g.fill();
   }
 
   document.getElementById('h3d').textContent =
@@ -1698,29 +1809,29 @@ function drawGeometry() {
   sc = Math.min(sc, (c.h - 2 * pad) / 2.0);
   var ax = c.w / 2 - 0.5 * R * sc, ay = c.h / 2, bx = ax + R * sc;
 
-  g.strokeStyle = '#8d959e'; g.lineWidth = 1.2; g.setLineDash([4, 4]);
+  g.strokeStyle = '#8d959e'; g.lineWidth = (1.2) * BUI.line; g.setLineDash([4, 4].map(function (v) { return v * BUI.line; }));
   g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, ay); g.stroke();
   g.setLineDash([]);
 
   function arrow(x, y, ang, color, label, lbly) {
     var len = Math.min(54, 0.28 * c.w);
     var dx = Math.cos(ang) * len, dy = -Math.sin(ang) * len;
-    g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 2;
+    g.strokeStyle = color; g.fillStyle = color; g.lineWidth = (2) * BUI.line;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx, y + dy); g.stroke();
     g.beginPath();
     g.moveTo(x + dx, y + dy);
-    g.lineTo(x + dx - 8 * Math.cos(ang - 0.4), y + dy + 8 * Math.sin(ang - 0.4));
-    g.lineTo(x + dx - 8 * Math.cos(ang + 0.4), y + dy + 8 * Math.sin(ang + 0.4));
+    g.lineTo(x + dx - 8 * BUI.line * Math.cos(ang - 0.4), y + dy + 8 * BUI.line * Math.sin(ang - 0.4));
+    g.lineTo(x + dx - 8 * BUI.line * Math.cos(ang + 0.4), y + dy + 8 * BUI.line * Math.sin(ang + 0.4));
     g.closePath(); g.fill();
-    g.beginPath(); g.arc(x, y, 4.5, 0, 2 * Math.PI); g.fill();
-    g.font = '11px -apple-system, Segoe UI, sans-serif'; g.textAlign = 'center';
-    g.fillText(label, x, y + lbly);
+    g.beginPath(); g.arc(x, y, 4.5 * BUI.line, 0, 2 * Math.PI); g.fill();
+    g.font = barrierFont('11px -apple-system, Segoe UI, sans-serif'); g.textAlign = 'center';
+    g.fillText(label, x, y + lbly * BUI.text);
   }
   arrow(ax, ay, -p1, HUE[0], 'A₁', 20);
   arrow(bx, ay, Math.PI - p2, HUE[1], 'A₂', 20);
 
   g.fillStyle = '#4a5058'; g.textAlign = 'center';
-  g.fillText('R = ' + R.toFixed(3), (ax + bx) / 2, ay - 9);
+  g.fillText('R = ' + R.toFixed(3), (ax + bx) / 2, ay - 9 * BUI.text);
   g.textAlign = 'left';
 
   var f12 = canFire(p1, p2, R), f21 = canFire(p2, p1, R);
@@ -1732,20 +1843,20 @@ function drawGeometry() {
 
 function drawInvariants() {
   var c = fit(document.getElementById('cI'));
-  var F = new Frame(c.g, c.w, c.h, { l: 36, r: 36, t: 17, b: 24 });
+  var F = new Frame(c.g, c.w, c.h, { l: 46, r: 40, t: 17, b: 31 });
   var sel = selected();
   if (!sel) return;
   var m = cut(sel, S.tau), i;
-  if (m === 0) {
+  if (m === 0 && (!BARRIER_CAPTURE || BARRIER_CAPTURE.maxTau === 0)) {
     c.g.fillStyle = '#838b95';
-    c.g.font = '12px -apple-system, Segoe UI, sans-serif';
+    c.g.font = barrierFont('12px -apple-system, Segoe UI, sans-serif');
     c.g.textAlign = 'center';
-    c.g.fillText('τ = 0 — the trajectory has not been integrated yet',
-                 c.w / 2, c.h / 2);
+    c.g.fillText('τ = 0 · Seed state', c.w / 2, c.h / 2);
     return;
   }
+  var domainEnd = BARRIER_CAPTURE ? cut(sel, BARRIER_CAPTURE.maxTau) : m;
   var lo = Infinity, hi = -Infinity;
-  for (i = 0; i <= m; i++) {
+  for (i = 0; i <= domainEnd; i++) {
     [3, 4, 5].forEach(function (k) {
       var v = sel.Y[i][k];
       if (v < lo) lo = v; if (v > hi) hi = v;
@@ -1753,12 +1864,12 @@ function drawInvariants() {
   }
   if (!isFinite(lo)) { lo = -1; hi = 1; }
   var pad = 0.12 * (hi - lo) + 1e-3;
-  F.setDomain(0, Math.max(sel.tau[m], 1e-3), hi + pad, lo - pad);
+  F.setDomain(0, Math.max(sel.tau[domainEnd], 1e-3), hi + pad, lo - pad);
   F.axes('τ', 'λ');
   F.clip();
 
   var g = c.g;
-  g.strokeStyle = '#7d858e'; g.lineWidth = 1.2;
+  g.strokeStyle = '#7d858e'; g.lineWidth = (1.2) * BUI.line;
   g.beginPath(); g.moveTo(F.p.l, F.Y(0)); g.lineTo(c.w - F.p.r, F.Y(0)); g.stroke();
 
   [[3, HUE[0]], [4, HUE[1]], [5, HUE[2]]].forEach(function (s) {
@@ -1769,14 +1880,14 @@ function drawInvariants() {
 
   sel.switches.forEach(function (s) {
     if (s.tau > S.tau) return;
-    g.strokeStyle = SW; g.lineWidth = 1; g.setLineDash([2, 3]);
+    g.strokeStyle = SW; g.lineWidth = (1) * BUI.line; g.setLineDash([2, 3].map(function (v) { return v * BUI.line; }));
     g.beginPath(); g.moveTo(F.X(s.tau), F.p.t); g.lineTo(F.X(s.tau), c.h - F.p.b);
     g.stroke(); g.setLineDash([]);
   });
 
   // |H*| on its own log decade axis
-  var G = new Frame(c.g, c.w, c.h, { l: 36, r: 36, t: 17, b: 24 });
-  G.setDomain(0, Math.max(sel.tau[m], 1e-3), -8, -18);
+  var G = new Frame(c.g, c.w, c.h, { l: 46, r: 40, t: 17, b: 31 });
+  G.setDomain(0, Math.max(sel.tau[domainEnd], 1e-3), -8, -18);
   var xs2 = [], ys2 = [];
   for (i = 0; i <= m; i++) {
     xs2.push(sel.tau[i]); ys2.push(Math.log10(Math.max(sel.h[i], 1e-18)));
@@ -1785,20 +1896,23 @@ function drawInvariants() {
   F.unclip();
 
   // the marker's own position in tau
-  g.strokeStyle = '#111'; g.lineWidth = 1;
+  g.strokeStyle = '#111'; g.lineWidth = (1) * BUI.line;
   var tm = S.tau * S.mark;
   g.beginPath(); g.moveTo(F.X(tm), F.p.t); g.lineTo(F.X(tm), c.h - F.p.b); g.stroke();
 
-  g.fillStyle = OK; g.font = '10px -apple-system, Segoe UI, sans-serif';
+  g.fillStyle = OK; g.font = barrierFont('10px -apple-system, Segoe UI, sans-serif');
   g.textAlign = 'left';
-  g.fillText('10⁻⁸', c.w - 32, G.Y(-8) + 3);
-  g.fillText('10⁻¹⁸', c.w - 34, G.Y(-18) + 3);
+  g.fillText('10⁻⁸', c.w - G.p.r + 6, G.Y(-8) + 3 * BUI.text);
+  g.fillText('10⁻¹⁸', c.w - G.p.r + 6, G.Y(-18) + 3 * BUI.text);
 }
 
 function drawReadout() {
   var el = document.getElementById('read'), sel = selected();
-  if (!sel) { el.innerHTML = ''; return; }
+  if (!sel) { el.innerHTML = ''; document.getElementById('selectionSummary').textContent = 'No trajectory selected'; return; }
   var i = cut(sel, S.tau * S.mark), y = sel.Y[i];
+  document.getElementById('selectionSummary').textContent =
+    'R ' + y[0].toFixed(3) + '  ·  φ₁ ' + (sel.a1[i] / D).toFixed(1) + '°  ·  φ₂ ' + (sel.a2[i] / D).toFixed(1) + '°' +
+    (S.pinned === null ? '' : '  ·  Pinned');
   // on the universal line lambda_1 == 0 to round-off, so B.controls would read
   // the sign of noise; the control there is the singular one, by construction
   var s = sel.universal ? ['0 (singular)', sel.sigmaFixed[1]] : B.controls(y);
@@ -1832,7 +1946,18 @@ function drawReadout() {
 }
 
 function draw() {
+  if (document.getElementById('pageBarrier').hidden) return;
   document.getElementById('markKey').style.display = S.showMark && S.pick ? '' : 'none';
+  document.getElementById('stageLabel').textContent = S.tau === 0 ? 'Seed curve' : S.focus ? 'Isolated trajectory' : S.showSheet ? 'Barrier surface' : 'Trajectory bundle';
+  document.getElementById('stageHint').textContent = S.tau === 0
+    ? 'Press Play or move the time slider to grow the surface.'
+    : 'Showing backward time 0–' + S.tau.toFixed(2) + (S.pick ? '. Hover to inspect; click to pin.' : '. Hover selection is off.');
+  document.getElementById('stageLabel').title = document.getElementById('stageHint').textContent;
+  document.getElementById('tau').setAttribute('aria-valuetext', S.tau.toFixed(2) + ' normalized time units backward');
+  ['showSw', 'showSheet', 'showT2', 'showMark', 'pick', 'showZones', 'showTarget', 'showExtra', 'focus', 'lockR'].forEach(function (id) {
+    var button = document.getElementById(id);
+    button.setAttribute('aria-pressed', String(button.classList.contains('on')));
+  });
   draw3d();
   drawFace('cA');
   drawFace('cB');
@@ -1845,14 +1970,17 @@ function draw() {
 // interaction
 // ---------------------------------------------------------------------------
 
-function setTau(v) {
+function updateTau(v) {
   S.tau = Math.min(Math.max(v, 0), TAU_FULL);
   document.getElementById('tau').value = Math.round(S.tau * 100);
   document.getElementById('tauNum').value = S.tau.toFixed(2);
-  draw();
+}
+function setTau(v, defer) {
+  updateTau(v);
+  if (defer && !BARRIER_CAPTURE) redrawSoon(); else draw();
 }
 
-document.getElementById('tau').oninput = function () { setTau(+this.value / 100); };
+document.getElementById('tau').oninput = function () { setTau(+this.value / 100, true); };
 document.getElementById('tauNum').onchange = function () {
   var v = parseFloat(this.value);
   setTau(isFinite(v) ? v : 0);
@@ -1955,22 +2083,23 @@ document.getElementById('reset').onclick = function () {
 /* Play sweeps tau from 0 up. The bundle grows and, because the marker sits at
    tau * mark, the selected trajectory is travelled at the same time; with focus
    on, the bundle is hidden and it is only that trajectory being watched. */
-var playing = null;
+var playing = null, playLast = null;
+var PLAY_RATE = 0.05 / 45;  // preserve the original growth speed, in tau/ms
+
 document.getElementById('play').onclick = function () {
-  var btn = this;
   if (playing) {
-    clearInterval(playing); playing = null;
-    btn.textContent = '▶ play'; btn.classList.remove('on');
+    playing = null; playLast = null;
+    this.textContent = '▶ Play'; this.classList.remove('on');
     return;
   }
-  btn.textContent = '❚❚ pause'; btn.classList.add('on');
-  if (S.tau >= TAU_FULL - 1e-9) setTau(0);
-  playing = setInterval(function () {
-    var next = S.tau + 0.05;
-    if (next > TAU_FULL) { next = 0; }
-    setTau(next);
-  }, 45);
+  this.textContent = '❚❚ Pause'; this.classList.add('on');
+  if (S.tau >= TAU_FULL - 1e-9) updateTau(0);
+  playing = true; playLast = null; redrawSoon();
 };
+document.addEventListener('visibilitychange', function () {
+  playLast = null;
+  if (playing && !document.hidden) redrawSoon();
+});
 
 /* Nearest trajectory to a click, in a face. */
 /* Nearest trajectory sample to a screen point.  With `only` given, the search
@@ -2038,13 +2167,13 @@ function localXY(cv, e) {
       v.dom = [bx + (F.x0 - bx) / f, bx + (F.x1 - bx) / f,
                by + (F.y0 - by) / f, by + (F.y1 - by) / f];
     }
-    draw();
+    redrawSoon();
   }, { passive: false });
 
   cv.addEventListener('dblclick', function () {
     S.views[id] = null;
     if (id === 'c3d') { S.az = AZ0; S.el = EL0; }
-    draw();
+    redrawSoon();
   });
 });
 
@@ -2076,7 +2205,7 @@ function hoverScrub(id, cv, e) {
     if (hit[0] === S.sel && Math.abs(hit[1] - S.mark) < 1e-4) return;
     S.sel = hit[0];
     S.mark = hit[1];
-    draw();
+    redrawSoon();
   });
 }
 
@@ -2120,7 +2249,7 @@ var EL_MIN = -90 * D, EL_MAX = 90 * D, EL_RATE = 0.006;
       S.sel = hit[0];
       S.mark = hit[1];
     }
-    draw();
+    redrawSoon();
   });
   cv.addEventListener('mousemove', function (e) {
     if (!down) { hoverScrub(id, cv, e); return; }
@@ -2140,188 +2269,67 @@ var EL_MIN = -90 * D, EL_MAX = 90 * D, EL_RATE = 0.006;
       var ky = (F.y1 - F.y0) / (cv.clientHeight - F.p.t - F.p.b);
       v.dom = [F.x0 - dx * kx, F.x1 - dx * kx, F.y0 - dy * ky, F.y1 - dy * ky];
     }
-    draw();
+    redrawSoon();
   });
 });
 
-/* Stitch the three trajectory views into one image, for the deck. */
-document.getElementById('png').onclick = function () {
-  var ids = ['c3d', 'cA', 'cB'], titles = ['(φ₂, φ₁, R)', 'face (φ₂, φ₁)', 'face (φ₂, R)'];
-  var src = ids.map(function (i) { return document.getElementById(i); });
-  var pad = 14, head = 26;
-  var w = src[0].width + src[1].width + pad * 3;
-  var h = Math.max(src[0].height, src[1].height + src[2].height + pad) + head + pad * 2;
-  var out = document.createElement('canvas');
-  out.width = w; out.height = h;
-  var g = out.getContext('2d');
-  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
-  g.fillStyle = '#17191c';
-  g.font = '600 15px -apple-system, Segoe UI, sans-serif';
-  g.fillText(document.getElementById('status').textContent.split(' · ')[0] +
-             ' — τ ≤ ' + S.tau.toFixed(2), pad, 18);
-  g.drawImage(src[0], pad, head + pad);
-  g.drawImage(src[1], src[0].width + pad * 2, head + pad);
-  g.drawImage(src[2], src[0].width + pad * 2, head + pad + src[1].height + pad);
-  g.fillStyle = '#4a5058'; g.font = '12px -apple-system, Segoe UI, sans-serif';
-  titles.forEach(function (t, i) {
-    var x = i === 0 ? pad : src[0].width + pad * 2;
-    var y = i === 2 ? head + pad + src[1].height + pad - 4 : head + pad - 4;
-    g.fillText(t, x, y);
-  });
-  var a = document.createElement('a');
-  a.download = 'layer0_' + S.family.replace('+', 'p').replace('-', 'm') +
-               '_tau' + S.tau.toFixed(2) + '.png';
-  a.href = out.toDataURL('image/png');
-  a.click();
-};
+/* The toolbar shortcut uses the same panel selection and appearance settings. */
+var barrierExports = null;
+document.getElementById('png').onclick = function () { if (barrierExports) barrierExports.png(); };
 
 window.addEventListener('keydown', function (e) {
+  if (e.defaultPrevented) return;  // Escape may already have cancelled docking or resizing.
   if (e.key === 'Escape' && S.pinned !== null) { S.pinned = null; draw(); }
 });
 
-window.addEventListener('resize', draw);
+window.addEventListener('resize', redrawSoon);
 
 // ---------------------------------------------------------------------------
-// resizable panels
+// dockable panels
 // ---------------------------------------------------------------------------
-
-/* Every panel can be resized by hand, to give one view the room it needs:
-     - the gutter between two panels moves the split between them;
-     - a panel's bottom edge sets the height of its row;
-     - the grip in a panel's bottom-right corner does both at once.
-   Column and row splits are fr weights, so they survive a window resize; the
-   two row heights are pixels.  The canvases fill whatever their panel leaves
-   them and are redrawn whenever that changes (ResizeObserver).  The layout is
-   remembered in this browser (localStorage) -- "reset layout" puts it back. */
-var LAYOUT_KEY = 'layer0.barrierExplorer.layout.v1';
-var LY = null;
-var GRID = {
-  top:   { el: 'gTop',   axis: 'x', tracks: ['k3d', 'gStack'] },
-  stack: { el: 'gStack', axis: 'y', tracks: ['kA', 'kB'] },
-  bot:   { el: 'gBot',   axis: 'x', tracks: ['kG', 'kI', 'kR'] }
-};
-var MIN_TRACK = { x: 200, y: 90 };        // px, smallest a panel may be squeezed to
-
-function $(id) { return document.getElementById(id); }
-function rect(id) { return $(id).getBoundingClientRect(); }
-
-/* The height a panel spends on everything but its canvas (title, key, padding). */
-function chrome(cardId, bodyId) {
-  var inner = document.querySelector('#' + cardId + ' > ' + (bodyId ? '#' + bodyId : '.cv'));
-  return rect(cardId).height - inner.getBoundingClientRect().height;
-}
-
-/* Defaults reproduce the fixed layout this page used to have: a 452 px 3-D
-   canvas, and a bottom row tall enough for the readout without scrolling. */
-function defaultLayout() {
-  var botH = Math.max(214 + chrome('kG'), 214 + chrome('kI'),
-                      chrome('kR', 'readbody') + $('readbody').scrollHeight);
-  return { top: [1.3, 1], stack: [1, 1], bot: [1, 1, 1],
-           topH: Math.round(452 + chrome('k3d')), botH: Math.round(botH) };
-}
-
-function applyLayout() {
-  function fr(a) { return a.map(function (v) { return v + 'fr'; }).join(' 10px '); }
-  $('gTop').style.gridTemplateColumns = fr(LY.top);
-  $('gTop').style.gridTemplateRows = LY.topH + 'px';
-  $('gStack').style.gridTemplateRows = fr(LY.stack);
-  $('gBot').style.gridTemplateColumns = fr(LY.bot);
-  $('gBot').style.gridTemplateRows = LY.botH + 'px';
-}
-
-function saveLayout() {
-  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(LY)); } catch (e) { /* private window */ }
-}
-function loadLayout() {
-  try {
-    var v = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
-    if (v && v.top && v.stack && v.bot && v.topH > 0 && v.botH > 0) return v;
-  } catch (e) { /* unavailable or corrupt: fall back to the defaults */ }
-  return null;
-}
-
-function minRowH(key) {
-  return key === 'topH' ? chrome('k3d') + 140
-                        : Math.max(chrome('kG'), chrome('kI')) + 100;
-}
-
-var redrawQueued = false;
+var dockWorkspace = null, workspaceChrome = null, redrawQueued = false;
 function redrawSoon() {
   if (redrawQueued) return;
   redrawQueued = true;
-  requestAnimationFrame(function () { redrawQueued = false; draw(); });
-}
-
-/* One drag on a gutter, an edge or a corner. */
-function startResize(e) {
-  var h = e.currentTarget;
-  if (e.button !== 0) return;
-  e.preventDefault();
-  h.setPointerCapture(e.pointerId);
-  var rz = h.getAttribute('data-rz'), gut = h.getAttribute('data-gut');
-  var st = { x: e.clientX, y: e.clientY, rz: rz, min: rz ? minRowH(rz) : 0 };
-  if (rz) st.h0 = LY[rz];
-  if (gut) {
-    var g = GRID[gut.split(':')[0]], i = +gut.split(':')[1];
-    // re-express this grid's weights as the panels' current pixel sizes, so the
-    // drag moves the gutter exactly with the pointer
-    st.g = gut.split(':')[0]; st.i = i; st.axis = g.axis;
-    st.px = g.tracks.map(function (id) { var r = rect(id); return g.axis === 'x' ? r.width : r.height; });
-  }
-  h.classList.add('drag');
-  document.body.classList.add('resizing');
-  document.body.style.setProperty('--rzcur', getComputedStyle(h).cursor);
-
-  function move(ev) {
-    var dx = ev.clientX - st.x, dy = ev.clientY - st.y;
-    if (rz) LY[rz] = Math.round(Math.max(st.min, st.h0 + dy));
-    if (gut) {
-      var d = st.axis === 'x' ? dx : dy, a = st.px[st.i], b = st.px[st.i + 1];
-      var m = MIN_TRACK[st.axis];
-      var na = Math.max(m, Math.min(a + b - m, a + d));
-      var w = st.px.slice();
-      w[st.i] = na; w[st.i + 1] = a + b - na;
-      LY[st.g] = w.map(function (v) { return Math.round(v); });
+  requestAnimationFrame(function (now) {
+    redrawQueued = false;
+    if (BARRIER_CAPTURE) return; // exports own the synchronous renderer
+    if (playing && !document.hidden) {
+      var elapsed = playLast === null ? 0 : Math.min(100, Math.max(0, now - playLast));
+      playLast = now;
+      var next = S.tau + elapsed * PLAY_RATE;
+      updateTau(next > TAU_FULL ? next % TAU_FULL : next);
     }
-    applyLayout();
-    redrawSoon();
-  }
-  function up() {
-    h.removeEventListener('pointermove', move);
-    h.removeEventListener('pointerup', up);
-    h.removeEventListener('pointercancel', up);
-    h.classList.remove('drag');
-    document.body.classList.remove('resizing');
-    saveLayout();
-  }
-  h.addEventListener('pointermove', move);
-  h.addEventListener('pointerup', up);
-  h.addEventListener('pointercancel', up);
+    draw();
+    if (playing && !document.hidden) redrawSoon();
+  });
 }
 
 function initLayout() {
-  LY = loadLayout() || defaultLayout();
-  applyLayout();
-  Array.prototype.forEach.call(document.querySelectorAll('.gutter, .rz-b, .rz-c'), function (h) {
-    h.addEventListener('pointerdown', startResize);
+  dockWorkspace = window.DockWorkspace.create({
+    root: document.getElementById('dockWorkspace'),
+    viewport: document.getElementById('dockViewport'),
+    reset: document.getElementById('resetLayout'),
+    onChange: redrawSoon
   });
-  if (window.ResizeObserver) {
-    var ro = new ResizeObserver(redrawSoon);
-    Array.prototype.forEach.call(document.querySelectorAll('.cv'), function (el) { ro.observe(el); });
-  }
-  $('resetLayout').onclick = function () {
-    try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { /* ignore */ }
-    LY = { top: [1.3, 1], stack: [1, 1], bot: [1, 1, 1], topH: 640, botH: 330 };
-    applyLayout();                      // back to the stock tracks, then measure
-    LY = defaultLayout();
-    applyLayout();
-    redrawSoon();
-  };
 }
 
 // ---------------------------------------------------------------------------
 
 (function init() {
+  var helpPanels = Array.prototype.slice.call(document.querySelectorAll('.help-disclosure'));
+  document.addEventListener('click', function (e) {
+    helpPanels.forEach(function (panel) { if (!panel.contains(e.target)) panel.open = false; });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    helpPanels.forEach(function (panel) {
+      if (!panel.open) return;
+      var hasFocus = panel.contains(document.activeElement);
+      panel.open = false;
+      if (hasFocus) panel.querySelector('summary').focus();
+    });
+  });
   var sel = document.getElementById('fam');
   ['max', 'min', 'bore+', 'bore-'].forEach(function (k) {
     var o = document.createElement('option');
@@ -2329,8 +2337,37 @@ function initLayout() {
     sel.appendChild(o);
   });
   sel.value = 'max';
-  rebuild();
   initLayout();
+  workspaceChrome = window.WorkspaceChrome.create();
+  rebuild();
+  barrierExports = window.BarrierExport.create({
+    horizon: TAU_FULL,
+    family: function () { return S.family.replace('+', 'p').replace('-', 'm'); },
+    label: function () { return C.FAMILIES[S.family].label; },
+    tau: function () { return S.tau; },
+    setStyle: function (value) { BUI = value; redrawSoon(); },
+    size: function (id) { return BARRIER_CAPTURE.sizes[id]; },
+    resolution: function (ratio, ids) {
+      BARRIER_CAPTURE.ratios = {};
+      ids.forEach(function (id) { BARRIER_CAPTURE.ratios[id] = ratio; });
+    },
+    render: setTau,
+    begin: function (maxTau) {
+      if (dockWorkspace) dockWorkspace.cancel();
+      var keep = { tau: S.tau, mark: S.mark, playing: !!playing };
+      if (playing) document.getElementById('play').click();
+      var sizes = {};
+      ['c3d', 'cA', 'cB', 'cG', 'cI'].forEach(function (id) {
+        var cv = document.getElementById(id); sizes[id] = { w: cv.clientWidth, h: cv.clientHeight };
+      });
+      BARRIER_CAPTURE = { maxTau: maxTau, sizes: sizes };
+      // Keep the marker at its selected fraction of tau, exactly as in live Play.
+      return function () {
+        BARRIER_CAPTURE = null; S.mark = keep.mark; setTau(keep.tau);
+        if (keep.playing) document.getElementById('play').click();
+      };
+    }
+  });
 }());
 </script>
 <script>
@@ -2361,18 +2398,39 @@ var PAGES = { barrier: 'pageBarrier', coords: 'pageCoords', sweep: 'pageSweep' }
 var TAB_KEY = 'layer0.barrierExplorer.tab.v1';
 var tab = 'barrier';
 function showTab(name) {
-  if (GIF.busy) return;                                 // a GIF is being rendered from this tab
+  if (GIF.busy || window.BarrierExportBusy) return;       // a capture owns the current view
   if (!PAGES[name]) name = 'barrier';
   if (REC.active) stopRecording();
+  // A hidden barrier animation must not keep advancing or using CPU.
+  if (name !== 'barrier' && playing) document.getElementById('play').click();
+  if (name !== 'barrier' && dockWorkspace) dockWorkspace.cancel();
   tab = name;
+  workspaceChrome.setView(name);
   Object.keys(PAGES).forEach(function (k) { $(PAGES[k]).hidden = k !== name; });
-  each('[data-lx-tab]', function (b) { b.classList.toggle('on', b.getAttribute('data-lx-tab') === name); });
+  each('[data-lx-tab]', function (b) {
+    var active = b.getAttribute('data-lx-tab') === name;
+    b.classList.toggle('on', active);
+    b.setAttribute('aria-selected', String(active));
+    b.tabIndex = active ? 0 : -1;
+  });
   try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* private window */ }
   if (name === 'barrier') window.dispatchEvent(new Event('resize'));
   else if (LC) requestDraw();
 }
 each('[data-lx-tab]', function (b) {
   b.addEventListener('click', function () { showTab(b.getAttribute('data-lx-tab')); });
+  b.addEventListener('keydown', function (e) {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-lx-tab]'));
+    var index = tabs.indexOf(b), next;
+    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    if (GIF.busy || window.BarrierExportBusy) return;
+    tabs[next].focus(); showTab(tabs[next].getAttribute('data-lx-tab'));
+  });
 });
 function savedTab() { try { return localStorage.getItem(TAB_KEY); } catch (e) { return null; } }
 
@@ -3506,84 +3564,8 @@ function sleep0() { return new Promise(function (r) { setTimeout(r, 0); }); }
 /* Palette: bins of 5 bits per channel; the most populated bins first, skipping any
    too close to one already taken, so small but distinct colours (the state dot, the
    ✓/✗ marks) still get an entry. */
-function gifHistogram(data, H) {
-  for (var i = 0; i < data.length; i += 4) {
-    var key = ((data[i] >> 3) << 10) | ((data[i + 1] >> 3) << 5) | (data[i + 2] >> 3);
-    H.n[key]++; H.r[key] += data[i]; H.g[key] += data[i + 1]; H.b[key] += data[i + 2];
-  }
-}
-function gifPalette(H) {
-  var bins = [], i, k, out = [];
-  for (k = 0; k < 32768; k++) if (H.n[k]) bins.push({ n: H.n[k], r: H.r[k] / H.n[k], g: H.g[k] / H.n[k], b: H.b[k] / H.n[k] });
-  bins.sort(function (a, b) { return b.n - a.n; });
-  [40, 24, 12, 0].forEach(function (d) {
-    var d2 = d * d;
-    for (i = 0; i < bins.length && out.length < 255; i++) {
-      var c = bins[i]; if (c.used) continue;
-      var ok = out.every(function (o) { var dr = o[0] - c.r, dg = o[1] - c.g, db = o[2] - c.b; return dr * dr + dg * dg + db * db > d2; });
-      if (ok) { c.used = true; out.push([c.r, c.g, c.b]); }
-    }
-  });
-  var pal = new Uint8Array(768);
-  out.forEach(function (c, j) { pal[3 * j] = Math.round(c[0]); pal[3 * j + 1] = Math.round(c[1]); pal[3 * j + 2] = Math.round(c[2]); });
-  return { bytes: pal, n: out.length };
-}
-function gifQuantize(data, P, map, out) {
-  for (var i = 0, j = 0; i < data.length; i += 4, j++) {
-    var key = ((data[i] >> 3) << 10) | ((data[i + 1] >> 3) << 5) | (data[i + 2] >> 3), m = map[key];
-    if (m < 0) {
-      var r = (key >> 10) * 8 + 4, g = ((key >> 5) & 31) * 8 + 4, b = (key & 31) * 8 + 4, best = 1e9;
-      for (var q = 0; q < P.n; q++) {
-        var dr = P.bytes[3 * q] - r, dg = P.bytes[3 * q + 1] - g, db = P.bytes[3 * q + 2] - b, e = dr * dr + dg * dg + db * db;
-        if (e < best) { best = e; m = q; }
-      }
-      map[key] = m;
-    }
-    out[j] = m;
-  }
-}
-
-/* LZW for GIF image data (the same scheme as omggif's encoder).  The code table is a
-   flat Int32Array keyed by (prefix << 8 | k); a generation stamp in the high bits
-   makes "clear" free. */
-var LZW_TABLE = null, LZW_GEN = 0;
-function gifLzw(idx, n, out) {
-  if (!LZW_TABLE) LZW_TABLE = new Int32Array(1 << 20);
-  var T = LZW_TABLE, min = 8, clear = 256, eoi = 257, next = 258, size = 9, p = 0, cur = 0, shift = 0, gen = ++LZW_GEN;
-  function emit(c) { cur |= c << shift; shift += size; while (shift >= 8) { out[p++] = cur & 255; cur >>>= 8; shift -= 8; } }
-  emit(clear);
-  var ib = idx[0];
-  for (var i = 1; i < n; i++) {
-    var k = idx[i], key = (ib << 8) | k, e = T[key];
-    if ((e >>> 12) === gen) { ib = e & 4095; continue; }
-    emit(ib);
-    if (next === 4096) { emit(clear); next = eoi + 1; size = min + 1; gen = ++LZW_GEN; }
-    else { if (next >= (1 << size)) size++; T[key] = (gen << 12) | next; next++; }
-    ib = k;
-  }
-  emit(ib); emit(eoi);
-  if (shift > 0) out[p++] = cur & 255;
-  return p;
-}
-function GifWriter(w, h, palette, delayCs) {
-  this.parts = []; this.w = w; this.h = h; this.delay = delayCs;
-  var head = [71, 73, 70, 56, 57, 97, w & 255, w >> 8, h & 255, h >> 8, 0xF7, 0, 0];
-  this.parts.push(new Uint8Array(head), palette);
-  this.parts.push(new Uint8Array([0x21, 0xFF, 0x0B, 78, 69, 84, 83, 67, 65, 80, 69, 50, 46, 48, 3, 1, 0, 0, 0]));  // loop forever
-}
-GifWriter.prototype.frame = function (x, y, w, h, idx, transparent) {
-  var d = this.delay;
-  this.parts.push(new Uint8Array([0x21, 0xF9, 4, (1 << 2) | (transparent ? 1 : 0), d & 255, d >> 8, 255, 0,
-                                  0x2C, x & 255, x >> 8, y & 255, y >> 8, w & 255, w >> 8, h & 255, h >> 8, 0, 8]));
-  var raw = new Uint8Array(Math.ceil(w * h * 1.6) + 64), n = gifLzw(idx, w * h, raw);
-  var blocks = new Uint8Array(n + Math.ceil(n / 255) + 1), q = 0;
-  for (var i = 0; i < n; i += 255) {
-    var len = Math.min(255, n - i); blocks[q++] = len; blocks.set(raw.subarray(i, i + len), q); q += len;
-  }
-  blocks[q++] = 0;
-  this.parts.push(blocks.subarray(0, q));
-};
-GifWriter.prototype.finish = function () { this.parts.push(new Uint8Array([0x3B])); return new Blob(this.parts, { type: 'image/gif' }); };
+var gifHistogram = window.ExplorerGif.histogram, gifPalette = window.ExplorerGif.palette,
+    gifQuantize = window.ExplorerGif.quantize, GifWriter = window.ExplorerGif.Writer;
 
 async function makeGif(tabName) {
   if (GIF.busy || REC.active) return;
