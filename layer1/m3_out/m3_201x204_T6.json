@@ -4,7 +4,7 @@
  "T_max": 6.0,
  "dtau": 0.25,
  "scaling": "sdist",
- "wall_s": 14731.30762052536,
+ "wall_s": 6398.380338430405,
  "taus": [
   0.0,
   0.25,
@@ -91,5 +91,7 @@
  "surface_nodes": 112828,
  "horizon_limit": 0.12099974371565937,
  "cell": 0.05900000000000016,
- "fails": []
+ "fails": [
+  "V_2 == V_1 o S from an independent solve  (T = 2.0, 4173 s)"
+ ]
 }

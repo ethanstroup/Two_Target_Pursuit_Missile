@@ -4,3 +4,4 @@
 # Generated Python bytecode
 __pycache__/
 *.pyc
+.vscode/settings.json
