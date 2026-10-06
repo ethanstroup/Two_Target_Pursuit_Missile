@@ -1,0 +1,116 @@
+==============================================================================================
+M4  acceptance against Layer 0   grid 101x102_T6   ell scaling sdist
+==============================================================================================
+   tolerance = 0.11800  (one-cell value change; this grid's own cell is 0.11800)
+   R mask    = 0.45   (M3: the inner face leaks; results hold on the retained domain)
+   snapshots = 13, spacing 0.50 in retrograde time
+
+   regenerating Layer 0 trajectories ...
+  PASS  Layer 0 bundle reproduces its own invariants   122 trajectories, max |FI-1| = 1.1e-10, max |H*| = 1.4e-10
+
+   evaluating V and grad V at 20286 trajectory points, one snapshot at a time ...
+----------------------------------------------------------------------------------------------
+A.  Level test  --  |V(x(tau), tau)| on the Layer 0 bundle, scored to first departure
+----------------------------------------------------------------------------------------------
+   family          n  agreement length in tau       departure side          
+   max-range       8  median 0.20, max 0.25         0 inside / 8 outside / 0 never left
+   min-range      48  median 6.00, max 6.00         18 inside / 0 outside / 30 never left
+   boresight      66  median 1.70, max 6.00         36 inside / 28 outside / 2 never left
+
+  PASS  every BUP seed lies on {V(.,0) = 0} within tolerance   max |V| = 2.06e-02 over 80 masked seeds
+  PASS  the off-boresight family agrees over a usable stretch   median agreement length tau = 1.70
+----------------------------------------------------------------------------------------------
+B.  Gradient test  --  angle between grad V and the Layer 0 costate  (the test to trust)
+----------------------------------------------------------------------------------------------
+   max-range   n =    64   median  18.22 deg   90th 118.39   % within 10 deg:  43.8%
+   min-range   n =   416   median  11.46 deg   90th  20.33   % within 10 deg:  32.7%
+   boresight   n =  4978   median   6.02 deg   90th  27.45   % within 10 deg:  68.0%
+  PASS  grad V is parallel to the Layer 0 costate on the retained boresight segments   median angle 6.02 deg over 4978 points
+  PASS  direction agreement is not a coin flip (median well under 90 deg)   median 6.65 deg over 5458 retained points
+
+----------------------------------------------------------------------------------------------
+C1. Feedback law on the barrier  --  sigma* from grad V vs barrier.py, incl. switches
+----------------------------------------------------------------------------------------------
+   sigma_1*  all retained points:  5249 of  5458  (96.2%)   |dV/dphi_1| >= 0.15:  4990 of  5054  (98.7%)
+   sigma_2*  all retained points:  5035 of  5458  (92.2%)   |dV/dphi_2| >= 0.15:  4038 of  4124  (97.9%)
+   at located switches, inside the retained segments: 0 of 16 agree  (0.0%)
+   at every masked switch on the bundle:                116 of 186 agree  (62.4%)
+  PASS  sigma_1* reproduces barrier.py where dV/dphi_1 is resolvable   98.7% of 5054 points
+  PASS  sigma_2* reproduces barrier.py where dV/dphi_2 is resolvable   97.9% of 4124 points
+   (the unresolvable remainder is reported above, not folded in: the sign of a
+    component the grid cannot resolve is a tie-break, not a disagreement)
+
+----------------------------------------------------------------------------------------------
+Negative control  --  the old pursuit heuristic must disagree where it is known wrong
+----------------------------------------------------------------------------------------------
+   On the RETAINED segments the heuristic agrees with barrier.py 98.7% of the time,
+   against grad V's 98.7%. The two are indistinguishable there, and that is a fact
+   about the scope, not about the laws: scoping A-C to the retained segments keeps
+   only short range (max retained R = 6.26), and the heuristic is known to track the
+   paper at short range and invert beyond R ~ 8. So the control has to be run where
+   it is meant to discriminate: against the grid law over the whole domain.
+
+   grid law vs heuristic, disagreement by range band:
+      0.5 -  2.0     9.68% of nodes
+      2.0 -  4.0    10.40% of nodes
+      4.0 -  6.0    29.05% of nodes
+      6.0 -  8.0    41.97% of nodes
+      8.0 - 10.0    48.01% of nodes
+     10.0 - 12.0    50.70% of nodes
+  PASS  the heuristic diverges from the grid law as range grows   monotone from 9.7% to 50.7%
+  PASS  beyond R = 8 the heuristic is near a coin flip against the correct law   disagreement 48.0% to 50.7%
+
+----------------------------------------------------------------------------------------------
+D.  Table 2  --  the published significant points, on the grid
+----------------------------------------------------------------------------------------------
+   27 of 59 Table 2 points lie on a surface the equations determine
+   of those, 26 are on dT_1 itself and 1 only on a surface extension outside it
+     excluded: S_1    on "R = 2 sin(phi_1), Sec. 3.4 (line beta-nu)" -- g_bore +0.039, g_min -1.095, g_max -1.545
+  PASS  grid ell vanishes at the eligible Table 2 points (to table precision)   max |ell| = 8.79e-04 over 20 masked points on dT_1
+   under the converged V these points sit at median +0.0010 (7 of 20 with V <= 0)
+
+----------------------------------------------------------------------------------------------
+E.  Singular structure  --  where V is non-differentiable
+----------------------------------------------------------------------------------------------
+   nodes where a one-sided gradient changes sign: 22464 (2.203% of the masked grid)
+   concentrated at phi_1 = -180, 0, -176, 176 deg
+   concentrated at phi_2 = -180, 0, -4, 4 deg
+  PASS  a non-differentiability locus exists and is localized, not diffuse   2.138% of nodes
+
+----------------------------------------------------------------------------------------------
+Scope notes carried out of this run
+----------------------------------------------------------------------------------------------
+   1. max-range family departs at median tau = 0.20, 8 of 8 to the OUTSIDE. Consistent with
+      Layer0_MaxRangeAudit_2026-09-17: that family's global assembly (corner family, dispersal
+      line, c_1) was never built, so these are semipermeable characteristics that do not bound
+      the zone.
+   2. UNEXPLAINED, and left that way on purpose. Of the 16 located switches that fall inside a
+      retained on-barrier segment, the grid control agrees with barrier.py at 0 -- while
+      across all 186 masked switches on the bundle it agrees at 62%. Under a coin-flip null, 0
+      of 16 has probability 2^-16, so it is systematic, not chance. Two explanations were
+      tested and both failed: (i) a vanishing deciding component making the sign a tie-break
+      -- the median |dV/dphi_i| there is 0.159, not small; (ii) the switch coinciding with the
+      departure from {V=0} -- measured departures sit FURTHER from switches than a random-tau
+      null (median gap 1.46 vs 0.44). It does not touch tests A or B, nor the 96%/92% bulk
+      control agreement. It is a small, reproducible anomaly and the next thing to chase in
+      C1.
+   3. The negative control cannot fire on the retained barrier segments: those sit entirely at
+      short range, where the heuristic agrees with barrier.py as the published angular-
+      advantage result says it should. It fires on the range-resolved comparison instead,
+      reaching ~48-51%% disagreement beyond R = 8 -- the inversion ProblemStatement Sec. 3.4
+      records. Any future tightening of A-C must keep a long-range discriminator of this kind,
+      or the suite stops testing anything.
+   4. Test D as written ("{V=0} passes through the placed points") is nearly vacuous for the
+      points it can reach: a point on dT_1 has ell = 0, so V(.,0) = 0 by construction. What it
+      does test, and what is run here, is that the grid reproduces the published geometry at
+      table precision -- a real check on Rbar_0 = 3 + pi and on the index asymmetry. The
+      points a barrier should genuinely pass through are the 32 UNPLACED interior ones, and
+      those belong to test E.
+   5. Test E is only half-run: the locus is detected and localized, but the quantitative
+      comparison against D&S Table 3's 25 singular lines needs those lines' coordinates, which
+      are not in the repo (validate_table2.py carries Table 2 only). Digitizing Table 3 is
+      what would close it, and with it the 32 unplaced Table 2 points.
+
+==============================================================================================
+M4 COMPLETE -- all checks passed
+==============================================================================================
