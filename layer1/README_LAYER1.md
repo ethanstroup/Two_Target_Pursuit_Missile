@@ -16,6 +16,18 @@ before the 201³ run.
 | M4 acceptance against Layer 0 | not started — unblocked |
 | M5 mutual-kill / arrival-time comparison | not started — unblocked |
 
+**2026-10-01. M2's frozen-evader V is not valid everywhere — open, needs a decision.**
+V is a minimum of `ell` along a trajectory, so `V >= min ell = -beta` always. The
+frozen-evader solve breaks that from τ ≈ 0.75 on: it starts at the inner face
+R = 0.2 near φ₁ = φ₂ = 0 (nose-on, closing, i.e. leaving through that face) and
+grows without limit (min V = −1.45e4 at T = 3 in M2's own 101³ configuration; 3.3 %
+of nodes more than 0.05 below −β, out to R = 5.3). None of `test_m2.py`'s checks can
+see it: none bounds V from below, and the trajectory tests drop every sample that
+leaves the R domain. M3 does not do this (min V −0.802). Found while building
+`solve_m2_snap.py` for the explorer, which reports the bound as a failing check;
+the inner-face condition has not been changed. Explorer record:
+`claude/Layer1_M1_Explorer_2026-09-30.md`.
+
 **2026-09-18.** M3 closed. Full record: `claude/Layer1_M3_2026-09-18.md`. Headline
 numbers and the one grid rule that came out of it are below; the fields M4 and M5
 need are in `m3_out/`.
@@ -83,8 +95,10 @@ the two factors of `time_direction` cancel, leaving
 dV/dt = -min(0, H),    H = min_{sigma_1} max_{sigma_2} grad V . f
 ```
 
-marched backward — which is the plan's §2.4 equation. Worked through in the
-docstring of `hji.py`.
+marched backward — which is the plan's §2.4 equation, dV/dtau = min[0, H], written
+in the library's time t = -tau. The cancellation is on H only: the Lax-Friedrichs
+dissipation carries one factor of `time_direction`, so its effective sign in tau is +
+(clarified 2026-10-02). Worked through in the docstring of `hji.py`.
 
 Environment: JAX must run in **float64** (`jax_enable_x64`); the default float32
 would make the M1 machine-precision comparison meaningless. Set in `hji.py`
@@ -296,6 +310,18 @@ layer1/m3_out/            m3_<grid>_fields.npz   V and t_1* (float32; sign of V 
                           round-trip error 4.7e-07 against a 0.059 cell scale)
                           Vsnap_101x102_T6.npz   V(.,tau) every 0.5, for M4 test C1
                           m3_<grid>.json         convergence diagnostics
+```
+
+Added 2026-10-01, for the explorer:
+
+```
+layer1/solve_m2_snap.py   the frozen-evader (M2) game re-solved on M3's 101x102 grid to
+                          tau = 6, snapshotted like Vsnap; ~13 min on two cores.
+                          Reports the lower-bound check, which FAILS (see the note above)
+layer1/m2_out/            Vsnap_frozen_101x102_T6.npz   V(.,tau) every 0.5, + R, phi1, phi2
+                          m2_frozen_101x102_T6.json     zone share, front, nodes below the bound
+layer1/viz/ell_explorer.html   ell (M1) and V(x, tau) of M2 and M3; loads the two Vsnap
+                          files in the browser (load files... or drop them on the page)
 ```
 
 Env switches: `M3_PREFLIGHT=0`, `M3_SNAP_EVERY` (solve_m3); `R_MARGIN` (win_alone,

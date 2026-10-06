@@ -55,10 +55,15 @@ minimize/maximize a linear term over $|\sigma_i|\le1$.
 
 **The PDE actually marched:**
 
-$$\frac{\partial V}{\partial\tau} + \min\big[0, H(x,\nabla V)\big] = 0, \qquad V(x,0)=\ell(x)$$
+$$\frac{\partial V}{\partial\tau} = \min\big[0, H(x,\nabla V)\big], \qquad V(x,0)=\ell(x)$$
 
 $\tau$ is *time remaining*, not elapsed time — $\tau=0$ means no time left to maneuver, so
-$V$ just equals the current margin $\ell(x)$, unimproved.
+$V$ just equals the current margin $\ell(x)$, unimproved. The sign follows from one
+dynamic-programming step, $V(x,\tau+\Delta\tau)\approx\min\{V(x,\tau),\,V(x+f\Delta\tau,\tau)\}
+\approx V+\Delta\tau\,\min(0,H)$, so $V$ can only fall as $\tau$ grows. `hj_reachability` marches
+in its own time $t=-\tau$ (`solve_backward` passes $t=0,-\Delta,\dots,-T$), where the same equation
+reads $\partial V/\partial t+\min[0,H]=0$. *(Corrected 2026-10-02: this line previously wrote the
+$t$-form with a $\tau$ label.)*
 
 ---
 
@@ -230,7 +235,15 @@ $x=0$) can compute a systematically *wrong* slope, not just a noisy one. The fix
 both one-sided differences $D^-,D^+$ separately, and combine them via a Lax–Friedrichs
 numerical Hamiltonian that explicitly penalizes disagreement between the two sides:
 
-$$\hat H \approx H\Big(x,\tfrac{D^-+D^+}{2}\Big) - \tfrac12\sum_i\alpha_i(D_i^+-D_i^-)$$
+$$\hat H = H\Big(x,\tfrac{D^-+D^+}{2}\Big) + \tfrac12\sum_i\alpha_i(D_i^+-D_i^-)$$
+
+and step $V\leftarrow V+\Delta\tau\,\min(0,\hat H)$ (the clamp acts on $\hat H$, dissipation
+included). The plus sign is what makes the scheme diffusive when $\tau$ is marched forward:
+$D_i^+-D_i^-\approx\Delta_i\,\partial^2V/\partial x_i^2$, so the extra term is
+$+\tfrac12\alpha_i\Delta_i\,\partial^2V/\partial x_i^2$. The minus sign of the textbook form belongs to
+$\partial V/\partial t+H=0$ marched *forward* in $t$; `hj_reachability` writes the minus but applies
+it to $\operatorname{sign}(\Delta t)\,H$ with $\Delta t<0$, which yields the plus. *(Sign corrected
+2026-10-02.)*
 
 This is provably convergent to the correct **viscosity solution** even where no classical
 derivative exists — but the injected dissipation is a real (small) cost, paid every step, at

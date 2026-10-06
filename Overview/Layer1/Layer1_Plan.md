@@ -292,10 +292,20 @@ toolbox implements before comparing results:
 
 1. **Freezing input** (Mitchell, Bayen & Tomlin 2005, the original). The target-reaching
    player gets an augmented control that can halt the dynamics once inside the target, so
-   the plain HJI PDE $\partial V/\partial\tau + H(x,\nabla V) = 0$, $V(x,0)=\ell(x)$, suffices.
+   the plain HJI PDE $\partial V/\partial\tau = H(x,\nabla V)$, $V(x,0)=\ell(x)$, suffices.
 2. **Variational inequality** (the later and now more common form, and what most toolboxes
    expose):
-   $$\frac{\partial V}{\partial \tau} \;+\; \min\Big[\,0,\; H(x,\nabla V)\,\Big] \;=\; 0, \qquad V(x,0) = \ell(x).$$
+   $$\frac{\partial V}{\partial \tau} \;=\; \min\Big[\,0,\; H(x,\nabla V)\,\Big], \qquad V(x,0) = \ell(x).$$
+
+*(Sign convention corrected 2026-10-02.)* Both equations are written with $\tau$ = **time
+remaining**, the project's convention, marched forward from $\tau=0$. The first draft wrote them
+as $\partial V/\partial\tau + H = 0$ and $\partial V/\partial\tau + \min[0,H] = 0$, which is the
+correct form only in the library's backward time $t=-\tau$ (where the step is
+$dV/dt = -\min(0,H)$). Derivation: $V(x,\tau+\Delta\tau)\approx\min\{V(x,\tau),\,V(x+f\Delta\tau,\tau)\}$
+gives $V\leftarrow V+\Delta\tau\,\min(0,H)$. The Lax–Friedrichs dissipation in this form carries a
+**plus** sign, $\hat H = H\big(x,\tfrac{D^-+D^+}{2}\big)+\tfrac12\sum_i\alpha_i(D_i^+-D_i^-)$, and the clamp
+acts on $\hat H$: $V\leftarrow V+\Delta\tau\,\min(0,\hat H)$. `hj_reachability` 0.7.0 does exactly
+this (checked against its source and on a 1D test, 2026-10-02; see `claude/Layer1_M1_Explainer.md` §5).
 
 **Verify whichever form you use against its own primary source before relying on it — do not
 transcribe either from this document.** (The attribution of form 2 to Mitchell et al. 2005 was

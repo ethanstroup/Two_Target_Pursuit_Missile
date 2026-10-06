@@ -13,11 +13,12 @@ the Layer 0 barrier; {V <= 0} = player 1's winning zone within time T.
 
 THE PDE, VERIFIED AGAINST THE LIBRARY RATHER THAN TRANSCRIBED
 -------------------------------------------------------------
-Layer1_Plan Sec. 2.4 quotes the min-over-time reach form
+Layer1_Plan Sec. 2.4 gives the min-over-time reach form in tau = time remaining,
 
-    dV/dt + min[0, H(x, grad V)] = 0,   V(x,0) = ell(x)
+    dV/dtau = min[0, H(x, grad V)],   V(x,0) = ell(x),
 
-and instructs that it be verified against the reference before being relied on.
+which in the library's time t = -tau reads dV/dt + min[0, H] = 0.  The plan
+instructs that it be verified against the reference before being relied on.
 Done, by reading hj_reachability 0.7.0's own source (this is the check, not a
 restatement of the plan):
 
@@ -28,9 +29,10 @@ restatement of the plan):
                  target times decrease so time_direction = -1.
                  signed_hamiltonian = time_direction * dynamics.hamiltonian
                  dvalues_dt = -postprocessor(time_direction * LF(signed_ham))
-                 The two factors of time_direction cancel:
-                     dvalues_dt = -min(0, H)
-                 which is dV/dt + min(0,H) = 0 exactly.  Then
+                 The two factors of time_direction cancel on H:
+                     dvalues_dt = -min(0, H(avg) + 1/2 alpha.(D+ - D-))
+                 i.e. dV/dt + min(0,H) = 0, with the dissipation sign that is
+                 diffusive for a backward march (in tau: + sign).  Then
                      values <- values + time_step * dvalues_dt
                  with time_step < 0, i.e. marched backward.  Confirmed.
   dynamics.Dynamics.hamiltonian

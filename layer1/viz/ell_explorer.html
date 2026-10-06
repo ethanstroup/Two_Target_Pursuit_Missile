@@ -1,15 +1,42 @@
 <!DOCTYPE html>
 <!--
-  ell_explorer.html -- Layer 1, M1: the implicit surface function of T_{1->2}.
+  ell_explorer.html -- Layer 1, M1-M3: ell(x), and the solved V(x, tau) of M2
+  and M3, on the same axes.
 
       ell(x) = max( |phi_1| - beta,  R_lo(phi_2) - R,  R - R_hi(phi_2) )
       R_lo(phi_2) = A1 + B1 cos(phi_2)              D&S Eq. (8)
       R_hi(phi_2) = Rbar_0 - |phi_2 + sin(phi_2)|   D&S Eq. (9)
 
-  The 'raw' (unweighted) form of layer1/ell.py.  The weights only rescale
-  conditioning; they are strictly positive, so the sign and the zero level set
-  shown here are the same under raw / plan / sdist.  ell has no tau: it is the
-  tau = 0 boundary condition V(x, 0) = ell(x) of the M3 solve.
+  Three sources, picked in the "field" bar:
+    ell (M1) ell(x), evaluated in this page.  Default weighting 'raw', as
+             before; 'sdist' and 'plan' are layer1/ell.py's other two.  The
+             weights are strictly positive, so the sign and the zero level set
+             are the same under all three.  ell has no tau.
+    V (M2)   the frozen-evader value function (sigma_2 = 0), V(x, tau),
+             from m2_out/Vsnap_frozen_101x102_T6.npz (layer1/solve_m2_snap.py).
+    V (M3)   the two-player value function, V(x, tau), from
+             m3_out/Vsnap_101x102_T6.npz (layer1/solve_m3.py).
+  Both V files are solved under 'sdist', so V(x, 0) = ell_sdist(x), not the
+  raw ell this page shows by default.  The tau slider steps through the
+  stored snapshots (0, 0.5, ..., 6); nothing is interpolated in tau.  tau is
+  the HORIZON -- time remaining -- not forward time (the M2 finding: V is read
+  at the remaining horizon).  V can only fall as tau grows, so {V <= 0} only
+  grows.  Switching between M2 and M3 keeps tau, the view, the slice and the
+  point-cloud nodes, and the two share one color scale.
+
+  V is a minimum of ell along a trajectory, so V >= min ell everywhere.  A node
+  more than one grid cell below that is not a value: it is drawn grey, kept out
+  of the color scale, and counted in the status line.  M2's frozen-evader
+  solve has such nodes from tau ~ 0.75 on (an instability growing from the
+  inner face R = 0.2, nose-on); M3 has none.  See layer1/solve_m2_snap.py.
+
+  Loading the .npz files: a page opened from file:// cannot fetch files, so
+  "load files" (or dropping them on the page) reads them in the browser --
+  a zip reader plus numpy's .npy header, below at "NPZ READER".  Drop the
+  matching m3_*.json / m2_frozen_*.json too and the page checks its own node
+  counts of {V <= 0} against the solver's at every snapshot.  Loaded files are
+  kept in this browser (IndexedDB), so the next visit restores them; served
+  over http(s) instead, the page fetches ../m2_out and ../m3_out itself.
 
   Constants come from ../../layer0/barrier.js (Barrier.PARAMS) when it loads,
   as ell.py takes them from barrier.py, and are checked against the inline copy
@@ -59,7 +86,7 @@
   browser; "reset layout" restores the default.
 
   ---------------------------------------------------------------------------
-  THE DATA LAYER, and how solved V(x, tau) plugs in later
+  THE DATA LAYER
   ---------------------------------------------------------------------------
   Nothing that draws knows where values come from.  The point cloud and the
   isosurface talk to a Field only through the interface documented at
@@ -69,31 +96,32 @@
     AnalyticField  ell(x) evaluated fresh in JS; static (taus = null).
     GridField      node values on a regular (R, phi_1, phi_2) grid, one array
                    per tau snapshot; trilinear in between, periodic in both
-                   angles.  Built and tested now, but nothing loads one yet.
+                   angles.  The point cloud sits on the nodes.
 
-  To show M3's m3_out/Vsnap_101x102_T6.npz, get its arrays into the page
-  (an .npz reader or a converted sidecar file; not written yet) and call
+  The loader builds a GridField from a Vsnap file: snapshot keys '0.000',
+  '0.500', ... (or a stacked V with a taus array), C order (R, phi_1, phi_2).
+  Node arrays come from the file's R / phi1 / phi2 if it has them, else from
+  hji.make_grid's defaults: R = linspace(0.2, 12, n_R), angles uniform on
+  [-pi, pi) with endpoint=False.  It can also be called directly:
 
     EllExplorer.setField(new EllExplorer.GridField({
-      name: 'V(x, tau), M3 101x102x102', symbol: 'V',
+      name: '...', symbol: 'V', scaling: 'sdist',
       axes: { R: Rnodes, phi1: P1nodes, phi2: P2nodes },   // 1-D node arrays
       taus: [0, 0.5, ..., 6],                               // one per snapshot
       data: [Float32Array, ...]      // C order (R, phi_1, phi_2), indexing='ij'
     }));
 
-  Angle nodes must be uniform on [-pi, pi) with the endpoint excluded
-  (numpy endpoint=False, as M3's grids are); R nodes increasing.  The tau
-  slider enables itself when the field has more than one snapshot, and both
-  render modes follow it.  Color scales are fixed over ALL snapshots, so a
-  value keeps its color while tau changes.  M3's note: quote {V <= 0} with the
-  inner-boundary mask R >= 0.45; the blobs below it are leakage from the
-  extrapolation condition at the singular R -> 0 face.
+  Color scales are fixed over ALL snapshots (and shared by the two V fields),
+  so a value keeps its color while tau changes.  M3's note: quote {V <= 0}
+  with the inner-boundary mask R >= 0.45; the blobs below it are leakage from
+  the extrapolation condition at the singular R -> 0 face.  The status line
+  gives the zone share both with and without the mask.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Layer 1 M1 Explorer</title>
+<title>Layer 1 Explorer</title>
 <style>
   :root {
     --c0: #1f5fa8;  --c1: #c1442a;
@@ -225,18 +253,46 @@
   #cbar { width: 100%; height: 50px; display: block; }
   .missing { padding: 16px; border: 1px solid #e6c9c4; border-left: 4px solid var(--no);
              border-radius: 8px; background: #fff; margin-bottom: 10px; }
+  .seg button:disabled { color: var(--ink3); cursor: not-allowed; background: #f6f7f8; }
+  .srcmsg { font-size: 12px; color: var(--ink2); flex-basis: 100%; font-variant-numeric: tabular-nums; }
+  .srcmsg:empty { display: none; }
+  .srcmsg .ok { color: var(--ok); } .srcmsg .no { color: var(--no); font-weight: 600; }
+  body.filedrag #srcBar { outline: 2px dashed var(--c0); outline-offset: 2px; }
+  #tauPlay { min-width: 4.6em; }
+  .ctl button:disabled { color: var(--ink3); background: #f6f7f8; cursor: default; }
 </style>
 </head>
 <body>
 
-<h1>Layer 1 — M1: ℓ(x), the implicit surface function of T₁→₂</h1>
-<div class="sub">
-  <code>ℓ = max(|φ₁| − β, R_lo(φ₂) − R, R − R_hi(φ₂))</code>, raw (unweighted) form, evaluated
-  fresh in this page. <b>Negative inside</b> T₁→₂, zero on its boundary, positive outside. ℓ has
-  no τ: it is the static boundary condition V(x, 0) = ℓ(x) that M3 marches from. The dots are
-  where edges of a regular grid cross ℓ = 0; the dark lines are the closed-form edges of T₁
-  (R_lo, R_hi at φ₁ = ±β), drawn independently, so the two can be checked against each other.
-  The slice shows the values themselves, flat, in the same color bands as the points.
+<h1 id="pageTitle">Layer 1 — M1: ℓ(x), the implicit surface function of T₁→₂</h1>
+<div class="sub" id="pageSub"></div>
+
+<div class="bar" id="srcBar">
+  <span class="grp">field</span>
+  <div class="seg" id="src">
+    <button data-src="ell" class="on" title="M1: ℓ(x), evaluated in this page">ℓ · M1</button>
+    <button data-src="m2" disabled title="load m2_out/Vsnap_frozen_101x102_T6.npz first">V · M2 frozen evader</button>
+    <button data-src="m3" disabled title="load m3_out/Vsnap_101x102_T6.npz first">V · M3 two-player</button>
+  </div>
+  <div class="ctl" id="ellWCtl" title="layer1/ell.py's three weightings. They change the values, never the sign or the zero set. M2 and M3 were solved under sdist, so V(x, 0) = ℓ_sdist.">
+    <label for="ellW">ℓ weighting</label>
+    <select id="ellW">
+      <option value="raw" selected>raw</option>
+      <option value="sdist">sdist (as M2, M3)</option>
+      <option value="plan">plan</option>
+    </select>
+  </div>
+  <button id="loadBtn" title="pick Vsnap .npz files (and their .json diagnostics) from layer1/m2_out and layer1/m3_out; dropping them on the page does the same">load files…</button>
+  <input type="file" id="loadIn" accept=".npz,.json" multiple hidden>
+  <div class="ctl off" id="tauCtl" title="ℓ is static: it has no τ. Pick M2 or M3 to step through τ.">
+    <label for="tau">τ (time remaining)</label>
+    <button id="tauPrev" type="button" disabled title="previous snapshot (←)">◀</button>
+    <input type="range" id="tau" min="0" max="0" step="1" value="0" disabled>
+    <button id="tauNext" type="button" disabled title="next snapshot (→)">▶</button>
+    <output id="tauOut">static</output>
+    <button id="tauPlay" type="button" disabled title="step through every snapshot, about 0.7 s each">▶ play</button>
+  </div>
+  <div class="srcmsg" id="srcMsg"></div>
 </div>
 
 <div id="missing" class="missing" hidden>
@@ -253,11 +309,6 @@
   </div>
   <button id="sliceOn" class="on" title="a plane through the box at a fixed φ₁, φ₂ or R, filled with the field's value bands and contoured; shown flat in the panel to the right">slice</button>
   <button id="edges" class="on" title="the closed-form edges of T₁: R_lo(φ₂) and R_hi(φ₂) at φ₁ = ±β, the φ₂ = ±π ends and the φ₂ = 0 crease of R_hi">T₁ edges</button>
-  <div class="ctl off" id="tauCtl" title="ℓ is static: it has no τ. This enables itself when a field with τ snapshots is loaded (e.g. M3's V(x, τ)).">
-    <label for="tau">τ (time remaining)</label>
-    <input type="range" id="tau" min="0" max="0" step="1" value="0" disabled>
-    <output id="tauOut">static</output>
-  </div>
   <button id="resetView">reset view</button>
   <button id="resetLayout" title="put every panel back where it started (drag a panel by its title bar to move it; drag the gaps between panels to resize)">reset layout</button>
 </div>
@@ -396,6 +447,7 @@
         <select id="gifWhat" title="what moves through the loop">
           <option value="turn">turn the 3-D view</option>
           <option value="sweep">sweep the slice</option>
+          <option value="tau" disabled>step through τ</option>
         </select>
         <select id="gifN" title="frames in the loop (about 10 s whatever the count)">
           <option value="72">72 frames</option><option value="120" selected>120 frames</option><option value="180">180 frames</option>
@@ -492,6 +544,31 @@ function ellRaw(R, p1, p2) {
   return Math.max(a, Math.max(b, c));
 }
 
+/* ell.py's per-term weights, _weights(), same operation order:
+     raw    1, 1, 1
+     plan   1/beta, 1/Rbar_0, 1/Rbar_0
+     sdist  1, 1/|grad g_min|, 1/|grad g_max|   (each term ~ a signed distance) */
+function ellWeights(p2, scaling) {
+  if (scaling === 'raw') return [1, 1, 1];
+  if (scaling === 'plan') return [1 / CONST.P.beta, 1 / CONST.P.Rbar0, 1 / CONST.P.Rbar0];
+  if (scaling === 'sdist') {
+    var s = CONST.P.b * Math.sin(p2), c = 1 + Math.cos(p2);
+    return [1, 1 / Math.sqrt(1 + s * s), 1 / Math.sqrt(1 + c * c)];
+  }
+  throw new Error('unknown ell scaling ' + scaling);
+}
+/* The three WEIGHTED residuals (bore, min, max), as ell.py's _terms. */
+function ellTermsW(R, p1, p2, scaling) {
+  var t = ellTerms(R, p1, p2), w = ellWeights(p2, scaling);
+  return [w[0] * t[0], w[1] * t[1], w[2] * t[2]];
+}
+/* ell under a weighting, as ell.py's _ell: max(a, max(b, c)). */
+function ellW(R, p1, p2, scaling) {
+  if (scaling === 'raw') return ellRaw(R, p1, p2);
+  var t = ellTermsW(R, p1, p2, scaling);
+  return Math.max(t[0], Math.max(t[1], t[2]));
+}
+
 var TERM_NAMES = ['boresight  |φ₁| − β', 'min range  R_lo − R', 'max range  R − R_hi'];
 
 /* Volume of T1 inside the domain, by quadrature over phi_2 (Simpson, with a
@@ -528,6 +605,7 @@ function t1Volume(dom) {
 function AnalyticField(o) {
   this.kind = 'analytic';
   this.name = o.name; this.symbol = o.symbol; this.note = o.note || '';
+  this.scaling = o.scaling || 'raw';
   this.fn = o.fn;
   this.domain = o.domain;
   this.taus = null;
@@ -574,6 +652,8 @@ function GridField(o) {
   var ax = o.axes;
   this.kind = 'grid';
   this.name = o.name; this.symbol = o.symbol || 'V'; this.note = o.note || '';
+  this.scaling = o.scaling || 'sdist';      // the ell weighting the field was solved under
+  this.game = o.game || '';                 // 'm2' | 'm3' | ''
   this.R = Float64Array.from(ax.R);
   this.p1 = Float64Array.from(ax.phi1);
   this.p2 = Float64Array.from(ax.phi2);
@@ -676,6 +756,29 @@ GridField.prototype.range = function () {
   if (!this._range) this._range = minMax(this.data);
   return this._range;
 };
+/* The lower bound every V(., tau) must respect.  V is a minimum of ell along a
+   trajectory, so V >= min ell, and V(., 0) = ell on the nodes.  A node more than
+   one cell below min ell -- the cell as ell.py's value_scale measures it: the
+   largest change across one grid cell next to |ell| <= 1 -- is not a value.
+   (M2's frozen-evader solve has such nodes, growing from the inner face R = 0.2;
+   M3's does not.)  floor = -Infinity when the field does not start at tau = 0. */
+GridField.prototype.bound = function () {
+  if (this._bound) return this._bound;
+  if (!this.taus || this.taus[0] !== 0) return (this._bound = { ellMin: NaN, cell: NaN, floor: -Infinity });
+  var A = this.data[0], n = [this.R.length, this.p1.length, this.p2.length], st = [n[1] * n[2], n[2], 1];
+  var mn = Infinity, cell = 0, q;
+  for (q = 0; q < A.length; q++) if (A[q] < mn) mn = A[q];
+  for (var i = 0, m = 0; i < n[0]; i++) for (var j = 0; j < n[1]; j++) for (var l = 0; l < n[2]; l++, m++) {
+    var a = A[m], ix = [i, j, l];
+    for (var d = 0; d < 3; d++) {
+      if (ix[d] + 1 >= n[d]) continue;                       // np.diff: no wrap
+      var b = A[m + st[d]];
+      if ((Math.abs(a) <= 1 || Math.abs(b) <= 1) && Math.abs(b - a) > cell) cell = Math.abs(b - a);
+    }
+  }
+  return (this._bound = { ellMin: mn, cell: cell, floor: mn - cell });
+};
+function belowFloor(F, v) { return F.kind === 'grid' && v < F.bound().floor; }
 
 function minMax(arrays) {
   var lo = Infinity, hi = -Infinity;
@@ -1205,8 +1308,27 @@ function sampleAndColorPoints() {
   colorPoints();
 }
 
+/* A V field's colors come from the range over every loaded V field (M2 and
+   M3), so switching between them keeps a value's color. */
+function colorRange() {
+  function validRange(F) {        // values below the lower bound do not set the scale
+    var r = F.range();
+    return F.kind === 'grid' ? { min: Math.max(r.min, F.bound().floor), max: r.max } : r;
+  }
+  var own = validRange(S.field);
+  if (S.field.kind !== 'grid') return own;
+  var lo = own.min, hi = own.max;
+  ['m2', 'm3'].forEach(function (k) {
+    var F = SRC[k].field;
+    if (F) { var r = validRange(F); lo = Math.min(lo, r.min); hi = Math.max(hi, r.max); }
+  });
+  return { min: lo, max: hi };
+}
+/* A point's color: its value band, or grey for a node below the lower bound. */
+var INVALID_HEX = '#8f959c', INVALID_RGB = [0x8f / 255, 0x95 / 255, 0x9c / 255];
+function pointColor(v, B) { return belowFloor(S.field, v) ? INVALID_RGB : bandColor(v, B); }
 function colorScale() {
-  var rg = S.field.range();
+  var rg = colorRange();
   var vneg = Math.min(rg.min, -1e-12);
   var vpos = S.vposUser !== null ? S.vposUser : Math.max(1e-6, Math.min(rg.max, 2 * Math.abs(vneg)));
   return { vneg: vneg, vpos: vpos };
@@ -1235,7 +1357,7 @@ function colorPoints() {
   var B = bands(), FR = filterRange(B);
   S.siteAlpha = new Float32Array(n);
   for (var i = 0; i < n; i++) {
-    var v = S.siteVals[i], c = bandColor(v, B), al = pointAlpha(v, FR);
+    var v = S.siteVals[i], c = pointColor(v, B), al = pointAlpha(v, FR);
     a[4 * i] = c[0]; a[4 * i + 1] = c[1]; a[4 * i + 2] = c[2]; a[4 * i + 3] = al;
     S.siteAlpha[i] = al;
   }
@@ -1528,7 +1650,8 @@ function drawKey() {
   else
     html.push('<span><i class="sw" style="background:#5c88c6"></i>isosurface ' + sym +
               ' = 0 · marching cubes, ' + S.res + '³ nodes</span>');
-  html.push('<span><i style="background:' + EDGE_COL + '"></i>T₁ edges, closed form</span>');
+  html.push('<span><i style="background:' + EDGE_COL + '"></i>T₁ edges, closed form' +
+            (S.field.kind === 'grid' ? ' (= {' + sym + ' ≤ 0} at τ = 0)' : '') + '</span>');
   if (S.slice.on) html.push('<span><i style="background:#8c939b;height:9px;opacity:0.6"></i>slice: a grey sheet in the box, ' +
                             'bold where it cuts ' + sym + ' = 0, its slab (' + slabLabel() + ') dashed; the dots inside the slab ' +
                             'are shown flat in the slice panel</span>');
@@ -1538,6 +1661,15 @@ function drawKey() {
             sym + ' from ' + (FR[0] === -Infinity ? 'min' : fmtNum(FR[0])) + ' to ' +
             (FR[1] === Infinity ? 'max' : fmtNum(+FR[1].toPrecision(6))) + ', ' +
             (S.opMode === 'uniform' ? 'uniform opacity' : 'fading as exp(−' + sym + ' / w)') + '</span>');
+  if (S.field.kind === 'grid' && S.field.taus && zoneStats(S.field, S.k).bad)
+    html.push('<span><i class="sw" style="background:' + INVALID_HEX + ';width:9px;height:9px;border-radius:50%"></i>' +
+              'nodes more than one cell (' + S.field.bound().cell.toFixed(3) + ') below min ℓ = ' +
+              fmt(S.field.bound().ellMin, 3) + ': V is a minimum of ℓ, so these are not values. The ' + sym +
+              ' = 0 surface still wraps them.</span>');
+  if (S.field.kind === 'grid' && S.field.taus)
+    html.push('<span style="color:var(--ink3)">τ is the time remaining (the horizon), not forward time; ' + sym +
+              ' only falls as τ grows, so {' + sym + ' ≤ 0} only grows. The points are grid nodes, the same nodes ' +
+              'for M2 and M3, and the two share this color scale.</span>');
   el.innerHTML = html.join('');
 }
 
@@ -1732,7 +1864,7 @@ function drawSlicePanelOn(g, D, rc) {
   D.members = mem;
   var r = 0.5 * SIZES.point * S.UI.line;
   mem.pts.forEach(function (i) {
-    var c = bandColor(S.siteVals[i], B), a = S.siteAlpha[i];
+    var c = pointColor(S.siteVals[i], B), a = S.siteAlpha[i];
     t = [S.sites.R[i], S.sites.p1[i], S.sites.p2[i]];
     g.fillStyle = 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' +
                   Math.round(c[2] * 255) + ',' + a.toFixed(3) + ')';
@@ -1952,7 +2084,7 @@ function syncSliceControls() {
   document.getElementById('sliceNum').value = C.fix === 0 ? S.slice.pos.toFixed(2) : (+S.slice.pos.toFixed(4)).toString();
   document.getElementById('sliceUnit').textContent = C.fix === 0 ? '' : 'rad';
   document.getElementById('slabOut').textContent = slabLabel();
-  document.getElementById('sliceTitle').textContent = S.field.symbol + ' on the slice ' + sliceLabel();
+  document.getElementById('sliceTitle').textContent = sliceTitlePrefix() + ' on the slice ' + sliceLabel();
   document.getElementById('sliceInfo').textContent = 'showing (' + C.hName.replace(' [rad]', '') + ', ' +
                                                      C.vName.replace(' [rad]', '') + ')';   // drawSlicePanel adds the count
 }
@@ -2065,7 +2197,7 @@ function fmt(v, n) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(n === und
 function showReadout() {
   var h = S.hover, el = document.getElementById('read'), src = document.getElementById('readSrc');
   if (!h) { el.innerHTML = '<span class="muted">hover a point, the surface or the slice</span>'; src.textContent = ''; return; }
-  var F = S.field, v = F.valueAt(S.k, h.R, h.p1, h.p2), T = ellTerms(h.R, h.p1, h.p2);
+  var F = S.field, v = F.valueAt(S.k, h.R, h.p1, h.p2), T = ellTermsW(h.R, h.p1, h.p2, F.scaling);
   var act = T[0] >= T[1] && T[0] >= T[2] ? 0 : (T[1] >= T[2] ? 1 : 2);
   var inside = v <= 0;
   src.textContent = ({ point: F.kind === 'grid' ? 'grid node' : 'sample point',
@@ -2074,20 +2206,40 @@ function showReadout() {
   var onZero = h.src === 'surface' || h.src === 'dot';
   var rows = [
     ['R', fmt(h.R)], ['φ₁', fmt(h.p1) + ' rad'], ['φ₂', fmt(h.p2) + ' rad'],
-    [F.symbol + (F.taus ? ' (τ = ' + F.taus[S.k] + ')' : ''), '<b>' + fmt(v, 5) + '</b>', 'gap'],
+    [F.symbol + (F.taus ? ' (τ = ' + F.taus[S.k] + ')' : '') + (F.game ? ', ' + F.game.toUpperCase() : ''),
+     '<b>' + fmt(v, 5) + '</b>', 'gap'],
     ['', onZero
          ? '<span class="muted">on the zero set; |' + F.symbol + '| here is the grid\'s interpolation error</span>'
+         : belowFloor(F, v)
+         ? '<span class="no">more than a cell below min ℓ = ' + fmt(F.bound().ellMin, 4) + ': not a valid value</span>'
          : '<span class="' + (inside ? 'ok' : 'no') + '">' + (inside ? 'inside' : 'outside') +
            (F.kind === 'analytic' ? ' T₁' : ' {' + F.symbol + ' ≤ 0}') + '</span>']
   ];
-  if (F.kind !== 'analytic') rows.push(['ℓ here (target set)', fmt(Math.max(T[0], T[1], T[2]), 5), 'gap']);
+  if (F.kind === 'grid') {
+    // the other game at the same state and tau, when it is loaded
+    var other = F.game === 'm2' ? SRC.m3.field : F.game === 'm3' ? SRC.m2.field : null;
+    if (other) {
+      var ko = tauIndexIn(other, F.taus[S.k]);
+      if (ko >= 0) rows.push([other.symbol + ' (τ = ' + other.taus[ko] + '), ' + other.game.toUpperCase(),
+                              fmt(other.valueAt(ko, h.R, h.p1, h.p2), 5)]);
+    }
+    // the first stored horizon at which this state is in the zone: t1* to the snapshot spacing
+    var first = null;
+    for (var q = 0; q < F.taus.length && first === null; q++)
+      if (F.valueAt(q, h.R, h.p1, h.p2) <= 0) first = F.taus[q];
+    rows.push(['first snapshot with ' + F.symbol + ' ≤ 0',
+               first === null ? 'none by τ = ' + F.taus[F.taus.length - 1] : 'τ = ' + first]);
+    rows.push(['ℓ here (' + F.scaling + ' = ' + F.symbol + ' at τ = 0)',
+               fmt(Math.max(T[0], T[1], T[2]), 5), 'gap']);
+  }
   var html = '<table class="read">';
   rows.forEach(function (r) {
     html += '<tr' + (r[2] ? ' class="gap"' : '') + '><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
   });
   T.forEach(function (t, i) {
     html += '<tr class="' + (i === act ? 'act' : '') + (i === 0 ? ' gap' : '') + '"><td>' +
-            TERM_NAMES[i] + '</td><td>' + fmt(t, 5) + (i === act ? ' ◂' : '') + '</td></tr>';
+            TERM_NAMES[i] + (F.scaling !== 'raw' && i > 0 || F.scaling === 'plan' ? ', weighted' : '') +
+            '</td><td>' + fmt(t, 5) + (i === act ? ' ◂' : '') + '</td></tr>';
   });
   html += '<tr class="gap"><td>R_lo(φ₂), R_hi(φ₂)</td><td>' + fmt(Rlo(h.p2), 4) + ', ' +
           fmt(Rhi(h.p2), 4) + '</td></tr>';
@@ -2111,10 +2263,25 @@ function showStatus() {
                CONST.P.Rbar0.toFixed(6) + ')');
   } else {
     parts.push(F.R.length + '×' + F.p1.length + '×' + F.p2.length + ' nodes' +
-               (F.taus ? ', ' + F.taus.length + ' snapshots' : ''));
+               (F.taus ? ', ' + F.taus.length + ' snapshots' : '') + ', ℓ weighting ' + F.scaling);
+    if (F.taus) {
+      var z = zoneStats(F, S.k);
+      parts.push('<b>τ = ' + F.taus[S.k] + '</b>: {' + F.symbol + ' ≤ 0} is ' + pct(z.frac) + ' of the grid nodes, ' +
+                 pct(z.fracMasked) + ' of those with R ≥ ' + R_MASK);
+      var other = F.game === 'm2' ? SRC.m3.field : F.game === 'm3' ? SRC.m2.field : null;
+      var ko = other ? tauIndexIn(other, F.taus[S.k]) : -1;
+      if (ko >= 0) parts.push(other.game.toUpperCase() + ' at this τ: ' + pct(zoneStats(other, ko).frac));
+      if (z.bad) parts.push('<span class="no">' + z.bad.toLocaleString() + ' nodes (' + pct(z.badFrac) +
+                            ', out to R = ' + z.badEdge.toFixed(2) + ') below min ℓ by over a cell: not values (grey)</span>');
+      var dR = F.R[1] - F.R[0];
+      parts.push('outer edge R = ' + (isFinite(z.edge) ? z.edge.toFixed(3) : '—') +
+                 (z.edge >= F.R[F.R.length - 1] - 2 * dR - 1e-9
+                   ? ' <span class="no">(the domain\'s outer face: depends on its boundary condition)</span>' : ''));
+    }
   }
   var rg = F.range();
-  parts.push(F.symbol + ' ∈ [' + fmt(rg.min, 3) + ', ' + fmt(rg.max, 3) + ']');
+  function fmtR(v) { return Math.abs(v) >= 1e4 ? (v < 0 ? '−' : '') + Math.abs(v).toExponential(1) : fmt(v, 3); }
+  parts.push(F.symbol + ' ∈ [' + fmtR(rg.min) + ', ' + fmtR(rg.max) + ']');
   if (m && S.mode !== 'points') {
     var boxV = (F.domain.R[1] - F.domain.R[0]) * TWO_PI * TWO_PI;
     var s = S.surfStyle === 'dots'
@@ -2143,26 +2310,66 @@ function showStatus() {
     (F.taus ? 'τ = ' + F.taus[S.k] + ' · ' : '') + (S.lockR ? 'R locked' : 'free 3-D');
 }
 
+/* {V <= 0} on the stored NODES at snapshot k: its share of the grid, the share
+   with the R >= R_MASK inner-boundary mask (M3's rule for quoting it), and its
+   outer edge in R.  Exact node counts, cached. */
+var R_MASK = 0.45;
+function zoneStats(F, k) {
+  F._zone = F._zone || {};
+  if (F._zone[k]) return F._zone[k];
+  var A = F.data[k], nR = F.R.length, per = F.p1.length * F.p2.length, floor = F.bound().floor;
+  var n = 0, nm = 0, tot = 0, edge = -Infinity, bad = 0, badEdge = -Infinity;
+  for (var i = 0; i < nR; i++) {
+    var c = 0, cb = 0, base = i * per, keep = F.R[i] >= R_MASK;
+    for (var j = 0; j < per; j++) { var v = A[base + j]; if (v <= 0) { c++; if (v < floor) cb++; } }
+    n += c; bad += cb;
+    if (keep) { nm += c; tot += per; }
+    if (c) edge = F.R[i];
+    if (cb) badEdge = F.R[i];
+  }
+  return (F._zone[k] = { frac: n / (nR * per), fracMasked: tot ? nm / tot : NaN, count: n, edge: edge,
+                         bad: bad, badFrac: bad / (nR * per), badEdge: badEdge });
+}
+function pct(f) { return isFinite(f) ? (100 * f).toFixed(3) + ' %' : '—'; }
+/* Index of the snapshot at horizon tau in field F, or -1. */
+function tauIndexIn(F, tau) {
+  if (!F || !F.taus) return -1;
+  for (var i = 0; i < F.taus.length; i++) if (Math.abs(F.taus[i] - tau) < 1e-9) return i;
+  return -1;
+}
+
 // ===========================================================================
 // field switching and tau
 // ===========================================================================
+/* Switch the field.  A field with tau snapshots keeps the current tau when it
+   has the same snapshot (so M2 <-> M3 compare at one horizon); otherwise it
+   starts at tau = 0.  View, slice and point-cloud seed are kept. */
 function setField(F) {
+  var tauNow = S.field && S.field.taus ? S.field.taus[S.k] : null;
+  stopPlay();
+  S.src = F.kind === 'analytic' ? 'ell' : F === SRC.m2.field ? 'm2' : F === SRC.m3.field ? 'm3' : 'ext';
+  if (F.kind === 'analytic') S.ellScaling = F.scaling;
   S.field = F;
   S.k = 0;
+  if (F.taus && tauNow !== null) { var kk = tauIndexIn(F, tauNow); if (kk >= 0) S.k = kk; }
   S.W = worldMap(F.domain);
   S.hover = null;
   buildBox();
-  var tauCtl = document.getElementById('tauCtl'), tau = document.getElementById('tau');
   var multi = !!(F.taus && F.taus.length > 1);
-  tau.disabled = !multi;
+  var tauCtl = document.getElementById('tauCtl'), tau = document.getElementById('tau');
+  ['tau', 'tauPrev', 'tauNext', 'tauPlay'].forEach(function (id) { document.getElementById(id).disabled = !multi; });
   tau.max = multi ? F.taus.length - 1 : 0;
-  tau.value = 0;
+  tau.value = S.k;
   tauCtl.classList.toggle('off', !multi);
-  tauCtl.title = multi ? 'τ = time remaining; picks the snapshot both render modes show'
-                       : 'ℓ is static: it has no τ. This enables itself when a field with τ snapshots is loaded (e.g. M3\'s V(x, τ)).';
-  document.getElementById('tauOut').textContent = multi ? 'τ = ' + F.taus[0] : 'static';
-  document.getElementById('viewTitle').textContent = F.symbol + '(x) on (R, φ₁, φ₂)';
+  tauCtl.title = multi ? 'τ = time remaining (the horizon), not forward time; steps through the stored snapshots. ← → also step.'
+                       : 'ℓ is static: it has no τ. Pick M2 or M3 to step through τ.';
+  var tauOpt = document.querySelector('#gifWhat option[value="tau"]');
+  tauOpt.disabled = !multi;
+  if (!multi && document.getElementById('gifWhat').value === 'tau') document.getElementById('gifWhat').value = 'turn';
   document.querySelectorAll('.sym').forEach(function (e) { e.textContent = F.symbol; });
+  document.querySelector('#mode [data-mode="surface"]').textContent = 'isosurface ' + F.symbol + ' = 0';
+  document.querySelector('#opMode option[value="fade"]').textContent = 'fade with ' + F.symbol;
+  syncSourceUi();
   buildPoints();
   buildSurface();
   setSliceAxis(S.slice.axis, true);
@@ -2173,18 +2380,472 @@ function setField(F) {
   requestRender();
 }
 
+/* Panel titles carry the game and tau, so captures say what they show. */
+function fieldTitle() {
+  var F = S.field;
+  if (!F.taus) return F.symbol + '(x) on (R, φ₁, φ₂)';
+  return (F.game ? F.game.toUpperCase() + ' ' + GAME_NAMES[F.game] + ': ' : '') +
+         F.symbol + '(x, τ = ' + F.taus[S.k] + ') on (R, φ₁, φ₂)';
+}
+function sliceTitlePrefix() {
+  var F = S.field;
+  if (!F.taus) return F.symbol;
+  return (F.game ? F.game.toUpperCase() + ' ' : '') + F.symbol + '(τ = ' + F.taus[S.k] + ')';
+}
+
 function setTauIndex(k) {
   var F = S.field;
   if (!F.taus) return;
   S.k = Math.max(0, Math.min(F.taus.length - 1, k | 0));
+  document.getElementById('tau').value = S.k;
   document.getElementById('tauOut').textContent = 'τ = ' + F.taus[S.k];
+  document.getElementById('viewTitle').textContent = fieldTitle();
   sampleAndColorPoints();
   buildSurface();
   refreshSlice();
   applyVisibility();
+  drawKey();
   showReadout();
   showStatus();
   requestRender();
+}
+
+/* play: one snapshot about every PLAY_MS, stopping at the last; play from
+   the last starts again at tau = 0. */
+var PLAY_MS = 700, PLAY = { timer: null };
+function stopPlay() {
+  if (PLAY.timer) { clearTimeout(PLAY.timer); PLAY.timer = null; }
+  var b = document.getElementById('tauPlay');
+  b.textContent = '▶ play'; b.classList.remove('on');
+}
+function startPlay() {
+  var F = S.field;
+  if (!F.taus || F.taus.length < 2 || CAP.busy) return;
+  if (S.k >= F.taus.length - 1) setTauIndex(0);
+  var b = document.getElementById('tauPlay');
+  b.textContent = '❚❚ pause'; b.classList.add('on');
+  (function tick() {
+    PLAY.timer = setTimeout(function () {
+      if (S.k >= S.field.taus.length - 1) { stopPlay(); return; }
+      setTauIndex(S.k + 1);
+      if (S.k >= S.field.taus.length - 1) stopPlay(); else tick();
+    }, PLAY_MS);
+  })();
+}
+
+// ===========================================================================
+// SOURCES: ell (M1), and the solved V(x, tau) of M2 and M3, loaded from
+// their Vsnap .npz files.  Each slot holds a GridField once loaded, plus the
+// solver's json diagnostics when given, and the load-time checks.
+// ===========================================================================
+var GAME_NAMES = { m2: 'frozen evader', m3: 'two-player' };
+var SRC = {
+  ell: { field: null },
+  m2: { field: null, file: null, json: null, checks: null },
+  m3: { field: null, file: null, json: null, checks: null }
+};
+S.src = 'ell';
+S.ellScaling = 'raw';
+var ELL_FIELDS = {};
+function ellField(scaling) {
+  if (!ELL_FIELDS[scaling]) {
+    ELL_FIELDS[scaling] = new AnalyticField({
+      name: 'ℓ(x), ' + scaling, symbol: 'ℓ', scaling: scaling,
+      fn: scaling === 'raw' ? ellRaw : function (R, p1, p2) { return ellW(R, p1, p2, scaling); },
+      note: 'implicit surface function of T₁→₂, layer1/ell.py with SCALING = ' + scaling,
+      domain: { R: [0.2, 12.0], phi1: [-PI, PI], phi2: [-PI, PI] }
+    });
+  }
+  return ELL_FIELDS[scaling];
+}
+
+var PAGE_TEXT = {
+  ell: {
+    title: 'Layer 1 — M1: ℓ(x), the implicit surface function of T₁→₂',
+    sub: function () {
+      return '<code>ℓ = max(|φ₁| − β, R_lo(φ₂) − R, R − R_hi(φ₂))</code>, ' +
+        (S.ellScaling === 'raw' ? 'raw (unweighted) form' : 'weighted as ell.py\'s <code>' + S.ellScaling + '</code>') +
+        ', evaluated fresh in this page. <b>Negative inside</b> T₁→₂, zero on its boundary, positive outside. ℓ has ' +
+        'no τ: it is the boundary condition V(x, 0) = ℓ(x) that M2 and M3 march from (both under sdist). The dots are ' +
+        'where edges of a regular grid cross ℓ = 0; the dark lines are the closed-form edges of T₁ ' +
+        '(R_lo, R_hi at φ₁ = ±β), drawn independently, so the two can be checked against each other. ' +
+        'The slice shows the values themselves, flat, in the same color bands as the points.';
+    }
+  },
+  m2: {
+    title: 'Layer 1 — M2: V(x, τ) against a frozen evader (σ₂ = 0)',
+    sub: function () {
+      return 'Player 1 turns optimally; player 2 flies straight. <b>V(x, τ)</b> is the deepest penetration of T₁ that ' +
+        'player 1 can reach within a horizon τ, so <b>{V ≤ 0}</b> is where it can force T₁ within τ. V can only fall ' +
+        'as τ grows. Nothing stops this zone: its outer edge advances at the maximum closing speed 2 and meets the ' +
+        'domain\'s outer face R = 12 near τ ≈ 2.9, after which the values near that face depend on its boundary ' +
+        'condition (M2 itself stopped at τ = 3). <b>Not valid everywhere:</b> from τ ≈ 0.75 the solve breaks the ' +
+        'bound V ≥ min ℓ, starting at the inner face R = 0.2 nose-on and spreading outward at about the closing ' +
+        'speed; those nodes are grey. M2\'s own 101³ solve does the same, and none of its tests can see it ' +
+        '(see <code>solve_m2_snap.py</code>). Solved by that script on M3\'s 101×102×102 grid under sdist, so ' +
+        'each node matches M3\'s.';
+    }
+  },
+  m3: {
+    title: 'Layer 1 — M3: V(x, τ), the two-player game',
+    sub: function () {
+      return 'Both players turn optimally: player 1 drives the state into T₁, player 2 keeps it out. <b>V(x, τ)</b> is ' +
+        'the deepest penetration of T₁ that player 1 can guarantee within a horizon τ against any player-2 play, so ' +
+        '<b>{V ≤ 0}</b> is where it can force T₁ within τ. The zone grows with τ and stops: converged near τ = 6 at about ' +
+        '12 % of the grid, bounded at R = 6.1 (D&S\'s bounded winning zone). Quote {V ≤ 0} with R ≥ 0.45; the specks ' +
+        'below it are leakage from the R → 0 face. From <code>m3_out/Vsnap_101x102_T6.npz</code>.';
+    }
+  }
+};
+
+function syncSourceUi() {
+  document.querySelectorAll('#src button').forEach(function (b) {
+    var k = b.dataset.src;
+    b.classList.toggle('on', k === S.src);
+    if (k !== 'ell') {
+      b.disabled = !SRC[k].field;
+      b.title = SRC[k].field ? 'V(x, τ) from ' + SRC[k].file.name
+                             : 'load ' + (k === 'm2' ? 'm2_out/Vsnap_frozen_101x102_T6.npz' : 'm3_out/Vsnap_101x102_T6.npz') + ' first';
+    }
+  });
+  var ellOn = S.src === 'ell';
+  document.getElementById('ellW').disabled = !ellOn;
+  document.getElementById('ellW').value = ellOn ? S.ellScaling : S.field.scaling;
+  document.getElementById('ellWCtl').classList.toggle('off', !ellOn);
+  var T = PAGE_TEXT[S.src] ||
+          { title: 'Layer 1 — ' + S.field.name, sub: function () { return S.field.note || ''; } };
+  document.getElementById('pageTitle').textContent = T.title;
+  document.getElementById('pageSub').innerHTML = T.sub();
+  document.getElementById('viewTitle').textContent = fieldTitle();
+  showSourceMessage();
+}
+
+function selectSource(key) {
+  if (key !== 'ell' && !SRC[key].field) return;
+  S.src = key;
+  setField(key === 'ell' ? ellField(S.ellScaling) : SRC[key].field);
+}
+
+/* One line per loaded V file: where it came from, and the load-time checks. */
+function showSourceMessage(extra) {
+  var lines = [];
+  ['m2', 'm3'].forEach(function (k) {
+    var s = SRC[k];
+    if (!s.field) return;
+    var c = s.checks, F = s.field;
+    var t = '<b>' + k.toUpperCase() + '</b> ' + s.file.name + (s.file.restored ? ' (kept in this browser from ' + s.file.restored + ')' : '') +
+            ': ' + F.R.length + '×' + F.p1.length + '×' + F.p2.length + ', τ = ' + F.taus[0] + '–' + F.taus[F.taus.length - 1] +
+            ' in ' + F.taus.length + ' snapshots';
+    if (c) {
+      t += ' · τ = 0 vs ℓ ' + F.scaling + ' at every node: ' + (c.ell0.ok
+            ? '<span class="ok">max |diff| ' + c.ell0.max.toExponential(1) + ' ✓</span>'
+            : '<span class="no">max |diff| ' + c.ell0.max.toExponential(2) + ', ' + c.ell0.sign + ' sign flips ✗</span>');
+      t += ' · V never rises with τ: ' + (c.mono.ok ? '<span class="ok">✓</span>'
+            : '<span class="no">rises by up to ' + c.mono.max.toExponential(2) + ' ✗</span>');
+      t += ' · V ≥ min ℓ − one cell: ' + (c.floor.ok ? '<span class="ok">✓ (min V ' + fmt(F.range().min, 3) + ')</span>'
+            : '<span class="no">✗ broken from τ = ' + c.floor.first + '; at τ = ' + F.taus[F.taus.length - 1] + ', ' +
+              c.floor.last.toLocaleString() + ' nodes (' + pct(c.floor.lastFrac) + '), min V ' + F.range().min.toExponential(1) +
+              ' (shown grey)</span>');
+      t += ' · zone share vs ' + (s.json ? s.json.name + ': ' + (c.json.ok
+            ? '<span class="ok">equal at all ' + c.json.n + ' snapshots ✓</span>'
+            : '<span class="no">' + c.json.bad + ' of ' + c.json.n + ' differ ✗</span>')
+            : 'the solver json: load it to check');
+    }
+    lines.push(t);
+  });
+  if (extra) lines.push(extra);
+  if (!lines.length) lines.push('<span style="color:var(--ink3)">To step through τ: load files… (or drop them here) — ' +
+    'layer1/m3_out/Vsnap_101x102_T6.npz for M3 and layer1/m2_out/Vsnap_frozen_101x102_T6.npz for M2, ' +
+    'plus their .json to check them. They are kept in this browser for next time.</span>');
+  document.getElementById('srcMsg').innerHTML = lines.join('<br>');
+}
+
+/* Checks run once on load, against things the page knows independently. */
+function loadChecks(F, json) {
+  var out = {};
+  // tau = 0 is ell under the field's weighting, node for node (stored float32)
+  var A = F.data[0], n1 = F.p1.length, n2 = F.p2.length, mx = 0, flips = 0, m = 0;
+  for (var i = 0; i < F.R.length; i++) for (var j = 0; j < n1; j++) for (var l = 0; l < n2; l++, m++) {
+    var e = Math.fround(ellW(F.R[i], F.p1[j], F.p2[l], F.scaling)), d = Math.abs(A[m] - e);
+    if (d > mx) mx = d;
+    if ((A[m] <= 0) !== (e <= 0)) flips++;
+  }
+  out.ell0 = { max: mx, sign: flips, ok: flips === 0 && mx < 1e-5 };
+  // V(., tau) is non-increasing in tau at every node
+  var rise = 0;
+  for (var k = 1; k < F.data.length; k++) {
+    var P = F.data[k - 1], C = F.data[k];
+    for (var q = 0; q < C.length; q++) if (C[q] - P[q] > rise) rise = C[q] - P[q];
+  }
+  out.mono = { max: rise, ok: rise <= 1e-6 };
+  // V >= min ell - one cell at every node and tau (V is a minimum of ell)
+  var first = null, last = 0, lastFrac = 0;
+  F.taus.forEach(function (t, kk) {
+    var z = zoneStats(F, kk);
+    if (z.bad && first === null) first = t;
+    last = z.bad; lastFrac = z.badFrac;
+  });
+  out.floor = { ok: first === null, first: first, last: last, lastFrac: lastFrac, b: F.bound() };
+  // the solver's own zone share, at each snapshot it reported
+  if (json && json.taus && json.frac) {
+    var n = 0, bad = 0, N = F.data[0].length;
+    F.taus.forEach(function (t, kk) {
+      var jj = -1;
+      json.taus.forEach(function (u, ii) { if (Math.abs(u - t) < 1e-9) jj = ii; });
+      if (jj < 0) return;
+      n++;
+      if (Math.abs(zoneStats(F, kk).frac - json.frac[jj]) > 0.5 / N) bad++;
+    });
+    out.json = { n: n, bad: bad, ok: n > 0 && bad === 0 };
+  }
+  return out;
+}
+
+// ===========================================================================
+// NPZ READER.  An .npz is a zip of .npy files, stored (np.savez) or deflated
+// (np.savez_compressed), with zip64 extras where numpy adds them.  Central
+// directory -> local header -> data; deflate through the browser's own
+// DecompressionStream; then the .npy header gives dtype, order and shape.
+// ===========================================================================
+function u16(dv, o) { return dv.getUint16(o, true); }
+function u32(dv, o) { return dv.getUint32(o, true); }
+function u64(dv, o) { return dv.getUint32(o, true) + 4294967296 * dv.getUint32(o + 4, true); }
+
+function zipEntries(buf) {
+  var dv = new DataView(buf), n = buf.byteLength, eocd = -1, o;
+  for (o = n - 22; o >= Math.max(0, n - 22 - 65535); o--) if (u32(dv, o) === 0x06054b50) { eocd = o; break; }
+  if (eocd < 0) throw new Error('not a zip / .npz file');
+  var count = u16(dv, eocd + 10), cdOff = u32(dv, eocd + 16);
+  if (count === 0xFFFF || cdOff === 0xFFFFFFFF) {             // zip64 end of central directory
+    var loc = eocd - 20;
+    if (loc < 0 || u32(dv, loc) !== 0x07064b50) throw new Error('zip64 locator missing');
+    var z = u64(dv, loc + 8);
+    if (u32(dv, z) !== 0x06064b50) throw new Error('zip64 end record missing');
+    count = u64(dv, z + 32); cdOff = u64(dv, z + 48);
+  }
+  var out = [], p = cdOff, dec = new TextDecoder();
+  for (var i = 0; i < count; i++) {
+    if (u32(dv, p) !== 0x02014b50) throw new Error('bad central directory entry ' + i);
+    var method = u16(dv, p + 10), csize = u32(dv, p + 20), usize = u32(dv, p + 24);
+    var nl = u16(dv, p + 28), el = u16(dv, p + 30), cl = u16(dv, p + 32), loff = u32(dv, p + 42);
+    var name = dec.decode(new Uint8Array(buf, p + 46, nl));
+    for (var e = p + 46 + nl, eEnd = e + el; e + 4 <= eEnd; e += 4 + u16(dv, e + 2)) {
+      if (u16(dv, e) !== 1) continue;                            // zip64 extra: only the saturated fields
+      var q = e + 4;
+      if (usize === 0xFFFFFFFF) { usize = u64(dv, q); q += 8; }
+      if (csize === 0xFFFFFFFF) { csize = u64(dv, q); q += 8; }
+      if (loff === 0xFFFFFFFF) { loff = u64(dv, q); q += 8; }
+    }
+    if (u32(dv, loff) !== 0x04034b50) throw new Error('bad local header for ' + name);
+    out.push({ name: name, method: method, csize: csize, usize: usize,
+               start: loff + 30 + u16(dv, loff + 26) + u16(dv, loff + 28) });
+    p += 46 + nl + el + cl;
+  }
+  return out;
+}
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream === 'undefined')
+    throw new Error('this browser cannot inflate .npz data (no DecompressionStream); use a current Chrome, Edge or Firefox');
+  var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return await new Response(stream).arrayBuffer();
+}
+/* One .npy -> { shape, descr, data }.  Little-endian float32 / float64 only;
+   anything else comes back with data = null and is ignored. */
+function parseNpy(ab, name) {
+  var b = new Uint8Array(ab);
+  if (b[0] !== 0x93 || String.fromCharCode(b[1], b[2], b[3], b[4], b[5]) !== 'NUMPY')
+    throw new Error(name + ': not an .npy array');
+  var dv = new DataView(ab), major = b[6];
+  var hl = major === 1 ? u16(dv, 8) : u32(dv, 8), h0 = major === 1 ? 10 : 12;
+  var head = new TextDecoder('latin1').decode(b.subarray(h0, h0 + hl));
+  var descr = (head.match(/'descr'\s*:\s*'([^']*)'/) || [])[1];
+  var fort = (head.match(/'fortran_order'\s*:\s*(True|False)/) || [])[1];
+  var shp = (head.match(/'shape'\s*:\s*\(([^)]*)\)/) || [])[1];
+  if (!descr || !fort || shp === undefined) throw new Error(name + ': unreadable .npy header');
+  var shape = shp.split(',').map(function (s) { return s.trim(); }).filter(Boolean).map(Number);
+  var size = shape.reduce(function (a, c) { return a * c; }, 1), off = h0 + hl;
+  var T = descr === '<f4' ? Float32Array : descr === '<f8' ? Float64Array : null;
+  if (!T) return { shape: shape, descr: descr, data: null };
+  if (fort === 'True' && shape.length > 1) throw new Error(name + ': Fortran-ordered arrays are not supported');
+  if (ab.byteLength < off + size * T.BYTES_PER_ELEMENT) throw new Error(name + ': truncated');
+  var data = off % T.BYTES_PER_ELEMENT === 0 ? new T(ab, off, size)
+                                             : new T(ab.slice(off, off + size * T.BYTES_PER_ELEMENT));
+  return { shape: shape, descr: descr, data: data };
+}
+async function readNpz(buf) {
+  var arrays = {}, entries = zipEntries(buf);
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i], raw = buf.slice(e.start, e.start + e.csize);
+    var ab = e.method === 0 ? raw : e.method === 8 ? await inflateRaw(raw) : null;
+    if (!ab) throw new Error(e.name + ': zip method ' + e.method + ' is not supported');
+    arrays[e.name.replace(/\.npy$/, '')] = parseNpy(ab, e.name);
+  }
+  return arrays;
+}
+
+/* hji.make_grid's defaults, used when a file carries no node arrays (M3's
+   Vsnap does not): R = linspace(R_MIN, R_MAX, n_R) with both ends, angles
+   uniform on [-pi, pi) with endpoint=False. */
+var HJI_GRID = { Rmin: 0.2, Rmax: 12.0 };
+function periodicNodes(n) {
+  var a = new Float64Array(n);
+  for (var i = 0; i < n; i++) a[i] = -PI + TWO_PI * i / n;
+  return a;
+}
+var SNAP_KEY = /^\d+(\.\d+)?$/;
+function fieldFromArrays(A, game, fileName) {
+  var keys = Object.keys(A).filter(function (k) { return SNAP_KEY.test(k) && A[k].data; });
+  var taus, data, shape;
+  if (keys.length) {                                 // Vsnap layout: one key per tau
+    keys.sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+    taus = keys.map(parseFloat);
+    shape = A[keys[0]].shape;
+    data = keys.map(function (k) {
+      if (A[k].shape.join('x') !== shape.join('x')) throw new Error(fileName + ': snapshots differ in shape');
+      return A[k].data;
+    });
+  } else if (A.V && A.V.data && A.V.shape.length === 4 && A.taus && A.taus.data) {   // stacked V + taus
+    shape = A.V.shape.slice(1);
+    var per = shape[0] * shape[1] * shape[2];
+    taus = Array.prototype.slice.call(A.taus.data);
+    data = taus.map(function (t, k) { return A.V.data.subarray(k * per, (k + 1) * per); });
+  } else {
+    throw new Error(fileName + ' has no V(x, τ) snapshots (expected keys 0.000, 0.500, … as in Vsnap_*.npz)');
+  }
+  if (shape.length !== 3) throw new Error(fileName + ': snapshots are not 3-D (R, φ₁, φ₂)');
+  function ax(key, n, make) { return A[key] && A[key].data && A[key].data.length === n ? A[key].data : make(n); }
+  var axes = {
+    R: ax('R', shape[0], function (n) { return linspace(HJI_GRID.Rmin, HJI_GRID.Rmax, n); }),
+    phi1: ax('phi1', shape[1], periodicNodes),
+    phi2: ax('phi2', shape[2], periodicNodes)
+  };
+  return new GridField({
+    name: 'V(x, τ), ' + game.toUpperCase() + ' ' + GAME_NAMES[game] + ', ' + shape.join('×'),
+    symbol: 'V', scaling: 'sdist', game: game, axes: axes, taus: taus, data: data,
+    note: fileName
+  });
+}
+
+/* Which slot a file belongs to, by its name: frozen / m2 -> M2, else M3. */
+function slotOf(name) {
+  var n = name.toLowerCase();
+  if (/frozen|(^|[^a-z0-9])m2[^a-z0-9]/.test(n)) return 'm2';
+  return 'm3';
+}
+
+/* Load .npz and .json files: { name, file } from the picker or a drop,
+   { name, buffer | text, restored } from the browser store or a fetch.
+   Arrays first, then the json, which attaches to the field of its slot. */
+async function loadFiles(items, fromUser) {
+  var errs = [], loaded = [];
+  items = items.slice().sort(function (a, b) { return /\.json$/i.test(a.name) - /\.json$/i.test(b.name); });
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i], slot = slotOf(it.name);
+    try {
+      if (/\.json$/i.test(it.name)) {
+        var text = it.text !== undefined ? it.text : await it.file.text();
+        var J = JSON.parse(text.replace(/\bNaN\b/g, 'null'));      // Python's json writes NaN
+        if (!J.taus || !J.frac) throw new Error('not a solver diagnostics file (no taus / frac)');
+        SRC[slot].json = { name: it.name, data: J };
+        if (fromUser) storePut(slot + '.json', { name: it.name, text: text });
+      } else if (/\.npz$/i.test(it.name)) {
+        showSourceMessage('reading ' + it.name + (it.file ? ' (' + (it.file.size / 1048576).toFixed(1) + ' MB)' : '') + '…');
+        var buf = it.buffer || await it.file.arrayBuffer();
+        var F = fieldFromArrays(await readNpz(buf), slot, it.name);
+        SRC[slot].field = F;
+        SRC[slot].file = { name: it.name, size: buf.byteLength, restored: it.restored || null };
+        loaded.push(slot);
+        if (fromUser) storePut(slot + '.npz', { name: it.name, buffer: buf });
+      } else throw new Error('only .npz and .json files are read');
+    } catch (err) {
+      errs.push('<span class="no">' + it.name + ': ' + err.message + '</span>');
+    }
+  }
+  ['m2', 'm3'].forEach(function (k) {
+    var s = SRC[k];
+    if (!s.field) return;
+    var J = s.json && s.json.data;
+    if (J && J.n_R && (J.n_R !== s.field.R.length || J.n_phi !== s.field.p1.length)) {
+      errs.push('<span class="no">' + s.json.name + ' is for a ' + J.n_R + '×' + J.n_phi + ' grid, not this ' +
+                s.field.R.length + '×' + s.field.p1.length + ' one: not used</span>');
+      s.json = null; J = null;
+    }
+    if (J && J.scaling) s.field.scaling = J.scaling;
+    s.checks = loadChecks(s.field, J);
+  });
+  var pick = fromUser && loaded.length ? (loaded.indexOf('m3') >= 0 ? 'm3' : loaded[loaded.length - 1]) : null;
+  if (pick) selectSource(pick);
+  else if (S.field && S.field.kind === 'grid' && SRC[S.src] && SRC[S.src].field !== S.field) selectSource(S.src);
+  else { syncSourceUi(); showStatus(); }
+  showSourceMessage(errs.join('<br>'));
+  return { loaded: loaded, errors: errs.length };
+}
+
+/* Loaded files are kept in this browser (IndexedDB) so the next visit can
+   restore them; every call is guarded, and the page works without it. */
+var STORE = { db: 'layer1.ellExplorer.files', os: 'files' };
+function storeOpen() {
+  return new Promise(function (res, rej) {
+    try {
+      var r = indexedDB.open(STORE.db, 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore(STORE.os); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    } catch (e) { rej(e); }
+  });
+}
+async function storePut(key, val) {
+  try {
+    var dt = new Date(), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    val.saved = dt.getFullYear() + '-' + p2(dt.getMonth() + 1) + '-' + p2(dt.getDate());
+    var db = await storeOpen();
+    await new Promise(function (res, rej) {
+      var tx = db.transaction(STORE.os, 'readwrite');
+      tx.objectStore(STORE.os).put(val, key);
+      tx.oncomplete = res; tx.onerror = function () { rej(tx.error); }; tx.onabort = function () { rej(tx.error); };
+    });
+    db.close();
+  } catch (e) { /* storage unavailable or full: the page works without it */ }
+}
+async function storeGetAll() {
+  try {
+    var db = await storeOpen(), out = {};
+    await new Promise(function (res, rej) {
+      var tx = db.transaction(STORE.os, 'readonly'), cur = tx.objectStore(STORE.os).openCursor();
+      cur.onsuccess = function () { var c = cur.result; if (c) { out[c.key] = c.value; c.continue(); } else res(); };
+      cur.onerror = function () { rej(cur.error); };
+    });
+    db.close();
+    return out;
+  } catch (e) { return {}; }
+}
+
+/* On opening: served over http(s), fetch the files beside the repo;
+   otherwise restore what this browser kept.  Never switches away from ℓ. */
+var AUTO_FILES = ['../m3_out/Vsnap_101x102_T6.npz', '../m3_out/m3_101x102_T6.json',
+                  '../m2_out/Vsnap_frozen_101x102_T6.npz', '../m2_out/m2_frozen_101x102_T6.json'];
+async function autoLoad() {
+  var items = [];
+  if (/^https?:$/.test(location.protocol)) {
+    for (var i = 0; i < AUTO_FILES.length; i++) {
+      try {
+        var r = await fetch(AUTO_FILES[i]);
+        if (!r.ok) continue;
+        var name = AUTO_FILES[i].split('/').pop();
+        items.push(/\.json$/.test(name) ? { name: name, text: await r.text() } : { name: name, buffer: await r.arrayBuffer() });
+      } catch (e) { /* not there */ }
+    }
+  }
+  if (!items.length) {
+    var kept = await storeGetAll();
+    Object.keys(kept).forEach(function (k) {
+      var v = kept[k];
+      if (v && v.buffer) items.push({ name: v.name, buffer: v.buffer, restored: v.saved });
+      else if (v && v.text) items.push({ name: v.name, text: v.text, restored: v.saved });
+    });
+  }
+  if (items.length) await loadFiles(items, false);
+  else showSourceMessage();
 }
 
 // ===========================================================================
@@ -2312,7 +2973,46 @@ document.getElementById('vpos').addEventListener('change', function () {
 document.getElementById('resample').onclick = function () {
   S.seed++; buildPoints(); applyVisibility(); showStatus(); requestRender();
 };
-document.getElementById('tau').addEventListener('input', function () { setTauIndex(+this.value); });
+document.getElementById('tau').addEventListener('input', function () { stopPlay(); setTauIndex(+this.value); });
+document.getElementById('tauPrev').onclick = function () { stopPlay(); setTauIndex(S.k - 1); };
+document.getElementById('tauNext').onclick = function () { stopPlay(); setTauIndex(S.k + 1); };
+document.getElementById('tauPlay').onclick = function () { if (PLAY.timer) stopPlay(); else startPlay(); };
+document.addEventListener('keydown', function (e) {
+  var tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (!S.field || !S.field.taus || CAP.busy) return;
+  if (e.key === 'ArrowRight') { stopPlay(); setTauIndex(S.k + 1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { stopPlay(); setTauIndex(S.k - 1); e.preventDefault(); }
+});
+document.querySelectorAll('#src button').forEach(function (b) {
+  b.onclick = function () { selectSource(b.dataset.src); };
+});
+document.getElementById('ellW').addEventListener('change', function () {
+  S.ellScaling = this.value; selectSource('ell');
+});
+document.getElementById('loadBtn').onclick = function () { document.getElementById('loadIn').click(); };
+document.getElementById('loadIn').addEventListener('change', function () {
+  var files = Array.prototype.slice.call(this.files || []);
+  this.value = '';
+  if (files.length) loadFiles(files.map(function (f) { return { name: f.name, file: f }; }), true);
+});
+(function () {                        // drop .npz / .json anywhere on the page
+  function hasFiles(e) {
+    return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  }
+  var depth = 0;
+  document.addEventListener('dragenter', function (e) { if (hasFiles(e)) { depth++; document.body.classList.add('filedrag'); } });
+  document.addEventListener('dragleave', function (e) {
+    if (hasFiles(e) && --depth <= 0) { depth = 0; document.body.classList.remove('filedrag'); }
+  });
+  document.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); depth = 0; document.body.classList.remove('filedrag');
+    var files = Array.prototype.slice.call(e.dataTransfer.files || []);
+    if (files.length) loadFiles(files.map(function (f) { return { name: f.name, file: f }; }), true);
+  });
+})();
 
 // view: lock, top view, reset -- the same buttons and behavior as Layer 0
 var LOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/>' +
@@ -2561,17 +3261,20 @@ function capSizes() {
 }
 /* Panel titles share one font size; a title too wide for its panel splits
    onto two lines at the best word break first (Layer 0's rule). */
-function titleLayout(ctx, panels, fs0, padX) {
-  function width(t, fs) { ctx.font = '700 ' + fs + 'px ' + FONT; return ctx.measureText(t).width; }
-  function split(t, fs, maxW) {
-    if (width(t, fs) <= maxW) return [t];
-    var words = t.split(' '), best = null;
-    for (var i = 1; i < words.length; i++) {
-      var a = words.slice(0, i).join(' '), b = words.slice(i).join(' '), m = Math.max(width(a, fs), width(b, fs));
-      if (!best || m < best.m) best = { m: m, lines: [a, b] };
-    }
-    return best ? best.lines : [t];
+function titleWidth(ctx, t, fs) { ctx.font = '700 ' + fs + 'px ' + FONT; return ctx.measureText(t).width; }
+function splitTitle(ctx, t, fs, maxW) {
+  if (titleWidth(ctx, t, fs) <= maxW) return [t];
+  var words = t.split(' '), best = null;
+  for (var i = 1; i < words.length; i++) {
+    var a = words.slice(0, i).join(' '), b = words.slice(i).join(' '),
+        m = Math.max(titleWidth(ctx, a, fs), titleWidth(ctx, b, fs));
+    if (!best || m < best.m) best = { m: m, lines: [a, b] };
   }
+  return best ? best.lines : [t];
+}
+function titleLayout(ctx, panels, fs0, padX) {
+  function width(t, fs) { return titleWidth(ctx, t, fs); }
+  function split(t, fs, maxW) { return splitTitle(ctx, t, fs, maxW); }
   var fs = fs0;
   panels.forEach(function (p) {
     split(p.title, fs0, p.cv.width - padX).forEach(function (ln) {
@@ -2604,17 +3307,21 @@ function captureLayout(panels) {
   var H = pad + titleH + maxH + (barH || below ? Math.round(10 * sc2) + barH + below * lineH : 0) + pad;
   return { W: W + (W % 2), H: H + (H % 2), sc: sc2, C: C, titleH: titleH, titleFs: TL.fs, slots: slots,
            size: size, sw: sw, lineH: lineH, barH: barH, legend: legend, legendRows: legendRows,
-           statRows: statRows, textY: pad + titleH + maxH + Math.round(10 * sc2) };
+           statRows: statRows, textY: pad + titleH + maxH + Math.round(10 * sc2), avail: avail };
 }
+/* Panel titles, the legend and the stats are read LIVE on every frame -- they
+   change with tau (and with a slice sweep) -- and re-flowed into the fixed
+   canvas.  Only the canvas size is fixed at layout time. */
 function drawCapture(ctx, L, panels) {
   var sc2 = L.sc, C = L.C;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, L.W, L.H);
   L.slots.forEach(function (s, i) {
     var fs = L.titleFs, cv = panels[i].cv;
+    var lines = splitTitle(ctx, panels[i].title, fs, s.w - 4 * sc2);
     ctx.font = '700 ' + fs + 'px ' + FONT;
     ctx.fillStyle = CAP_INK.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    s.lines.forEach(function (ln, j) { ctx.fillText(ln, s.x + 2 * sc2, s.y - L.titleH + fs * (0.3 + 1.22 * (j + 0.5))); });
+    lines.forEach(function (ln, j) { ctx.fillText(ln, s.x + 2 * sc2, s.y - L.titleH + fs * (0.3 + 1.22 * (j + 0.5))); });
     ctx.drawImage(cv, s.x, s.y, s.w, s.h);
     ctx.strokeStyle = '#dfe3e8'; ctx.lineWidth = sc2; ctx.strokeRect(s.x + 0.5 * sc2, s.y + 0.5 * sc2, s.w - sc2, s.h - sc2);
   });
@@ -2648,16 +3355,23 @@ function drawCapture(ctx, L, panels) {
       row++;
     });
   }
-  drawRows(L.legend, L.legendRows, C.gapItem * sc2, true);
-  if (L.statRows.length) drawRows(captureStats(), L.statRows, C.gapStat * sc2, false);
+  var legend = captureLegend(), stats = captureStats();
+  ctx.save();
+  legend.forEach(function (it) { it.w = L.sw + 8 * sc2 + richWidth(ctx, it.segs, L.size); });
+  var legendRows = flowRows(legend.map(function (it) { return it.w; }), L.avail, C.gapItem * sc2);
+  var statRows = flowRows(stats.map(function (it) { return richWidth(ctx, it.segs, L.size); }), L.avail, C.gapStat * sc2);
+  ctx.restore();
+  drawRows(legend, legendRows, C.gapItem * sc2, true);
+  if (statRows.length) drawRows(stats, statRows, C.gapStat * sc2, false);
 }
 function stamp() {
   var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
   return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
 }
 function captureName(panels, ext, extra) {
-  return 'layer1_m1_' + (extra ? extra + '_' : '') + panels.map(function (p) { return p.id; }).join('-') +
-         (S.field.taus ? '_tau' + S.field.taus[S.k] : '') + '_' + stamp() + '.' + ext;
+  var tag = S.src === 'm2' || S.src === 'm3' ? S.src : S.field.kind === 'analytic' ? 'm1' : 'field';
+  return 'layer1_' + tag + '_' + (extra ? extra + '_' : '') + panels.map(function (p) { return p.id; }).join('-') +
+         (S.field.taus && extra !== 'tausteps' ? '_tau' + S.field.taus[S.k] : '') + '_' + stamp() + '.' + ext;
 }
 function download(blob, name) {
   var a = document.createElement('a'), url = URL.createObjectURL(blob);
@@ -2820,6 +3534,14 @@ function setCaptureControls(enabled) {
 function gifStepper(what, N) {
   var az0 = S.az, pos0 = S.slice.pos, C = sliceCfg(), r = axisRange(C.fix);
   if (what === 'turn') return function (k) { S.az = az0 + TWO_PI * k / N; renderNow(); };
+  if (what === 'tau') {                 // each stored snapshot held for N / (number of snapshots) frames
+    var nT = S.field.taus.length;
+    return function (k) {
+      var i = Math.min(nT - 1, Math.floor(k * nT / N));
+      if (i !== S.k) setTauIndex(i);
+      renderNow();
+    };
+  }
   return function (k) {
     if (C.fix === 0) S.slice.pos = r[0] + (r[1] - r[0]) * k / Math.max(1, N - 1);
     else { var a = pos0 + TWO_PI * k / N; S.slice.pos = ((a + PI) % TWO_PI + TWO_PI) % TWO_PI - PI; }
@@ -2831,16 +3553,28 @@ async function makeGif() {
   var what = document.getElementById('gifWhat').value;
   var N = +document.getElementById('gifN').value, wantW = +document.getElementById('gifW').value;
   if (what === 'sweep' && !S.slice.on) { capStatus('Turn the slice on to sweep it.'); return; }
+  if (what === 'tau' && !(S.field.taus && S.field.taus.length > 1)) { capStatus('Pick M2 or M3 to step through τ.'); return; }
+  stopPlay();
   var panels = readyPanels();
   if (!panels.length) return;
-  var keep = { az: S.az, pos: S.slice.pos, hover: S.hover };
+  var keep = { az: S.az, pos: S.slice.pos, hover: S.hover, k: S.k };
   var delay = Math.max(2, Math.round(1000 / N));          // about 10 s per loop
   CAP.busy = true; S.hover = null; drawSliceOverlay();
   setCaptureControls(false);
   var setK = gifStepper(what, N);
   try {
+    // a tau loop's legend and stats grow (M2's warnings appear late): size the
+    // canvas for the largest snapshot
+    var L = null;
+    if (what === 'tau') {
+      for (var kk = 0; kk < S.field.taus.length; kk++) {
+        setTauIndex(kk); renderNow();
+        var Lk = captureLayout(capturePanels());
+        if (!L || Lk.H > L.H) L = Lk;
+      }
+    }
     setK(0);
-    var L = captureLayout(capturePanels());
+    if (!L) L = captureLayout(capturePanels());
     var full = document.createElement('canvas'); full.width = L.W; full.height = L.H;
     var fctx = full.getContext('2d');
     var scale = wantW > 0 ? Math.min(1, wantW / L.W) : 1;
@@ -2880,12 +3614,13 @@ async function makeGif() {
       await sleep0();
     }
     var blob = gif.finish();
-    download(blob, captureName(panels, 'gif', what === 'turn' ? 'turn' : 'sweep-' + S.slice.axis));
+    download(blob, captureName(panels, 'gif', what === 'turn' ? 'turn' : what === 'tau' ? 'tausteps' : 'sweep-' + S.slice.axis));
     capStatus('Saved GIF, ' + gw + ' × ' + gh + ' px, ' + N + ' frames, ' + (blob.size / 1048576).toFixed(1) + ' MB.');
   } catch (err) {
     capStatus('GIF failed: ' + err.message);
   } finally {
     S.az = keep.az; S.slice.pos = keep.pos; S.hover = keep.hover;
+    if (S.field.taus && S.k !== keep.k) setTauIndex(keep.k);
     refreshSlice();
     setCaptureControls(true);
     CAP.busy = false;
@@ -3219,11 +3954,7 @@ loadSizes();
 syncSizeSliders();
 drawLock();
 
-var ELL = new AnalyticField({
-  name: 'ℓ(x), raw', symbol: 'ℓ', fn: ellRaw,
-  note: 'implicit surface function of T₁→₂, layer1/ell.py with SCALING = raw',
-  domain: { R: [0.2, 12.0], phi1: [-PI, PI], phi2: [-PI, PI] }
-});
+var ELL = ellField('raw');
 
 initDock();
 new ResizeObserver(function () { resize(); }).observe(viewEl);
@@ -3231,11 +3962,13 @@ new ResizeObserver(function () { refreshSlicePanel(); }).observe(sliceViewEl);
 new ResizeObserver(function () { drawColorbar(); }).observe(document.getElementById('cbar'));
 resize();
 setField(ELL);
+var AUTOLOAD = autoLoad();
 
 /* Public hooks: the tau data path plugs in here (see the header comment). */
 window.EllExplorer = {
   setField: setField, getField: function () { return S.field; },
-  setTauIndex: setTauIndex,
+  setTauIndex: setTauIndex, selectSource: selectSource, sources: SRC, loadFiles: loadFiles,
+  readNpz: readNpz, zoneStats: zoneStats, ellW: ellW, ellTermsW: ellTermsW, autoLoad: AUTOLOAD,
   setSlice: function (axis, pos) { setSliceAxis(axis, false); if (pos !== undefined) setSlicePos(pos, false); },
   AnalyticField: AnalyticField, GridField: GridField,
   ellRaw: ellRaw, ellTerms: ellTerms, constants: CONST,

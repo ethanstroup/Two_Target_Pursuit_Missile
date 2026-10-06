@@ -29,8 +29,10 @@ Evaluated against the plan's two hard requirements; both met natively.
 
 Plan §2.4's PDE was **verified from the library's own source rather than
 transcribed**, as §2.4 requires. In `time_integration.euler_step` the two factors
-of `time_direction` cancel, leaving `dV/dt = -min(0, H)` marched backward, which
-is the plan's equation. The derivation is written out in `hji.py`'s module
+of `time_direction` cancel on the Hamiltonian, leaving `dV/dt = -min(0, H)` marched
+backward, i.e. the plan's $\partial V/\partial\tau=\min[0,H]$ with $t=-\tau$. (The
+dissipation term carries only one factor, so it does not cancel; its effective sign in
+$\tau$ is $+$. Clarified 2026-10-02.) The derivation is written out in `hji.py`'s module
 docstring.
 
 JAX must run in **float64** (`jax_enable_x64`), set before any array is created —
