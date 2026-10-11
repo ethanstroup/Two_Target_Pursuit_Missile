@@ -159,7 +159,7 @@ which is a numerical conditioning question.
   but their gradients are already close to 1 near the surface.
 - **`plan`:** $w_b=1/\beta$, $w_n=w_x=1/\bar R_0$. Plan §2.1 as written, meant to make the terms
   dimensionless margins.
-- **`sdist`** (the current default): each term is divided by the size of its own gradient in
+- **`sdist`:** each term is divided by the size of its own gradient in
   $(R,\phi_1,\phi_2)$, so each has $|\nabla|=1$ exactly and is roughly a signed distance to its own
   surface. For example $w_x=1/\sqrt{1+(1+\cos\phi_2)^2}$.
 
@@ -190,9 +190,7 @@ magnitude, not in gradient.
 
 **Effect on the answer.** Discretization error and not a different barrier. At $101^3$ the computed
 $\{V\le0\}$ differs between `raw` and `sdist` on 0.005% of the grid and between `plan` and `raw` on
-0.12%, with `plan` consistently a bit smaller (11.577% vs 11.631%). `sdist` is a deviation from Plan
-§2.1 as written, flagged as proposed, and reverting is one string (`LAYER1_ELL_SCALING=plan`).
-The decision has been open for Ethan since 2026-09-15.
+0.12%, with `plan` consistently a bit smaller (11.577% vs 11.631%).
 
 **The cell.** One cell is `E.value_scale(grid, V0)`: the largest change in $\ell$ when stepping one
 node along any axis, taken over nodes within $|\ell|\le1$ of the zero set. It is 0.1967 at $61^3$ and

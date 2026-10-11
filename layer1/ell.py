@@ -68,10 +68,9 @@ RBAR0 = B.RBAR0
 #            (R, phi_1, phi_2), making every term an approximate signed distance
 #            to its own surface.
 #
-# DEFAULT IS 'sdist', WHICH IS A DEVIATION FROM PLAN Sec. 2.1 AS WRITTEN.  It is
-# proposed as an amendment, not adopted unilaterally -- revert by changing the
-# string below, or by setting LAYER1_ELL_SCALING=plan.  The evidence, all of it
-# reproducible from this repo (test_m1.py Sec. 8, cmp_scaling.py):
+# DEFAULT IS 'sdist' (Layer1_Amendment_2026-09-15.md).  Change the string below,
+# or set LAYER1_ELL_SCALING=raw|plan.  The evidence, all of it reproducible from
+# this repo (test_m1.py Sec. 8, cmp_scaling.py):
 #
 #   Sec. 2.1's GOAL is |grad ell| ~ 1, "because a value function steep in one
 #   direction and flat in another resolves the zero level set poorly -- precisely

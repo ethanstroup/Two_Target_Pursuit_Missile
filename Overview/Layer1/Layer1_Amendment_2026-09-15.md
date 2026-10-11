@@ -4,8 +4,8 @@
 Plan of record: `claude/Layer1_Plan.md`. Prior record: `claude/Layer1_Progress_2026-09-14.md`.
 Code: `Two_Target_Pursuit_Missile/layer1/`.
 
-**One decision is open and wants your answer before M3's 201³ run.** Everything else
-here is a completed re-run.
+**Decided 2026-10-07: the `ell` weighting is `sdist`.** `plan` and `raw` are not used for now;
+the reasoning for all three is below. Everything else here is a completed re-run.
 
 | Milestone | State |
 |---|---|
@@ -16,7 +16,7 @@ here is a completed re-run.
 
 ---
 
-## The open decision: Plan §2.1's weighting
+## The decision: Plan §2.1's weighting
 
 §2.1 (added in the 2026-09-14 20:04 revision) asks for `ell` to be nondimensionalized —
 boresight term over `beta`, both range terms over `Rbar_0` — and gives conditioning as
@@ -73,6 +73,36 @@ level set."* Dividing each constraint by the Euclidean norm of its own gradient 
 free instead of by an eikonal solve. So the amendment is in the spirit of §2.1 rather
 than against it — it substitutes the fallback for the prescription.
 
+### Why `sdist` is used, and why `raw` and `plan` are not (for now)
+
+**`sdist` — used.**
+- Each term has $|\nabla| = 1$ exactly, so `ell` behaves like a signed distance to its own
+  surface. It has the tightest gradient spread of the three (1.4×; p05 0.861, p95 1.188).
+- It is §2.1's own eikonal fallback, in closed form.
+- Because $|\nabla\ell| \approx 1$, the one-cell value change that M2 and M4 quote their
+  tolerances in equals $\Delta R$ (0.1967 at 61³, 0.1180 at 101³), so a tolerance in cells
+  converts to a position.
+- Every solve to date ran on it: M2, all four M3 solves and their stored fields, and M4.
+  Another weighting would mean re-solving the fields (about 4 h for M3's fine grid).
+
+**`plan` — not used.**
+- Dividing by `Rbar_0 = 6.14` leaves $|\partial/\partial R| = 1/\bar R_0 = 0.163$, six times
+  shallower, wherever a range term is active, while the boresight term gets $1/\beta = 1.273$.
+  Those are exactly its p05 and p95, which is the 7.8× spread.
+- It is the worst conditioned of the three, so it defeats the goal §2.1 gives for it.
+- It is the outlier on the answer (~24× further from `raw` and `sdist` than they are from
+  each other) and it under-resolves the winning zone (11.577 % vs 11.631 % at 101³).
+
+**`raw` — not used.**
+- It is not wrong: it differs from `sdist` by 5 parts in 10⁵ of grid volume at 101³.
+- It is simply less well conditioned (1.9× spread; p95 1.864 against 1.188 for `sdist`),
+  it was only M1/M2's starting point, and neither M3 nor M4 ran on it.
+
+**For now, not for good.** All three stay selectable (`SCALING` in `ell.py`, or
+`LAYER1_ELL_SCALING=raw|plan|sdist`), every suite runs under any of them, and the barrier and
+acceptance tests A–E are weight-invariant. Switching later would mean re-solving the stored
+fields, not changing the barrier.
+
 ### What §2.1 is right about, and what is kept unchanged
 
 **The units argument.** `ell` maxes a radian against two normalized lengths under *every*
@@ -80,16 +110,10 @@ weighting. A nonzero value is a **weapon-envelope margin in mixed units**, never
 distance, and nothing in this amendment makes it one. `ell.py`'s docstring carries that
 warning, and it should carry into the report.
 
-### Status and how to decide
+### Status
 
-`SCALING = 'sdist'` is now the default in `ell.py`, **flagged in the source as a
-deviation from the plan of record awaiting your decision**, with the full evidence in a
-comment block. Reverting is one string, or `LAYER1_ELL_SCALING=plan` at the command
-line. Every suite runs under any of the three.
-
-If you accept it, §2.1's prescription sentence should be amended; if you reject it, set
-the default back to `'plan'` before M3 and nothing else changes — the acceptance tests
-A–E are weight-invariant either way.
+`SCALING = 'sdist'` is the default in `ell.py`. Plan §2.1's weighting sentence is superseded
+by this decision; the rest of §2.1 stands.
 
 ---
 
@@ -147,7 +171,7 @@ before the restriction was added, which is the kind of pass that is worse than a
 `solve_m3.py` is still to be written. The plan's §10 opening move stands, with one
 addition:
 
-0. **Decide the weighting** (above), or accept the `sdist` default.
+0. **Weighting:** `sdist`, decided 2026-10-07 (above).
 1. Re-read the 2026-09-14 note's three findings — the remaining-horizon read is the one
    that silently ruins M4's test C1, and it is already enforced by `hji.make_policy`.
 2. Assert the §2.5 transpose identity on the actual grid arrays before relying on

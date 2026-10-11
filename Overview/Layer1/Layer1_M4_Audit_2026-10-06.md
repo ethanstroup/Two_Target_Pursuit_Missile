@@ -1,161 +1,175 @@
-# Layer 1 — M4 audit: what the M4 record gets wrong
+# Layer 1 — M4 audit: what was fixed, and what the rerun confirmed
 
-**AE 8900 · 2026-10-06 · Ethan Stroup**
-Audit of `claude/Layer1_M4_2026-10-06.md` and `layer1/test_m4.py`, done by re-running the suite's
-measurements on both grids from the M3 snapshot stacks. Read this before quoting anything from the M4
-record. The M4 record itself is **not yet edited**.
+**AE 8900 · audit 2026-10-06, closed out by the 2026-10-07 rerun · Ethan Stroup**
 
-**Bottom line.** The off-boresight agreement is **stronger** than M4 reported, and it converges under
-refinement. Most of the record's other headlines don't hold up. The cause is one read bug, one masking
-bug, one invalid control, and one misdiagnosis.
+The first M4 attempt reported "every assertion passes", but six problems sat behind that. This note
+records each problem, the fix now in `layer1/test_m4.py`, and what the rerun logs
+(`layer1/m4_101x102.log`, `layer1/m4_201x204.log`) show. Results are in
+`claude/Layer1_M4_2026-10-06.md`, and the plain-language walkthrough is in
+`claude/Layer1_M4_Explainer.md`.
+
+**Status: all six resolved.** Item 3 carries into M5. One comparison stays open without blocking
+it: test E against Table 3 (item 6).
 
 ---
 
-## 1. Snapshot read bug — the root of the "refinement makes it worse" story
+## 1. Snapshot read
 
-`Field.nearest()` reads $V(\cdot,\tau_k)$ at the snapshot nearest the trajectory's $\tau$. That
-**rounds down** for half the points. $V(x,T)$ is non-increasing in $T$, and on the active barrier it
-equals 0 for every $T \ge \tau$. Below $\tau$ it is positive. So a rounded-down read biases $V$
-outward.
+**Problem.** Points were read at the *nearest* $V$ snapshot, which lies below the point's own
+$\tau$ half the time. $V$ is non-increasing in the horizon, and on the active barrier
+$V(x,T)=0$ only for $T\ge\tau$. A read below $\tau$ is therefore biased outward. On a stack with
+coarser snapshot spacing the bias was larger, and it made the finer grid look worse:
+- off-boresight agreement fell to 1.15 at the pinned tolerance, and to 0.50 at the fine grid's own;
+- the gradient angle rose to 8.2°;
+- evader-control agreement fell to 85.8 %.
 
-The coarse stack is spaced 0.5 (13 snapshots). The **fine stack is spaced 1.0** (7 snapshots; the run's
-own log prints this). The `test_m4.py` docstring wrongly says 0.5. Because of this, the fine run reads a
-horizon up to 0.5 too early.
+Four pass criteria had been revised after those failures.
 
-Tolerance 0.118 unless noted:
+**Fix.** Read at the first snapshot with $\tau_k\ge\tau$ (`M4_READ=ceil`; `conv` agrees). The
+original criteria are restored: C1 aggregate above 90 %, and off-boresight median of at least 1.0
+at each grid's own tolerance.
 
-| quantity | coarse, M4 read | fine, M4 read | coarse, correct read | fine, correct read |
-|---|---|---|---|---|
-| off-boresight agreement length (median $\tau$) | 1.70 | **1.15** | 1.70 / 1.65 | **1.67 / 1.65** |
-| same, fine grid at its own tolerance 0.059 | — | **0.50** | — | **1.62 / 1.60** |
-| test B, off-boresight median angle | 6.02° | 8.23° | 1.94° / 0.97° | **0.47° / 0.31°** |
-| test B, all retained | 6.65° | 8.97° | 2.61° / 1.09° | 0.64° / 0.37° |
-| C1 $\sigma_2^*$, aggregate | 92.2 % | **85.8 %** | 97.5 % / 97.8 % | **97.5 % / 97.9 %** |
+**Rerun (101 → 201):**
 
-"Correct read" means the first snapshot with $\tau_k \ge \tau$ / the converged $V(\cdot,6)$. The two
-agree.
+| | 101 | 201 |
+|---|---|---|
+| off-boresight agreement length | 1.69 | 1.62 |
+| gradient angle | 1.94° | 0.51° |
+| $\sigma_1$ agreement | 96.6 % | 97.1 % |
+| $\sigma_2$ agreement | 97.5 % | 98.4 % |
 
-- **Reproduced directly.** Dropping the coarse grid's half-integer snapshots reproduces the fine
-  grid's 1.15 exactly, on the coarse grid.
-- **Two of §4's four after-the-fact criterion changes were patches over this bug.** The $\sigma_2$
-  "resolvable set" cut and the pinned tolerance + 1.0 bar both fall away: with a correct read, both
-  original criteria pass as first written.
-- **Wrong explanations to retire.** "A moving yardstick", "a lower bound still falling with
-  refinement", and "refinement resolves smaller gradients" for the $\sigma_2$ drop.
-- **What actually happens under refinement.** Off-boresight agreement is grid-converged at
-  $\tau \approx 1.65$, and the gradient angle shrinks from about 1–2° to about 0.3–0.5° against a 35°
-  $\nabla\ell$ null. That is convergence evidence, and M4 missed it.
+Every criterion passes as originally written, and everything holds or improves under refinement.
 
-**Fix.** Tests A and B read the converged $V$ (or ceil). Keep the matched-horizon read only for
-forward-simulated feedback via `make_policy`.
+## 2. Untested trajectories counted as agreeing
 
-## 2. Min-range "never departs" means "never tested"
+**Problem.** Some min-range trajectories lie entirely below the $R\ge0.45$ mask, so they had no
+points to test. They were reported as "never left, length 6.00", which turned the family's
+headline into a non-result.
 
-- **Untested trajectories counted as agreeing.** 28 of the 48 min-range trajectories lie entirely
-  below the $R \ge 0.45$ mask (median $\max R = 0.36$) and contribute **zero** tested points. `walk()`
-  returns `dep_tau=None` for these, which the table reports as "never left, length 6.00". They account
-  for 28 of the record's 30 (coarse) and 32 (fine) "never departs".
-- **The trajectories that can be tested leave almost at once.** Over the 20 testable trajectories, the
-  median departure is $\tau \approx 0.26$ with the M4 read and $\approx 0.13$ with the converged read,
-  and 18 depart inward.
-- **The gradient angle does not converge.** It is about 10–12° at $R$ 0.45–0.6 on both grids, and at
-  $R$ 0.6–0.8 it gets **worse** under refinement (23° → 36°). All of these points sit within a few
-  cells of the inner face, which M3 already flagged as leaky.
-- **Status: unconfirmed on this domain.** The family is not corroborated by tests A and B.
+**Fix.** Trajectories with no point above the mask are excluded and counted separately.
 
-## 3. The negative control measures a tie-break
+**Rerun.**
+- **Excluded:** 30 trajectories (28 min-range, 2 off-boresight).
+- **Min-range:** 20 of 48 are testable, and they leave at $\tau=0.26$ / $0.18$, all inward or
+  never.
+- **Status:** unconfirmed and deprioritized.
 
-- **The gradient vanishes at long range.** Beyond $R = 8$, $\partial V/\partial\phi_1$ is **exactly
-  0** on 94–99 % of nodes, because there $V = \ell$ and $\ell$ does not depend on $\phi_1$.
-- **So the 50 % is forced.** `s1_grid` is then the tie-break constant $-1$, which differs from
-  $-\operatorname{sign}(\phi_1)$ on half the $\phi_1$ grid. "50.7 %" is guaranteed by construction and
-  says nothing about the heuristic.
-- **$\sigma_1$ in C1 has no discriminating power.** On the C1 points the heuristic matches
-  `barrier.py` exactly as often as $\nabla V$ does (98.2–98.9 % for both, under every read). Only
-  $\sigma_2$ discriminates: the heuristic scores 87 % there against the grid's ~98 %.
-- **Status: no valid negative control yet.** The plan's control, against Layer 0 at long range, has
-  no data to run on, because no retained points exceed $R = 6.26$.
+## 3. Negative control measured a tie-break
 
-## 4. Max-range: the departure is real, but the diagnosis is wrong
+**Problem.** The replacement control compared the grid law with the heuristic over the whole
+domain, and found about 50 % disagreement beyond $R=8$. But there $V_1$ is exactly 0 on 94–99 % of
+nodes. The grid law is then the constant tie-break $\sigma_1=-1$, so 50 % disagreement is forced.
+Separately, the heuristic matched Layer 0 exactly as often as $\nabla V$ did on the retained
+points.
 
-The departure holds under every read rule. Its cause is the **kink of $\bar R(\phi_2)$ at
-$\phi_2 = 0$**:
+**Fix.**
+- The plan's control (the heuristic must fail test C at long range) is reported as SKIP while no
+  retained point reaches $R=8$.
+- The band table drops $V_1=0$ nodes.
+- The heuristic is scored on the C1 points for both controls.
 
-- **The seeds sit next to the kink.** The 8 seeds have $|\phi_2| = 4.4°$ or $8.9°$: two distinct
-  values, as 4 mirror pairs.
-- **Before the kink they track the face.** Retrograde, they hug the face with $R-\bar R \sim 10^{-3}$.
-- **They cross the kink early.** The crossing comes at $\tau \approx 0.07$–$0.15$.
-- **After the kink they peel away.** $R - \bar R$ grows at about $4$ per unit $\tau$. The reason is
-  that $\lambda_2 \approx -1.9$ is still the normal of the $\phi_2<0$ face, while the true face normal
-  now has $+2$. So $\sigma_2 = \operatorname{sign}(\lambda_2)$ steers player 2 *toward* the kink, which
-  is the wrong way for him.
+**Rerun.**
+- **The pursuer's control can't discriminate.** The heuristic equals the grid on $\sigma_1$
+  (98.8 % and 99.2 %).
+- **The evader's control does.** On $\sigma_2$ the heuristic scores 93.3 % / 92.3 % against the
+  grid's 98.2 % / 99.1 %.
+- **Where $V$ defines a law, the heuristic agrees with it.** With $V_1=0$ nodes dropped, the two
+  disagree on only 2–9 % in every band.
+- **Beyond $R\approx6$ there is mostly no law to score.** $V=\ell$ on 81–99 % of nodes there, so
+  $V$ defines no long-range $\sigma_1$ law. **Carried into M5:** the negative control needs test
+  F's simulations as its reference.
 
-This is D&S's uncovered corner (Eqs. 38–42). It is consistent with the MaxRangeAudit, but it is a
-definite geometric cause.
+## 4. Max-range misdiagnosed
 
-The record's three checks in §3 were all made at **$\tau = 1.0$**, about 0.85 past the departure (the
-quoted state is trajectory 4 at $\tau = 1.0$):
+**Problem.** The record called the 8 max-range departures "a real defect in Layer 0's
+maximum-range family", and gave player 2's costate control as the reason. Its three checks were
+all made at $\tau=1.0$, well past the departure. Test B's max-range angle equalled the
+$\nabla\ell$ null, so it carried no information.
 
-- Check 2's $\min_t \ell = 1.37$ is just $\ell$ at the start point.
-- Check 3 shows only a local $\dot\ell$.
-- Test B's max-range angles (18.22°, 0.66°) equal the $\nabla\ell$ null **exactly**, so they carry no
-  information.
+**Resolution (Ethan's reading of the barrier explorer).**
+- **The sheets enclose nothing.** The sheets from the two BUP lenses diverge and enclose no
+  volume.
+- **Each trajectory peels off at the ridge.** It hugs its own face to within about
+  $2\times10^{-3}$ until it crosses the ridge at $\phi_2=0$, then rises over the opposite face.
+- **The grid agrees.** Past the crossing, $V=\ell$.
+- **The closing pieces are below resolution.** Layer 0's corner family, universal line and
+  dispersal line lie within about $2.2\times10^{-3}$ of the ridge, far below a grid cell.
+- **D&S's two small max-range zones lie on the target set.**
 
-## 5. The 0-of-16 switch anomaly is explained; hypothesis (ii) was right
+**The suite now prints each departure next to its crossing.**
 
-- **The 16 are not independent.** They are 8 $Rf$-mirror pairs from 8 *adjacent* off-boresight seeds
-  ($\phi_2 = \pm94°\ldots\pm136°$), all $\lambda_1$ switches. The $2^{-16}$ null therefore does not
-  apply.
-- **Each switch is a junction.** After each one, the Layer 0 trajectory swings $\phi_1$ into the
-  boresight cone and through the target set; half have $\ell \le 0$ within 0.15. The walk records an
-  **inward departure 0.03–0.34 later**.
-- **The grid's switch is not missing.** By design, `barrier_controls` at a snapped zero returns the
-  post-switch control, and the grid matches Layer 0's **pre-switch** control 16/16.
-- **So these are the inactive-segment junctions the plan asked to list.** §5(a)'s "do not re-run
-  these" should be struck.
+**Rerun.** All 8 trajectories depart after their crossing. The lag is 0.068–0.090 on the coarse
+grid and 0.040–0.059 on the fine; it shrinks with the tolerance, so the departure is tied to the
+crossing. This is not a defect, and these are not junctions.
 
-## 6. Reproducibility and low-information tests
+**Carried into M5:** exclude these zones from test F, since $W_1$ contains them from the initial
+value alone.
 
-- **Hard-coded numbers in the log.** `test_m4.py` hard-codes "median gap 1.46 vs 0.44" and
-  "96 %/92 %" into printed notes. The fine log shows 96/92 although that run measured 94.9/85.8.
-- **Code not in the repo.** §3's checks, §5(a)'s tests and the C1 quartile figures are not in the
-  repo, despite §6's claim.
-- **The seed check is vacuous.** It reads $V(\cdot,0)=\ell$ at points that lie on $\partial T$ by
-  construction.
-- **Test D does not touch the solve.** It checks the analytic `E.ell`, not grid $V$, at points chosen
-  because they satisfy the same surface equations.
-- **Test E mostly measures $\ell$.** Run on $\ell$ alone, the detector flags 1.86 % / 0.91 % of nodes,
-  against 2.20 % / 1.14 % for converged $V$. The flagged nodes sit at the same $\phi = 0, \pm180°$
-  locations and halve under refinement in the same way. Most of the reported "locus" is $\ell$'s own
-  kinks, and the halving is what any 2-D surface does.
+## 5. The 0-of-16 switch "anomaly"
 
-## 7. Corrected verdict
+**Problem.** At the switches inside retained segments, the grid matched Layer 0 0 of 16 times.
+- **It was called systematic and unexplained**, with odds of $2^{-16}$ under a coin-flip model.
+- **The right explanation was ruled out.** "The switch is where the trajectory leaves the barrier"
+  was rejected using a hard-coded statistic.
 
-The off-boresight family is strongly corroborated and grid-converged:
+**Fix.** The grid's control is now compared on both sides of each switch, with the gap to the
+departure.
 
-- agreement $\tau \approx 1.65$ on both grids;
-- gradient angle 0.3–0.5° on the fine grid, against a 35° null;
-- both controls about 97–98 %.
+**Rerun.**
+- **Pre-switch side.** The grid matches Layer 0's pre-switch control 16/16 (coarse) and 14/14
+  (fine).
+- **At the switch.** It matches 0 there, because `barrier_controls` returns the post-switch
+  control at a snapped zero.
+- **Departure.** Every one departs inward about 0.16 later.
+- **Independence.** The switches come from 8 / 7 distinct seeds, with mirror pairs, so they are
+  not independent draws.
 
-The rest stands as follows:
+**Identification: they are not $S_1U_1$** (`layer0/viz/commuting_s1u1.py`, run 2026-10-07). An
+earlier version of this note said the switches lie along D&S's commuting line $S_1U_1$. That came
+from comparing endpoints only, and the run disproves it.
 
-- **Max-range** departs at the $\phi_2 = 0$ kink, because Layer 0 has no corner family.
-- **Min-range** is untested or unconfirmed next to the inner face.
-- **The negative control** and **tests D/E** are not yet valid tests of the solve.
+- **$S_1U_1$ itself is reconstructed.**
+  - The $(0,-1)$ line from Table 2's $S_1$ passes Table 2's $U_1$ at $3.6\times10^{-4}$.
+  - Searching from $U_1$ recovers $S_1$'s $\phi_1$ as $47.238°$, against Table 2's $47.24°$.
+  - Every invariant holds to $10^{-13}$ or better.
+- **The switches sit on a different surface.**
+  - They all lie on $\phi_2=\pm135.00°$, 0.04–0.11 from the line.
+  - They are transversal crossings ($\dot\lambda_1$ from $+0.07$ to $+0.72$), which D&S's closed
+    $(-1,-1)$ orbits cannot be.
+  - The crossing turns into a touch only near $U_1$, the one point the two curves share.
+- **Table 3 has no pursuer switch line here.** All four of its pursuer switch lines sit at $R<0.6$.
 
-## 8. To do (not done)
+**Conclusion.** The switches are junctions, as the grid shows: Layer 0's post-switch segments lie
+outside D&S's structure. They are not a Table 3 line.
 
-1. Patch `test_m4.py`:
-   - ceil/converged read for A/B;
-   - exclude untested trajectories from the family statistics;
-   - drop the hard-coded notes;
-   - a negative control that excludes $\partial V/\partial\phi_1 = 0$ nodes.
+## 6. Hard-coded numbers and low-information tests
 
-   Then re-run both grids.
-2. Revise the M4 record §§1–5 to match.
-3. Min-range: test on a domain with a lower $R_{\min}$ (or a fixed inner face) before drawing any
-   conclusion.
-4. For M5 test F: the grid has $V = \ell$ near the max-range corner, so check D&S's two small
-   max-range zones specifically.
+**Problem.**
+- **Some printed notes were fixed text, not measurements.** One example is "median gap 1.46 vs
+  0.44"; another is a "96 %/92 %" figure that the fine-grid log printed although that run measured
+  otherwise.
+- **The seed check and test D only exercise $\ell$.**
+- **Test E's locus was mostly $\ell$'s own kinks.**
 
-*Probe scripts (`probe_*.py`) were run in a session workspace and are not in the repo.*
+**Fix.**
+- Every printed number is measured.
+- Test B and test E carry nulls.
+- The seed check and test D are labeled as checks of $\ell$.
+
+**Rerun.**
+- **Test E.** It flags 2.203 % / 1.146 % of masked nodes, against 1.857 % / 0.911 % for $\ell$
+  alone. The solve's own excess is 0.346 % / 0.235 %.
+- **Open:** compare that excess with D&S Table 3, transcribed in `layer0/table3.py` (run
+  2026-10-07).
+  - All 34 rows resolve to Table 2 points, and 16 have both endpoints above the mask.
+  - It flags $M_1n_1$ and $I_1P_1$ as inconsistent as printed.
+  - It flags $f_1c_1$ and $c_1O_1$ where they disagree with Layer 0's corner work.
+  - `validate_table2.py` omits Table 2's point $k_1=(0.25,\ 0°,\ \pm180°)$; `table3.py`
+    supplies it.
+
+---
+
+## The lesson for M5
+
+Two of the four criteria revised after a failure were covering the read bug, which was the real
+cause. Fix M5's numeric criteria before the solve runs. Give every headline number a null.
