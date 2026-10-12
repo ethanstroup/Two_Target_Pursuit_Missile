@@ -327,8 +327,26 @@ layer1/viz/ell_explorer.html   ell (M1) and V(x, tau) of M2 and M3; loads the tw
 Env switches: `M3_PREFLIGHT=0`, `M3_SNAP_EVERY` (solve_m3); `R_MARGIN` (win_alone,
 grid_study); `COARSE` / `FINE` (grid_study); `LAYER1_ELL_SCALING` (everything).
 
-Still to be created, per Plan §9: `test_m4.py` (acceptance A–E + the negative
-control), `mutual_kill.py` (M5).
+Added 2026-10-11, for M5 (record `claude/Layer1_M5_2026-10-11.md`, criteria
+`claude/Layer1_M5_Criteria_2026-10-11.md`):
+
+```
+layer1/reach_avoid.py     the reach-avoid solve: V <- max(V + dtau min(0,H), -ell_2),
+                          V(x,0) = max(ell_1, -ell_2); kinds game | single | frozen_p2;
+                          `cut <tag> T` takes horizon-T outputs from a longer march
+layer1/sim_m5.py          vectorized rollouts of the stopped game, event-located kills,
+                          make_policy's remaining-horizon read, the five player-2 laws
+layer1/smoke_m5.py        checks 1, 1b, 2, 3 at 61x62^2
+layer1/test_m5.py         checks 4-12, partition volumes, thin/fat, C2
+layer1/converse_m5.py     check 13 (added 2026-10-12): outside W_1 the reach-avoid
+                          adversary stops every player-1 law
+layer1/diag_*.py          report-only diagnostics behind the record's Sec. 4
+layer1/m5_out/            m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arrival time),
+                          m5_<grid>_T*.json, all logs
+```
+
+`test_m4.py` exists (M4). The `mutual_kill.py` named earlier was superseded by the
+reach-avoid M5 (Plan revision 2026-10-01).
 
 Run any suite under a different weighting with `LAYER1_ELL_SCALING=raw|plan|sdist`.
 

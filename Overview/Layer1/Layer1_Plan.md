@@ -2,7 +2,10 @@
 
 **AE 8900 · drafted 2026-09-14 · Ethan Stroup**
 **Status:** **instructions closed 2026-09-14; revised 2026-10-01** (M5 redefined, see the
-revision note below). M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
+revision note below). Test F scoped and M5's criteria pre-registered 2026-10-11
+(`claude/Layer1_M5_Criteria_2026-10-11.md`). **M5 solved and scored 2026-10-11**
+(`claude/Layer1_M5_2026-10-11.md`: guarantee and D&S corrected boundary reproduced; contested
+set fat but resolves to a draw, shown by the converse check 13 added 2026-10-12; inner face open). M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
 `claude/Layer1_Progress_2026-09-14.md`. Layer 0 closed 2026-09-11
 (`claude/Layer0_CloseOut_2026-09-11.md`).
 **Schedule slot:** ProblemStatement §10, weeks 3–6.
@@ -545,6 +548,17 @@ the Table 2 points that lie on the corrected boundary on $\partial W_1$. Simulat
 states in $W_1$ with player 1 on the reach-avoid law against several player-2 laws (avoid,
 trade via $\nabla t_2^*$, the pursuit heuristic): every run must end in a player-1 win alone. A
 single counterexample means the reach-avoid formulation or its implementation is wrong.
+
+*(Scoped 2026-10-11, from M4 §6, before any M5 solve.)*
+- **Max-range zones excluded.** D&S's two max-range zones lie on $T_{1\to2}$ itself (M4 §4.2), so
+  $W_1$ contains them from the initial value alone. The topology test therefore counts three
+  components of $W_1$ outside the target sets.
+- **Negative control.** It moves here as a guarantee test. Player 1 flies the heuristic from the
+  same $W_1$ starts, and at least 20 starts must lose to some player-2 law.
+- **No long-range starts.** $W_1$ has no states at $R\ge8$, because $W_1\subseteq\{V_1\le0\}$ and
+  that set ends at $R=6.100$. So the long-range inversion check stays with C2.
+- **Details.** Numbers, the Table 2 tags, the simulation protocol and the derivation of the update
+  are pre-registered in `claude/Layer1_M5_Criteria_2026-10-11.md`.
 
 **Negative control — run this, it is not optional.** The old heuristic
 $\sigma_i = -\operatorname{sign}(\phi_i)$ must **fail** test C at long range. A test suite

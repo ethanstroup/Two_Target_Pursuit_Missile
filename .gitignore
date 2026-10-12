@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 .vscode/settings.json
 *.png
+m5_out/
+m3_out/
