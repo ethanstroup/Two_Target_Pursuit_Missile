@@ -12,9 +12,12 @@ from each edge:
     V_1 <= -delta,   V_2 > 0,   V_RA >= +delta,   in Omega.
 
 Usage:  python3 converse_m5.py [T]
+Environment: FINE, COARSE (grid tags, default 201x204, 101x102); LAYER1_POLE=1 for the pole runs
+(as test_m5.py).  A grid not solved yet is skipped.
 """
 
 import json
+import os
 import sys
 
 import numpy as np
@@ -45,12 +48,12 @@ def player1_laws(stack_ra, stack_v1, t1star, T, n_total):
             SIM.law_random(n_total, T, seed=777)]
 
 
-def outcome_table(x0, law1, p2laws, T):
-    """Outcome codes, shape (starts, player-2 laws)."""
+def outcome_table(x0, law1, p2laws, T, rollout_kw=None):
+    """Outcome codes, shape (starts, player-2 laws).  rollout_kw: e.g. the pole stepper."""
     n, k = len(x0), len(p2laws)
     X = np.repeat(x0, k, axis=0)
     lid = np.tile(np.arange(k), n)
-    res = SIM.rollout(X, law1, TM.composite(p2laws, lid), T)
+    res = SIM.rollout(X, law1, TM.composite(p2laws, lid), T, **(rollout_kw or {}))
     return res['outcome'].reshape(n, k)
 
 
@@ -63,21 +66,31 @@ def print_table(name, oc):
                  s['exited domain']))
 
 
-def run_grid(tag, T, scored):
-    V_ra, diag = TM.load_ra('%s_T%g' % (tag, T))
-    V1, t1, v1tag = TM.load_single(tag, T)
-    geom, cell = SIM.Geom(V_ra.shape), diag['cell']
+def run_grid(grid_tag, T, scored):
+    """Check 13 on one grid; None if its V_RA or V_1 is not solved yet."""
+    s = TM.load_set(grid_tag, T)
+    if s is None or s['V1'] is None:
+        print('  (check 13 on %s skipped: %s not solved yet)'
+              % (grid_tag, TM.run_tag(grid_tag, T) if s is None else 'its V_1'))
+        return None
+    V_ra, V1, geom, cell = s['V_ra'], s['V1'], s['geom'], s['cell']
     om = TM.omega(geom)
     pool = converse_pool(V_ra, V1, om, cell)
     starts = draw_starts(pool)
     x0 = geom.node_states(starts)
-    TM.header('Check 13 on %s (delta %.4f, V_1 from %s)%s' % (tag, cell, v1tag, '' if scored else ', report only'))
+    TM.header('Check 13 on %s (delta %.4f, V_1 from %s)%s' % (s['tag'], cell, s['v1tag'], '' if scored else ', report only'))
     print('        pool: %d nodes (V_1 <= -delta, V_2 > 0, V_RA >= +delta, in Omega); %d drawn'
           % (pool.size, len(starts)))
+    if len(starts) == 0:
+        if scored:
+            print('  %-10s check 13 %s: converse guarantee   uninformative (empty pool)'
+                  % ('UNINFORMATIVE', grid_tag))
+        return dict(tag=s['tag'], pool=0)
     print('        start R: 10th %.2f  median %.2f  90th %.2f'
           % tuple(np.percentile(x0[:, 0], [10, 50, 90])))
-    stack_ra = SIM.SnapshotStack(geom, TM.load_snaps('%s/VRAsnap_%s_T%g.npz' % (TM.OUT, tag, T)))
-    stack_v1 = SIM.SnapshotStack(geom, TM.load_snaps('%s/Vsnap_%s_T6.npz' % (TM.M3, tag)))
+    stack_ra = SIM.SnapshotStack(s['geom_sim'], TM.load_snaps(s['snaps_ra']))
+    stack_v1 = SIM.SnapshotStack(s['geom_sim'], TM.load_snaps(s['snaps_v1']))
+    t1 = s['t1']
     n_total = len(starts) * len(TM.P2_NAMES)
     p2laws = TM.player2_laws(stack_ra, stack_v1, t1, T, n_total)
     p1laws = player1_laws(stack_ra, stack_v1, t1, T, n_total)
@@ -95,12 +108,12 @@ def run_grid(tag, T, scored):
         state = (True if total_wins == 0 else False) if informative >= BAR_INFORMATIVE else 'UNINF'
         if state == 'UNINF':
             print('  %-10s check 13 %s: converse guarantee   uninformative (%d < %d)'
-                  % ('UNINFORMATIVE', tag, informative, BAR_INFORMATIVE))
+                  % ('UNINFORMATIVE', grid_tag, informative, BAR_INFORMATIVE))
         else:
-            TM.report('check 13 %s: converse guarantee' % tag, state,
+            TM.report('check 13 %s: converse guarantee' % grid_tag, state,
                       '%d wins alone in %d runs against the adversary; informativeness %d starts'
                       % (total_wins, len(starts) * len(P1_NAMES), informative))
-    return dict(tag=tag, pool=int(pool.size), starts=starts.tolist(), wins_vs_adversary=wins_vs_adv,
+    return dict(tag=s['tag'], pool=int(pool.size), starts=starts.tolist(), wins_vs_adversary=wins_vs_adv,
                 informative=informative,
                 tables={n: {p2: SIM.summarize(tables[n][:, j]) for j, p2 in enumerate(TM.P2_NAMES)}
                         for n in P1_NAMES})
@@ -108,14 +121,17 @@ def run_grid(tag, T, scored):
 
 def main():
     T = float(sys.argv[1]) if len(sys.argv) > 1 else 6.0
+    fine = os.environ.get('FINE', '201x204')
+    coarse = os.environ.get('COARSE', '101x102')
     print('=' * 96)
-    print('M5 check 13: the converse guarantee   T_RA = %g' % T)
+    print('M5 check 13: the converse guarantee   T_RA = %g   inner face: %s'
+          % (T, 'pole' if TM.POLE else 'extrapolate at R_min'))
     print('=' * 96)
-    out = {'fine': run_grid('201x204', T, True), 'coarse': run_grid('101x102', T, False)}
+    out = {'fine': run_grid(fine, T, True), 'coarse': run_grid(coarse, T, False)}
     out['results'], out['fails'] = TM.RESULTS, TM.FAILS
-    json.dump(out, open('%s/converse_m5_T%g.json' % (TM.OUT, T), 'w'), indent=1)
+    json.dump(out, open('%s/converse_m5_T%g%s.json' % (TM.OUT, T, TM.SUFFIX), 'w'), indent=1)
     print('=' * 96)
-    print('check 13: %s' % (TM.RESULTS.get('check 13 201x204: converse guarantee', {}).get('state', 'see above')))
+    print('check 13: %s' % (TM.RESULTS.get('check 13 %s: converse guarantee' % fine, {}).get('state', 'see above')))
     print('=' * 96)
 
 

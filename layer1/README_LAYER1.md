@@ -341,9 +341,51 @@ layer1/test_m5.py         checks 4-12, partition volumes, thin/fat, C2
 layer1/converse_m5.py     check 13 (added 2026-10-12): outside W_1 the reach-avoid
                           adversary stops every player-1 law
 layer1/diag_*.py          report-only diagnostics behind the record's Sec. 4
-layer1/m5_out/            m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arrival time),
+layer1/m5_out/            m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arrival time,
+                          and from 2026-10-13 the node arrays R, phi1, phi2),
                           m5_<grid>_T*.json, all logs
+                          Vsnap_RA_<tag>.npz (added 2026-10-13): V_RA(., tau) every 0.5 for
+                          visualization, in M3's Vsnap layout plus R, phi1, phi2; real rows
+                          only. Written by every solve; for older runs:
+                          python reach_avoid.py vsnap <tag> [<tag> ...]
 ```
+
+Added 2026-10-13, for the inner face (record `claude/Layer1_M5_InnerFace_2026-10-13.md`):
+
+```
+layer1/pole.py            pole condition at R = 0: staggered rows (i + 1/2) dR, 3 ghost rows
+                          below zero refilled every step by the mirror
+                          (-R, phi1, phi2) = (R, phi1 + pi, phi2 + pi); solver settings with
+                          the pole; pole.stepper flips rollouts through the pass
+layer1/inertial.py        exact inertial kinematics (closed-form arcs), conversions to and
+                          from (R, phi1, phi2), exact outcomes and rollouts (truth for V1, V2)
+layer1/verify_pole.py     V1-V4 of the record's Sec. 4:  python verify_pole.py v1|v2|v3|v4
+layer1/diag_pole_check3.py   smoke check 3 on the pole grid
+layer1/diag_check3_rmin.py   smoke check 3 at a chosen R_min (the R_min = 0.1 trial)
+layer1/diag_pole_oldfails.py the 12 old check 3 failures re-flown on the pole grid (D1)
+layer1/diag_pole_check8.py   check 8's far flips on the pole grid; near-face W_1 shares (D2)
+layer1/run_m5_pole.py     M5 rerun on the pole grids, unattended and resumable (see below)
+layer1/diag_check8_interp.py check 8 scored with fine values interpolated in R vs exact (old
+                             grids): the procedure for check 8 on pole grids, which don't nest
+layer1/m5_out/pole/       V1-V4 and D1-D2 logs and json, pole solve logs
+layer1/m5_out/rmin0.1/    the R_min = 0.1 smoke and diagnostic logs
+```
+
+**Rerunning M5 on the pole grids** (2026-10-13): `python run_m5_pole.py` runs every solve and
+check in order (smoke, coarse march and cut, V_1, third grid, fine game and V_1, checks 4-13),
+one log per step in `m5_out/pole_run/`, and resumes where it stopped if started again
+(`--list` shows the steps; `--parallel-fine` runs the two fine solves at once). Under
+`LAYER1_POLE=1`, `smoke_m5.py`, `test_m5.py` and `converse_m5.py` read the `_pole` runs: V_1
+from `reach_avoid.py ... single`, field checks on the rows at R > 0, rollouts with
+pole.stepper, check 8 with the fine field interpolated in R, smoke check 2 against the
+inertial truth. Their json carry `_pole`. Without the variable they reproduce the M5 logs
+exactly.
+
+Solve on the pole grid with `LAYER1_POLE=1 python reach_avoid.py <n_R> <n_phi> <T> [kind]`;
+`n_phi` must be even. Outputs carry the suffix `_pole`. Pole rows are staggered,
+R = (i + 1/2) dR with dR = 12 / (n_R - 1/2), and the full-grid files (VRA, tRA, VRAsnap,
+fields) keep 3 mirror rows at R < 0; read R from the file (fields npz, or R_nodes in the
+json), never linspace(0.2, 12, n_R). Vsnap_RA drops the mirror rows.
 
 `test_m4.py` exists (M4). The `mutual_kill.py` named earlier was superseded by the
 reach-avoid M5 (Plan revision 2026-10-01).

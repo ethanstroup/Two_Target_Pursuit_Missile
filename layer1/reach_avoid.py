@@ -29,6 +29,21 @@ Usage:  python3 reach_avoid.py n_R n_phi T_max [kind]
              | single           M3's single-target V_1 at the same horizon, for D
              | frozen_p2        sigma_2 == 0 (the check-3 smoke test)
         python3 reach_avoid.py cut <src_tag> T     outputs at horizon T from a longer march
+        python3 reach_avoid.py vsnap <tag> [...]   Vsnap_RA_<tag>.npz for runs already on disk
+
+OUTPUTS (m5_out/)
+-----------------
+    VRA_<tag>.npy, tRA_<tag>.npy   final V_RA and the reach-avoid arrival time (full grid)
+    VRAsnap_<tag>.npz              V_RA(., tau) every SNAP_EVERY, full grid, for the
+                                   simulator's remaining-horizon read
+    Vsnap_RA_<tag>.npz             for visualization, in M3's Vsnap layout: V_RA(., tau)
+                                   every 0.5 as float32, plus node arrays R, phi1, phi2;
+                                   real rows only (a pole grid's ghost rows dropped)
+    m5_<tag>_fields.npz            V (float32), tRA and the node arrays, full grid
+    m5_<tag>.json                  diagnostics; R_nodes lists every row's R
+On a pole grid (LAYER1_POLE=1) the full-grid files keep pole.N_GHOST mirror rows at R < 0
+and the rows are staggered, R = (i + 1/2) dR; read R from the file, never assume
+linspace(0.2, 12, n_R).
 """
 
 import json
@@ -46,7 +61,11 @@ import ell as E
 OUT = 'm5_out'
 DTAU = 0.25
 SNAP_EVERY = float(os.environ.get('M5_SNAP_EVERY', '0.25'))
+VIZ_EVERY = 0.5         # Vsnap cadence, as M3's, so M3 and M5 snapshots share tau keys
 R_MARGIN = 0.45
+# LAYER1_POLE=1: the inner face is the pole condition (pole.py), not extrapolation at R_min.
+# Outputs then carry pole.N_GHOST mirror rows below R = 0 and the tag suffix '_pole'.
+POLE = os.environ.get('LAYER1_POLE', '0') == '1'
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +135,17 @@ def make_dynamics(kind='game'):
     raise ValueError(kind)
 
 
+def settings_and_start(ell1, ell2, form='library'):
+    """(solver settings, initial value) of the reach-avoid update in either form, on the
+    grid LAYER1_POLE selects: the pole fill follows every step and seeds the start."""
+    V0 = initial_value(ell1, ell2)
+    if not POLE:
+        return solver_settings(ell1, ell2, form), V0
+    import pole
+    ss = pole.reach_avoid_settings(ell2) if form == 'library' else pole.fisac_settings(ell1, ell2)
+    return ss, pole.fill(V0)
+
+
 def problem(kind, ell1, ell2):
     """
     (solver settings, initial value) for each kind of solve.
@@ -123,8 +153,19 @@ def problem(kind, ell1, ell2):
     draw set D can be formed at the same horizon and on the same grids as V_RA.
     """
     if kind == 'single':
+        if POLE:
+            import pole
+            return pole.single_target_settings(), pole.fill(ell1)
         return hji.make_solver_settings('very_high'), ell1
-    return solver_settings(ell1, ell2, 'library'), initial_value(ell1, ell2)
+    return settings_and_start(ell1, ell2, 'library')
+
+
+def build_grid(n_R, n_phi):
+    """The R_min = 0.2 extrapolation grid, or the pole grid when LAYER1_POLE=1."""
+    if POLE:
+        import pole
+        return pole.make_grid(n_R, n_phi)
+    return hji.make_grid(n_R=n_R, n_phi=n_phi)
 
 
 # ---------------------------------------------------------------------------
@@ -211,17 +252,72 @@ def check_ell2_transpose(grid, ell1, ell2):
 # ---------------------------------------------------------------------------
 
 def tag_for(n_R, n_phi, T_max, kind):
-    return '%dx%d_T%g%s' % (n_R, n_phi, T_max, '' if kind == 'game' else '_' + kind)
+    return '%dx%d_T%g%s%s' % (n_R, n_phi, T_max, '' if kind == 'game' else '_' + kind,
+                              '_pole' if POLE else '')
+
+
+def node_axes(diag):
+    """The run's node arrays (R, phi_1, phi_2).  R comes from the json's R_nodes (pole rows,
+    ghost rows included); runs saved before R_nodes existed are on hji.make_grid's R."""
+    n_R, n_phi = diag['n_R'], diag['n_phi']
+    if 'R_nodes' in diag:
+        R = np.asarray(diag['R_nodes'], float)
+    else:
+        R = np.asarray(hji.make_grid(n_R=n_R, n_phi=n_phi).coordinate_vectors[0], float)
+    P = -np.pi + 2 * np.pi * np.arange(n_phi) / n_phi
+    return R, P, P.copy()
+
+
+def first_real_row(R):
+    """Index of the first row at R > 0.  Pole grids carry mirror (ghost) rows below it."""
+    return int(np.searchsorted(R, 0.0))
+
+
+def on_cadence(tau, every):
+    return abs(tau / every - round(tau / every)) < 1e-6
+
+
+def save_vsnap(tag, snaps, R, phi1, phi2, every=VIZ_EVERY):
+    """
+    Vsnap_RA_<tag>.npz, for visualization, in the layout of M3's Vsnap_<tag>.npz (named
+    apart from it): float32 V(., tau) under keys '0.000', '0.500', ... and the node arrays
+    R, phi1, phi2.  Real rows only: a pole
+    grid's ghost rows (R < 0) repeat rows above zero, mirrored, and are dropped.
+    """
+    i0 = first_real_row(R)
+    keep = {k: np.asarray(v[i0:], np.float32) for k, v in snaps.items() if on_cadence(float(k), every)}
+    path = '%s/Vsnap_RA_%s.npz' % (OUT, tag)
+    np.savez_compressed(path, R=R[i0:], phi1=phi1, phi2=phi2, **keep)
+    return path, len(keep), R.size - i0
 
 
 def save_outputs(tag, V, t_arr, snaps, diag):
     os.makedirs(OUT, exist_ok=True)
+    R, P1, P2 = node_axes(diag)
     np.save('%s/VRA_%s.npy' % (OUT, tag), V)
     np.save('%s/tRA_%s.npy' % (OUT, tag), t_arr)
     np.savez('%s/VRAsnap_%s.npz' % (OUT, tag), **snaps)
     np.savez_compressed('%s/m5_%s_fields.npz' % (OUT, tag),
-                        V=V.astype(np.float32), tRA=t_arr)
+                        V=V.astype(np.float32), tRA=t_arr, R=R, phi1=P1, phi2=P2)
+    save_vsnap(tag, snaps, R, P1, P2)
     json.dump(diag, open('%s/m5_%s.json' % (OUT, tag), 'w'), indent=1)
+
+
+def vsnap_from_saved(tag):
+    """Write Vsnap_RA_<tag>.npz for a run already on disk, from its VRAsnap and json."""
+    d = json.load(open('%s/m5_%s.json' % (OUT, tag)))
+    z = np.load('%s/VRAsnap_%s.npz' % (OUT, tag))
+    R, P1, P2 = node_axes(d)
+    path, n_snap, n_rows = save_vsnap(tag, {k: z[k] for k in z.files}, R, P1, P2)
+    return '%s  (%d snapshots, %d real rows, R %.4f to %.4f)' % (path, n_snap, n_rows,
+                                                                R[first_real_row(R)], R[-1])
+
+
+def retag(src_tag, T):
+    """'101x102_T10_single_pole' -> '101x102_T6_single_pole' for T = 6 (suffixes kept)."""
+    head, rest = src_tag.rsplit('_T', 1)
+    suffix = rest.split('_', 1)[1] if '_' in rest else ''
+    return '%s_T%g%s' % (head, T, '_' + suffix if suffix else '')
 
 
 def cut_horizon(src_tag, T):
@@ -242,7 +338,7 @@ def cut_horizon(src_tag, T):
         diag[key] = list(np.array(d[key])[keep])
     surf, nb = surface_motion(V, np.array(diag['moved']))      # normalized by the tau = T surface
     diag.update(T_max=T, cut_from=src_tag, surf_motion=surf.tolist(), surface_nodes=nb)
-    tag = src_tag.rsplit('_T', 1)[0] + '_T%g' % T
+    tag = retag(src_tag, T)
     save_outputs(tag, V, t_arr, snaps, diag)
     return tag
 
@@ -251,17 +347,21 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'cut':
         print('wrote', cut_horizon(sys.argv[2], float(sys.argv[3])))
         return
+    if len(sys.argv) > 1 and sys.argv[1] == 'vsnap':
+        for tag in sys.argv[2:]:
+            print('wrote', vsnap_from_saved(tag))
+        return
     n_R = int(sys.argv[1]) if len(sys.argv) > 1 else 101
     n_phi = int(sys.argv[2]) if len(sys.argv) > 2 else 102
     T_max = float(sys.argv[3]) if len(sys.argv) > 3 else 10.0
     kind = sys.argv[4] if len(sys.argv) > 4 else 'game'
     tag = tag_for(n_R, n_phi, T_max, kind)
 
-    grid = hji.make_grid(n_R=n_R, n_phi=n_phi)
+    grid = build_grid(n_R, n_phi)
     ell1, ell2 = ell1_on_grid(grid), ell2_on_grid(grid)
     print('=' * 92)
-    print('M5 reach-avoid solve   grid %d x %d x %d   T_max %.1f   dyn %s   ell %s'
-          % (n_R, n_phi, n_phi, T_max, kind, E.SCALING))
+    print('M5 reach-avoid solve   grid %d x %d x %d   T_max %.1f   dyn %s   ell %s   inner face: %s'
+          % (n_R, n_phi, n_phi, T_max, kind, E.SCALING, 'pole' if POLE else 'extrapolate at R_min'))
     print('=' * 92)
 
     ok, e, cell = check_ell2_transpose(grid, ell1, ell2)
@@ -281,9 +381,10 @@ def main():
                 cell=cell, check1=dict(ok=bool(ok), max_diff=e), wall_s=wall,
                 taus=taus.tolist(), frac=frac.tolist(), moved=moved.tolist(),
                 surf_motion=surf.tolist(), surface_nodes=nb, T_RA=T_star,
-                snap_every=SNAP_EVERY)
+                snap_every=SNAP_EVERY, pole=POLE,
+                R_nodes=np.asarray(grid.coordinate_vectors[0]).tolist())
     save_outputs(tag, V, t_arr, snaps, diag)
-    print('   wrote %s/{VRA,tRA}_%s.npy, VRAsnap_%s.npz, m5_%s.json' % (OUT, tag, tag, tag))
+    print('   wrote %s/{VRA,tRA}_%s.npy, {VRAsnap,Vsnap_RA}_%s.npz, m5_%s.json' % (OUT, tag, tag, tag))
 
 
 if __name__ == '__main__':

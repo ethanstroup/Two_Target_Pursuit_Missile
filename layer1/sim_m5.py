@@ -15,15 +15,23 @@ Outcomes (criteria Sec. 3.3):
     LOSS  player 2 enters T_{2->1} first
     MUTUAL  both entries within TIE_EPS of each other (never a win)
     NONE  no entry by the horizon
-    EXIT  left 0.2 < R < 12 before any entry
+    EXIT  left 0.2 < R < 12 before any entry (with the pole: only through R = 12)
 Kill instants are located inside the step by bisection to ~1e-11 in time.
+
+LAYER1_POLE=1: fields come from pole grids (pole.py), and rollouts default to pole.stepper
+with no inner exit, so a run passes through R = 0 instead of stopping at R_min.  Explicit
+`stepper` / `exit_lo` arguments still override.  Build geometries from the grid or the
+file's R nodes (Geom.from_grid, Geom.from_R), never from the array shape alone.
 """
+
+import os
 
 import numpy as np
 
 import ell as E
 
 R_LO_DOM, R_HI_DOM = 0.2, 12.0
+POLE = os.environ.get('LAYER1_POLE', '0') == '1'
 TIE_EPS = 1e-6
 WIN, LOSS, MUTUAL, NONE, EXIT = 1, 2, 3, 0, 4
 OUTCOME_NAMES = {WIN: 'win alone', LOSS: 'player-2 kill', MUTUAL: 'mutual kill',
@@ -42,6 +50,19 @@ class Geom:
         self.R_min, self.R_max = R_min, R_max
         self.dR = (R_max - R_min) / (self.n_R - 1)
         self.dphi = 2 * np.pi / self.n_phi
+
+    @classmethod
+    def from_R(cls, R, n_phi):
+        """Geometry of uniform R nodes (any layout: hji's, or a pole grid's, ghost rows or not)."""
+        R = np.asarray(R, float)
+        d = np.diff(R)
+        if not np.allclose(d, d[0], rtol=1e-9, atol=1e-12):
+            raise ValueError('R nodes are not uniform')
+        return cls((len(R), n_phi, n_phi), R_min=float(R[0]), R_max=float(R[-1]))
+
+    @classmethod
+    def from_grid(cls, grid):
+        return cls.from_R(np.asarray(grid.coordinate_vectors[0]), int(grid.shape[1]))
 
     def coords(self):
         R = np.linspace(self.R_min, self.R_max, self.n_R)
@@ -63,6 +84,7 @@ def f(x, s1, s2):
     """D&S Eqs. (1)-(3), phi_dot = LOS rate + sigma."""
     R, p1, p2 = x[:, 0], x[:, 1], x[:, 2]
     L = np.sin(p1) + np.sin(p2)
+    R = np.where(np.abs(R) < 1e-12, 1e-12, R)    # exact head-on pass through R = 0 (pole runs): L = 0 there
     return np.stack([-(np.cos(p1) + np.cos(p2)), L / R + s1, L / R + s2], -1)
 
 
@@ -287,13 +309,23 @@ def classify(h1, h2):
     return np.where(both, MUTUAL, out)
 
 
-def rollout(x0, law1, law2, T, dt=2e-3):
+def rollout(x0, law1, law2, T, dt=2e-3, stepper=None, exit_lo=None):
     """
     Advance every trajectory to its first kill (or T, or exit).  Returns dict with
-    per-trajectory outcome code, event time and final state.
+    per-trajectory outcome code, event time, final state and the smallest R reached.
+
+    `stepper(x, s1, s2, h)` replaces the plain RK4 step (pole.stepper sub-steps near R = 0
+    and flips through it); `exit_lo` replaces the inner exit radius (-inf with the pole).
+    Under LAYER1_POLE=1 both default to the pole's.
     """
+    if POLE and stepper is None and exit_lo is None:
+        import pole                      # pole imports this module, so not at the top
+        stepper, exit_lo = pole.stepper, -np.inf
+    step = stepper if stepper is not None else rk4
+    lo = R_LO_DOM if exit_lo is None else exit_lo
     x = np.array(x0, float)
     N = len(x)
+    r_min = x[:, 0].copy()
     outcome = np.full(N, NONE)
     t_end = np.full(N, np.inf)
     alive = np.ones(N, bool)
@@ -310,7 +342,8 @@ def rollout(x0, law1, law2, T, dt=2e-3):
         t = n * dt
         xa = x[ids]
         s1, s2 = law1(xa, t, ids), law2(xa, t, ids)
-        xn = rk4(xa, s1, s2, dt)
+        xn = step(xa, s1, s2, dt)
+        r_min[ids] = np.minimum(r_min[ids], xn[:, 0])
         hit1, hit2 = ell1(xn) <= 0, ell2(xn) <= 0
         hit = hit1 | hit2
         if hit.any():
@@ -326,14 +359,14 @@ def rollout(x0, law1, law2, T, dt=2e-3):
             outcome[g] = classify(h1, h2)
             t_end[g] = t + np.minimum(h1, h2)
             alive[g] = False
-        out_dom = ~hit & ~((xn[:, 0] > R_LO_DOM) & (xn[:, 0] < R_HI_DOM))
+        out_dom = ~hit & ~((xn[:, 0] > lo) & (xn[:, 0] < R_HI_DOM))
         if out_dom.any():
             g = ids[out_dom]
             outcome[g] = EXIT
             t_end[g] = t + dt
             alive[g] = False
         x[ids] = xn
-    return dict(outcome=outcome, t_end=t_end, x_end=x)
+    return dict(outcome=outcome, t_end=t_end, x_end=x, r_min=r_min)
 
 
 def summarize(outcome):
@@ -354,7 +387,7 @@ def assert_matches_make_policy(grid, snaps, n=300, seed=1):
     keys = sorted(snaps, key=float)
     taus = np.array([float(k) for k in keys])
     T = float(taus[-1])
-    stack = SnapshotStack(Geom(snaps[keys[0]].shape), snaps)
+    stack = SnapshotStack(Geom.from_grid(grid), snaps)
     pol = hji.make_policy(grid, [snaps[k] for k in keys], taus, k_max=len(keys))
     rng = np.random.default_rng(seed)
     x = np.stack([rng.uniform(0.5, 7.0, n), rng.uniform(-np.pi, np.pi, n),

@@ -5,7 +5,9 @@
 revision note below). Test F scoped and M5's criteria pre-registered 2026-10-11
 (`claude/Layer1_M5_Criteria_2026-10-11.md`). **M5 solved and scored 2026-10-11**
 (`claude/Layer1_M5_2026-10-11.md`: guarantee and D&S corrected boundary reproduced; contested
-set fat but resolves to a draw, shown by the converse check 13 added 2026-10-12; inner face open). M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
+set fat but resolves to a draw, shown by the converse check 13 added 2026-10-12). Inner face
+followed up 2026-10-13 (`claude/Layer1_M5_InnerFace_2026-10-13.md`): a pole condition at $R=0$
+passed all four pre-registered tests and fixes check 3; check 8 stays open pending a fine pole solve. M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
 `claude/Layer1_Progress_2026-09-14.md`. Layer 0 closed 2026-09-11
 (`claude/Layer0_CloseOut_2026-09-11.md`).
 **Schedule slot:** ProblemStatement §10, weeks 3–6.

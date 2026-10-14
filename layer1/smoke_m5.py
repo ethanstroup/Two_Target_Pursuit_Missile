@@ -14,6 +14,11 @@ smoke_m5.py -- Layer 1, M5 smoke tests at 61 x 62^2 (criteria Sec. 4.1, checks 1
 
 n_phi = 62 keeps |phi_1| = beta off the nodes (index 38.75).
 
+LAYER1_POLE=1 runs the same checks on the pole grid (claude/Layer1_M5_InnerFace_2026-10-13.md):
+the solves use the pole fill, fields are compared on the real rows (R > 0), check 2's exact
+outcome is integrated in the inertial frame (inertial.py, as in V1), so paths pass through
+R = 0 and only exits through R = 12 are excluded, and check 3's rollouts use pole.stepper.
+
 Usage:  python3 smoke_m5.py [T]        (default T = 4)
 """
 
@@ -29,7 +34,7 @@ import reach_avoid as RA
 import sim_m5 as SIM
 
 N_R, N_PHI = 61, 62
-T = float(sys.argv[1]) if len(sys.argv) > 1 else 4.0
+T = float(sys.argv[1]) if (__name__ == '__main__' and len(sys.argv) > 1) else 4.0   # only when run, not imported
 FAILS = []
 
 
@@ -87,8 +92,7 @@ def far_disagreements(a_in, b_in, band, valid=None):
 
 def solve(grid, dyn, T_max, form='library', snap_every=0.0):
     ell1, ell2 = RA.ell1_on_grid(grid), RA.ell2_on_grid(grid)
-    ss = RA.solver_settings(ell1, ell2, form)
-    V0 = RA.initial_value(ell1, ell2)
+    ss, V0 = RA.settings_and_start(ell1, ell2, form)
     V, _, taus, frac, moved, snaps, wall = RA.march(grid, dyn, ss, V0, T_max,
                                                     snap_every=snap_every, log=lambda s: None)
     return V, snaps, wall
@@ -115,6 +119,25 @@ def exact_outcome(geom, c1, c2, T_max, dt=1e-3):
     return J.reshape(shape), exited.reshape(shape)
 
 
+def real_part(grid, V):
+    """Rows at R > 0 (a pole grid's ghost rows dropped) and their geometry."""
+    R = np.asarray(grid.coordinate_vectors[0])
+    i0 = RA.first_real_row(R)
+    return np.asarray(V)[i0:], SIM.Geom.from_R(R[i0:], int(grid.shape[1]))
+
+
+def exact_reference(geom, c1, c2, T_max):
+    """(J, excluded): exact outcome per node and the nodes excluded from the comparison.
+    Pole: inertial frame, excluded only if the path leaves through R = 12."""
+    if not SIM.POLE:
+        return exact_outcome(geom, c1, c2, T_max)
+    import inertial as IN
+    x0 = geom.node_states(np.arange(geom.n_R * geom.n_phi ** 2))
+    J, left, _ = IN.exact_outcome(x0, c1, c2, T_max)
+    shape = (geom.n_R, geom.n_phi, geom.n_phi)
+    return J.reshape(shape), left.reshape(shape)
+
+
 def omega_mask(grid):
     R = np.asarray(grid.states[..., 0])
     return (R >= RA.R_MARGIN) & (np.asarray(RA.ell1_on_grid(grid)) > 0) & \
@@ -131,6 +154,8 @@ def check_1b(grid):
     print('-' * 92)
     Va, _, wa = solve(grid, hji.TwoTargetPursuit(), T, 'library')
     Vb, _, wb = solve(grid, hji.TwoTargetPursuit(), T, 'fisac')
+    Va, _ = real_part(grid, Va)
+    Vb, _ = real_part(grid, Vb)
     far, tot = far_disagreements(Va <= 0, Vb <= 0, 2)
     d = np.abs(Va - Vb)
     print('        {V<=0}: library %.4f%%  fisac %.4f%%   (%.0f s, %.0f s)'
@@ -142,19 +167,20 @@ def check_1b(grid):
     return Va
 
 
-def check_2(grid, geom, cell):
+def check_2(grid, cell):
     for c1, c2 in ((0.0, 0.0), (1.0, -1.0)):
         print('-' * 92)
         print('2.  Both controls frozen at (%+g, %+g)   (T = %.1f)' % (c1, c2, T))
         print('-' * 92)
         Vg, _, wall = solve(grid, FixedControls(c1, c2), T)
+        Vg, geom_r = real_part(grid, Vg)
         t0 = time.time()
-        Vx, exited = exact_outcome(geom, c1, c2, T)
+        Vx, exited = exact_reference(geom_r, c1, c2, T)
         valid = ~exited
         far, tot = far_disagreements(Vg <= 0, Vx <= 0, 2, valid)
         err = np.abs(Vg - Vx)[valid]
-        print('        grid solve %.0f s, exact integration %.0f s;  %d nodes excluded (left the R domain)'
-              % (wall, time.time() - t0, int(exited.sum())))
+        print('        grid solve %.0f s, exact integration %.0f s;  %d nodes excluded (left the R domain%s)'
+              % (wall, time.time() - t0, int(exited.sum()), ' through R = 12' if SIM.POLE else ''))
         print('        {V<=0}: grid %.4f%%  exact %.4f%%   |V_grid - V_exact| median %.4f  95th %.4f  (cell %.4f)'
               % (100 * np.mean((Vg <= 0)[valid]), 100 * np.mean((Vx <= 0)[valid]),
                  np.median(err), np.percentile(err, 95), cell))
@@ -181,23 +207,31 @@ def check_3(grid, geom, cell, n_starts=500, seed=0):
     print('        %d candidate starts with V <= -delta in Omega; %d rolled out (solve %.0f s)'
           % (cand.size, len(pick), wall))
     print('        outcomes: %s' % s)
+    if SIM.POLE:
+        import pole
+        print('        pole: ghost residual after the solve %.1e; runs passing inside R = 0.25: %d'
+              % (pole.ghost_residual(V), int(np.sum(res['r_min'] < 0.25))))
     report('check 3: every rollout from V <= -delta wins alone', s['win alone'] == len(pick),
            '%d / %d' % (s['win alone'], len(pick)))
     return res, pick
 
 
 def main():
-    grid = hji.make_grid(n_R=N_R, n_phi=N_PHI)
-    geom = SIM.Geom((N_R, N_PHI, N_PHI))
+    grid = RA.build_grid(N_R, N_PHI)
+    geom = SIM.Geom.from_grid(grid)
     cell = E.value_scale(grid)
     print('=' * 92)
-    print('M5 smoke tests   grid %d x %d x %d   T = %.1f   delta = %.5f'
-          % (N_R, N_PHI, N_PHI, T, cell))
+    print('M5 smoke tests   grid %d x %d x %d   T = %.1f   delta = %.5f   inner face: %s'
+          % (N_R, N_PHI, N_PHI, T, cell, 'pole' if SIM.POLE else 'extrapolate at R_min'))
     print('=' * 92)
+    if SIM.POLE:
+        import pole
+        print('  pole: real rows from R = %.4f; dynamics equivariance under the flip %.1e'
+              % (real_part(grid, np.zeros(grid.shape))[1].R_min, pole.dynamics_equivariance()))
     ok, e, _ = RA.check_ell2_transpose(grid, RA.ell1_on_grid(grid), RA.ell2_on_grid(grid))
     report('check 1: ell_2 (independent) == ell_1 o S', ok, 'max |diff| = %.2e' % e)
     check_1b(grid)
-    check_2(grid, geom, cell)
+    check_2(grid, cell)
     check_3(grid, geom, cell)
     print('=' * 92)
     print('M5 smoke tests: all passed' if not FAILS else

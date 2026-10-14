@@ -7,11 +7,17 @@ the single-target value V_1 at the same horizon, and M3's arrival-time field and
 snapshots (m3_out/) where the criteria call for them.
 
 Usage:  python3 test_m5.py T_RA [stage ...]
-        stages: fields (4-10, reports), sims (11, 12), c2, all (default)
+        stages: fields (4-10, reports), all (default: fields, then 11, 12 and C2)
 Environment:
         COARSE, FINE, THIRD   grid tags without the horizon, default 101x102, 201x204, 51x51
-        V1_FINE_TAG           single-target tag for the fine grid (default <FINE>_T<T_RA>,
-                              falling back to M3's 201x204_T6 per criteria Sec. 3.2)
+                              (51x52 with the pole: its map needs an even n_phi)
+        LAYER1_POLE=1         score the pole-grid runs (tags ending _pole), with V_1 from
+                              reach_avoid.py's `single` pole solves (M3's fields are on the
+                              other grid).  Field checks use the rows at R > 0; rollouts use the
+                              full grid and pole.stepper.  Check 8 interpolates the fine field in
+                              R, since pole rows don't nest (claude/Layer1_M5_InnerFace_2026-10-13.md
+                              Sec. 8).  Results go to test_m5_T<T>_pole.json.
+A grid whose V_1 is not solved yet gets the checks that need only V_RA (4, 7, 8, 9, 10).
 """
 
 import json
@@ -28,6 +34,8 @@ OUT = 'm5_out'
 M3 = 'm3_out'
 R_MARGIN = 0.45
 FAILS, RESULTS = [], {}
+POLE = SIM.POLE
+SUFFIX = '_pole' if POLE else ''
 
 
 def report(name, ok, msg=''):
@@ -54,21 +62,72 @@ def load_npy_or_fields(path_npy, path_npz, key):
     return np.load(path_npz)[key].astype(np.float64)
 
 
+def run_tag(grid_tag, T, kind='game'):
+    """reach_avoid.py's tag: '101x102_T6', '101x102_T6_single', ... and '_pole' on pole runs."""
+    return '%s_T%g%s%s' % (grid_tag, T, '' if kind == 'game' else '_' + kind, SUFFIX)
+
+
 def load_ra(tag):
     V = load_npy_or_fields('%s/VRA_%s.npy' % (OUT, tag), '%s/m5_%s_fields.npz' % (OUT, tag), 'V')
     diag = json.load(open('%s/m5_%s.json' % (OUT, tag)))
+    if bool(diag.get('pole', False)) != POLE:
+        raise ValueError('%s: run pole=%s but LAYER1_POLE=%d' % (tag, diag.get('pole', False), POLE))
     return V, diag
 
 
 def load_single(grid_tag, T):
-    """V_1 and t_1* at horizon T: from m5_out (kind=single) if solved, else M3."""
-    tag = '%s_T%g_single' % (grid_tag, T)
+    """V_1 and t_1* at horizon T: from m5_out (kind=single) if solved, else M3 (old grids only)."""
+    tag = run_tag(grid_tag, T, 'single')
     if os.path.exists('%s/m5_%s.json' % (OUT, tag)):
         V = load_npy_or_fields('%s/VRA_%s.npy' % (OUT, tag), '%s/m5_%s_fields.npz' % (OUT, tag), 'V')
         t = load_npy_or_fields('%s/tRA_%s.npy' % (OUT, tag), '%s/m5_%s_fields.npz' % (OUT, tag), 'tRA')
         return V, t, tag
+    if POLE:
+        raise FileNotFoundError('no %s/m5_%s.json (LAYER1_POLE=1 reach_avoid.py %s %g single)'
+                                % (OUT, tag, grid_tag.replace('x', ' '), T))
     tag3 = '%s_T6' % grid_tag
     return np.load('%s/V_%s.npy' % (M3, tag3)), np.load('%s/t1_%s.npy' % (M3, tag3)), 'M3 ' + tag3
+
+
+def single_snap_path(grid_tag, T):
+    """V_1 snapshots: the m5_out single solve if there is one, else M3's (old grids only)."""
+    p = '%s/VRAsnap_%s.npz' % (OUT, run_tag(grid_tag, T, 'single'))
+    return p if (os.path.exists(p) or POLE) else '%s/Vsnap_%s_T6.npz' % (M3, grid_tag)
+
+
+def node_R(diag, n_R):
+    """Every row's R: the json's R_nodes (pole rows, ghost rows included), else hji's default."""
+    if 'R_nodes' in diag:
+        return np.asarray(diag['R_nodes'], float)
+    return np.linspace(SIM.R_LO_DOM, SIM.R_HI_DOM, n_R)
+
+
+def load_set(grid_tag, T):
+    """
+    One grid's fields, or None if its reach-avoid solve is missing.  Field checks use the
+    rows at R > 0 (V_ra, V1, geom); rollouts use the full grid (geom_sim, t1, the snapshot
+    files), which on a pole grid includes the mirror rows below zero.  V1 is None if the
+    single-target solve is missing.
+    """
+    tag = run_tag(grid_tag, T)
+    if not os.path.exists('%s/m5_%s.json' % (OUT, tag)):
+        return None
+    V, diag = load_ra(tag)
+    R = node_R(diag, V.shape[0])
+    i0 = int(np.searchsorted(R, 0.0))
+    n_phi = V.shape[1]
+    s = dict(tag=tag, grid=grid_tag, diag=diag, cell=diag['cell'], V_ra=V[i0:], R=R[i0:],
+             geom=SIM.Geom.from_R(R[i0:], n_phi), geom_sim=SIM.Geom.from_R(R, n_phi),
+             snaps_ra='%s/VRAsnap_%s.npz' % (OUT, tag), V1=None, t1=None, v1tag=None, snaps_v1=None)
+    try:
+        V1, t1, v1tag = load_single(grid_tag, T)
+    except FileNotFoundError as e:
+        print('  (%s)' % e)
+        return s
+    if V1.shape != V.shape:
+        raise ValueError('%s: V_1 shape %s vs V_RA %s' % (v1tag, V1.shape, V.shape))
+    s.update(V1=V1[i0:], t1=t1, v1tag=v1tag, snaps_v1=single_snap_path(grid_tag, T))
+    return s
 
 
 def load_snaps(path):
@@ -204,10 +263,26 @@ def check_horizon(name, diag):
            'final 0.25-step moves %.4f%% of {V_RA=0}' % (100 * surf[-1]))
 
 
-def check_grid(Vc, Vf, Rc):
+def fine_at_coarse(Vf, Rf, Rc):
+    """
+    The fine field at the coarse nodes.  The angles nest (fine node 2k is coarse node k).  R is
+    subsampled where the rows nest (R_min = 0.2 grids, exactly as M5 scored it) and linearly
+    interpolated where they don't (pole grids; claude/Layer1_M5_InnerFace_2026-10-13.md Sec. 8).
+    """
+    A = Vf[:, ::2, ::2]
+    if len(Rf) == 2 * len(Rc) - 1 and np.allclose(Rf[::2], Rc, atol=1e-9):
+        return A[::2], 'R subsampled'
+    i = np.clip(np.searchsorted(Rf, Rc, side='right') - 1, 0, len(Rf) - 2)
+    w = np.clip((Rc - Rf[i]) / (Rf[i + 1] - Rf[i]), 0.0, 1.0)[:, None, None]
+    return (1 - w) * A[i] + w * A[i + 1], 'R interpolated'
+
+
+def check_grid(Vc, Rc, Vf, Rf):
     """M3's metric (grid_study.py), applied to {V_RA <= 0}."""
-    sub = Vf[::2, ::2, ::2]
-    ok = (Rc >= R_MARGIN)
+    if Vf.shape[1] != 2 * Vc.shape[1]:
+        raise ValueError('check 8 needs the fine angles to nest: %d vs %d' % (Vf.shape[1], Vc.shape[1]))
+    sub, how = fine_at_coarse(Vf, Rf, Rc)
+    ok = np.broadcast_to((Rc >= R_MARGIN)[:, None, None], Vc.shape)
     inc, inf_ = (Vc <= 0) & ok, (sub <= 0) & ok
     bc = surface_mask(inc)
     nb = int(bc.sum())
@@ -216,7 +291,8 @@ def check_grid(Vc, Vf, Rc):
     near = ndimage.binary_dilation(bc, iterations=3)
     off = int(np.count_nonzero((inc != inf_) & ~near))
     report('check 8: grid convergence of dW_1', disp <= 0.5 and off == 0,
-           'displacement %.3f coarse cells; %d of %d flips beyond 3 cells' % (disp, off, dis))
+           'displacement %.3f coarse cells; %d of %d flips beyond 3 cells (fine field %s)'
+           % (disp, off, dis, how))
     return disp, off
 
 
@@ -389,12 +465,13 @@ def player2_laws(stack_ra, stack_v1, t1star, T, n_total):
             SIM.law_random(n_total, T, seed=12345)]
 
 
-def run_guarantee(name, x0, law1, p2laws, T):
+def run_guarantee(name, x0, law1, p2laws, T, rollout_kw=None):
+    """rollout_kw: extra arguments for sim_m5.rollout (the pole stepper, for pole grids)."""
     n = len(x0)
     k = len(p2laws)
     X = np.repeat(x0, k, axis=0)
     lid = np.tile(np.arange(k), n)
-    res = SIM.rollout(X, law1, composite(p2laws, lid), T)
+    res = SIM.rollout(X, law1, composite(p2laws, lid), T, **(rollout_kw or {}))
     oc = res['outcome'].reshape(n, k)
     print('        %s: %d starts x %d laws' % (name, n, k))
     for j in range(k):
@@ -420,9 +497,10 @@ def failure_breakdown(x0, oc, edges=(0.45, 0.8, 1.5, 3.0, 7.0)):
                                                                  int(m.sum()), kinds))
 
 
-def run_checks_11_12(tag, V_ra, om, cell, geom, snaps_ra, snaps_v1, t1star, T, comp_lab, scored):
-    stack_ra = SIM.SnapshotStack(geom, snaps_ra)
-    stack_v1 = SIM.SnapshotStack(geom, snaps_v1)
+def run_checks_11_12(tag, V_ra, om, cell, geom, geom_sim, snaps_ra, snaps_v1, t1star, T, comp_lab, scored):
+    """Starts are nodes of V_ra (geom); laws read the full-grid snapshots and t1star (geom_sim)."""
+    stack_ra = SIM.SnapshotStack(geom_sim, snaps_ra)
+    stack_v1 = SIM.SnapshotStack(geom_sim, snaps_v1)
     starts, n_cand = pick_starts(V_ra, om, cell, comp_lab)
     x0 = geom.node_states(starts)
     print('        %d candidate starts (V_RA <= -delta in Omega), %d drawn' % (n_cand, len(starts)))
@@ -445,14 +523,14 @@ def run_checks_11_12(tag, V_ra, om, cell, geom, snaps_ra, snaps_v1, t1star, T, c
     return dict(starts=starts.tolist(), oc=oc.tolist(), oc_h=oc_h.tolist())
 
 
-def run_c2(C, geom, snaps_v1, t1star, T, n=1000, seed=3):
+def run_c2(C, geom, geom_sim, snaps_v1, t1star, T, n=1000, seed=3):
     cand = np.nonzero(C.ravel())[0]
     if cand.size == 0:
         print('        contested set is empty; C2 not run')
         return {}
     rng = np.random.default_rng(seed)
     pick = rng.choice(cand, size=min(n, cand.size), replace=False)
-    stack = SIM.SnapshotStack(geom, snaps_v1)
+    stack = SIM.SnapshotStack(geom_sim, snaps_v1)
     res = SIM.rollout(geom.node_states(pick), SIM.law_trade_p1(stack, t1star),
                       SIM.law_trade_p2(stack, t1star), T)
     s = SIM.summarize(res['outcome'])
@@ -468,41 +546,46 @@ def field_stage(T, coarse, fine, third):
     out = {}
     sets = {}
     for name, g in (('coarse', coarse), ('fine', fine), ('third', third)):
-        tag = '%s_T%g' % (g, T)
-        if not os.path.exists('%s/m5_%s.json' % (OUT, tag)):
-            print('  (no reach-avoid solve for %s yet)' % tag)
+        s = load_set(g, T)
+        if s is None:
+            print('  (no reach-avoid solve for %s yet)' % run_tag(g, T))
             continue
-        V_ra, diag = load_ra(tag)
-        V1, t1, v1tag = load_single(g, T)
-        geom = SIM.Geom(V_ra.shape)
-        cell = diag['cell']
-        Rg = np.linspace(0.2, 12.0, V_ra.shape[0])[:, None, None] * np.ones(V_ra.shape)
+        V_ra, V1, geom, cell, diag = s['V_ra'], s['V1'], s['geom'], s['cell'], s['diag']
+        Rg = np.broadcast_to(s['R'][:, None, None], V_ra.shape)
         om = omega(geom)
-        W1, W2, D, C = partition(V_ra, V1, om)
-        header('%s  %s   delta %.4f   V_1 from %s' % (name, tag, cell, v1tag))
+        header('%s  %s   delta %.4f   V_1 from %s' % (name, s['tag'], cell, s['v1tag'] or '(not solved yet)'))
         scored = name in ('coarse', 'fine')
+        W1, C, fr, ovn, dshare = V_ra <= 0, None, None, None, None
         if scored:
             check_reflection(name, V_ra, cell)
-            check_ordering(name, V_ra, V1, cell, Rg)
-            check_disjoint(name, W1, W2, D, om)
+        if V1 is not None:
+            W1, W2, D, C = partition(V_ra, V1, om)
+            if scored:
+                check_ordering(name, V_ra, V1, cell, Rg)
+                check_disjoint(name, W1, W2, D, om)
+        if scored:
             check_horizon(name, diag)
-        fr = fractions(W1, W2, D, C, om, geom)
-        print('        over Omega (%d nodes): W_1 %.4f%%  W_2 %.4f%%  D %.4f%%  C %.4f%%'
-              % (fr['omega_nodes'], 100 * fr['W1'], 100 * fr['W2'], 100 * fr['D'], 100 * fr['C']))
-        print('        terminal (of R>=0.45): T_1\' %.4f%%  T_2\' %.4f%%  T_1&T_2 %.4f%%'
-              % (100 * fr['T1p'], 100 * fr['T2p'], 100 * fr['T12']))
+        if V1 is not None:
+            fr = fractions(W1, W2, D, C, om, geom)
+            print('        over Omega (%d nodes): W_1 %.4f%%  W_2 %.4f%%  D %.4f%%  C %.4f%%'
+                  % (fr['omega_nodes'], 100 * fr['W1'], 100 * fr['W2'], 100 * fr['D'], 100 * fr['C']))
+            print('        terminal (of R>=0.45): T_1\' %.4f%%  T_2\' %.4f%%  T_1&T_2 %.4f%%'
+                  % (100 * fr['T1p'], 100 * fr['T2p'], 100 * fr['T12']))
+        else:
+            print('        V_1 not solved yet: checks 5 and 6, the partition and the sims wait for it')
         topo = check_topology(name, W1, om, geom, cell, scored=(name == 'fine'))
-        ovn = report_old_vs_new(W1, V1, C, om)
-        dshare = report_diagonal_share(C, geom, 2 * np.pi / 102)
-        out[name] = dict(tag=tag, v1=v1tag, cell=cell, fractions=fr, topology=topo,
+        if V1 is not None:
+            ovn = report_old_vs_new(W1, V1, C, om)
+            dshare = report_diagonal_share(C, geom, 2 * np.pi / 102)
+        out[name] = dict(tag=s['tag'], v1=s['v1tag'], cell=cell, fractions=fr, topology=topo,
                          old_vs_new=ovn, diag_share=dshare)
-        sets[name] = dict(V_ra=V_ra, V1=V1, t1=t1, geom=geom, om=om, C=C, W1=W1, cell=cell, tag=tag)
+        s.update(om=om, C=C, W1=W1)
+        sets[name] = s
     if 'coarse' in sets and 'fine' in sets:
         header('Grid convergence (check 8) and thin / fat (Sec. 4.3)')
-        Rc = np.linspace(0.2, 12.0, sets['coarse']['V_ra'].shape[0])[:, None, None] * \
-            np.ones(sets['coarse']['V_ra'].shape)
-        out['check8'] = check_grid(sets['coarse']['V_ra'], sets['fine']['V_ra'], Rc)
-        if 'third' in sets:
+        out['check8'] = check_grid(sets['coarse']['V_ra'], sets['coarse']['R'],
+                                   sets['fine']['V_ra'], sets['fine']['R'])
+        if all(n in out and out[n]['fractions'] for n in ('third', 'coarse', 'fine')):
             tf = thin_or_fat(out['third']['fractions']['C'], out['coarse']['fractions']['C'],
                              out['fine']['fractions']['C'])
             out['thin_fat'] = tf
@@ -513,6 +596,8 @@ def field_stage(T, coarse, fine, third):
                       % (tf['p'], 100 * tf['v0'], tf['ratio'], tf['fit_valid'], tf.get('fit_class')))
             print('        ratio r = v_201/v_101 = %.3f -> %s' % (tf['r'], tf['r_class']))
             print('        DECISION (%s): %s' % (tf['rule'], tf['decision'].upper()))
+        else:
+            print('        thin / fat waits for V_1 on all three grids')
     if 'fine' in sets:
         header('Check 10: Table 2 points (fine grid)')
         out['table2'] = [list(r) for r in check_table2(sets['fine']['V_ra'], sets['fine']['geom'],
@@ -526,18 +611,18 @@ def sim_stage(T, sets, which):
         if name not in sets:
             continue
         s = sets[name]
+        if s['V1'] is None:
+            print('  (checks 11, 12 and C2 on the %s grid wait for its V_1)' % name)
+            continue
         header('Checks 11 and 12 on the %s grid (%s)%s' % (name, s['tag'], '' if name == 'fine' else ', report only'))
-        snaps_ra = load_snaps('%s/VRAsnap_%s.npz' % (OUT, s['tag']))
-        v1snap = '%s/VRAsnap_%s_T%g_single.npz' % (OUT, s['tag'].rsplit('_T', 1)[0], T)
-        if not os.path.exists(v1snap):
-            v1snap = '%s/Vsnap_%s_T6.npz' % (M3, s['tag'].rsplit('_T', 1)[0])
-        snaps_v1 = load_snaps(v1snap)
-        print('        V_1 snapshots from %s' % v1snap)
+        snaps_ra = load_snaps(s['snaps_ra'])
+        snaps_v1 = load_snaps(s['snaps_v1'])
+        print('        V_1 snapshots from %s' % s['snaps_v1'])
         lab, _ = label_periodic(s['W1'] & s['om'], False)
-        out[name] = run_checks_11_12(name, s['V_ra'], s['om'], s['cell'], s['geom'], snaps_ra,
-                                     snaps_v1, s['t1'], T, lab, scored=(name == 'fine'))
+        out[name] = run_checks_11_12(name, s['V_ra'], s['om'], s['cell'], s['geom'], s['geom_sim'],
+                                     snaps_ra, snaps_v1, s['t1'], T, lab, scored=(name == 'fine'))
         header('C2 in the contested set, %s grid (report only, assumption-dependent)' % name)
-        out[name]['c2'] = run_c2(s['C'], s['geom'], snaps_v1, s['t1'], T)
+        out[name]['c2'] = run_c2(s['C'], s['geom'], s['geom_sim'], snaps_v1, s['t1'], T)
         del snaps_ra, snaps_v1
     return out
 
@@ -547,16 +632,19 @@ def main():
     stages = sys.argv[2:] or ['all']
     coarse = os.environ.get('COARSE', '101x102')
     fine = os.environ.get('FINE', '201x204')
-    third = os.environ.get('THIRD', '51x51')
+    third = os.environ.get('THIRD', '51x52' if POLE else '51x51')
     print('=' * 96)
-    print('M5 acceptance   T_RA = %g   grids %s / %s / %s   ell %s' % (T, third, coarse, fine, E.SCALING))
+    print('M5 acceptance   T_RA = %g   grids %s / %s / %s   ell %s   inner face: %s'
+          % (T, third, coarse, fine, E.SCALING, 'pole' if POLE else 'extrapolate at R_min'))
     print('=' * 96)
     out, sets = field_stage(T, coarse, fine, third)
     if 'all' in stages or 'sims' in stages:
         out['sims'] = sim_stage(T, sets, ['fine', 'coarse'])
+    out['stages'] = stages
     out['results'] = RESULTS
     out['fails'] = FAILS
-    json.dump(out, open('%s/test_m5_T%g.json' % (OUT, T), 'w'), indent=1, default=str)
+    json.dump(out, open('%s/test_m5_T%g%s%s.json' % (OUT, T, SUFFIX, '' if 'all' in stages else '_' + '_'.join(stages)),
+                        'w'), indent=1, default=str)
     print('=' * 96)
     print('M5: all scored checks passed' if not FAILS else
           'M5: %d check(s) FAILED: %s' % (len(FAILS), '; '.join(FAILS)))
