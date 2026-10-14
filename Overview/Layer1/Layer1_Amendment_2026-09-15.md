@@ -1,7 +1,7 @@
 # Layer 1 — the `ell` weighting, and the M1/M2 re-run
 
 **AE 8900 · 2026-09-15 · Ethan Stroup**
-Plan of record: `claude/Layer1_Plan.md`. Prior record: `claude/Layer1_Progress_2026-09-14.md`.
+Plan of record: `Overview/Layer1/Layer1_Plan.md`. Prior record: `Overview/Layer1/Layer1_Progress_2026-09-14.md`.
 Code: `Two_Target_Pursuit_Missile/layer1/`.
 
 **Decided 2026-10-07: the `ell` weighting is `sdist`.** `plan` and `raw` are not used for now;

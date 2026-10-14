@@ -1,8 +1,8 @@
 # Layer 1 — M2 Explainer
 
 **AE 8900 · reference doc, written 2026-10-02; revised after the section-by-section walkthrough**
-Companion to `claude/Layer1_M1_Explainer.md`, `claude/Layer1_Plan.md` and
-`claude/Layer1_Progress_2026-09-14.md`. Code: `Two_Target_Pursuit_Missile/layer1/hji.py`,
+Companion to `Overview/Layer1/Layer1_M1_Explainer.md`, `Overview/Layer1/Layer1_Plan.md` and
+`Overview/Layer1/Layer1_Progress_2026-09-14.md`. Code: `Two_Target_Pursuit_Missile/layer1/hji.py`,
 `ell.py`, `test_m2.py`.
 
 A plain-language walkthrough of what M2 checks and why, section by section, in the same style
@@ -388,7 +388,7 @@ first.
 ## 7. Known limitation: the frozen field is invalid near the inner face
 
 Found on 2026-10-01 while building the M2 field for the explorer; recorded in
-`claude/Layer1_M1_Explorer_2026-09-30.md`.
+`Overview/Layer1/Layer1_M1_Explorer_2026-09-30.md`.
 
 **The bound.** $V\ge-\beta=-0.785$ everywhere (§2). The frozen solve violates it:
 

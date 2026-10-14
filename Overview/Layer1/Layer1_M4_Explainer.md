@@ -3,10 +3,10 @@
 **AE 8900 · reference doc, written 2026-10-07**
 
 **Companion docs:**
-- `claude/Layer1_M1_Explainer.md`, `claude/Layer1_M2_Explainer.md` and `claude/Layer1_M3_Explainer.md`;
-- the M4 record `claude/Layer1_M4_2026-10-06.md`;
-- the audit `claude/Layer1_M4_Audit_2026-10-06.md`;
-- `claude/Layer1_Plan.md` §5.
+- `Overview/Layer1/Layer1_M1_Explainer.md`, `Overview/Layer1/Layer1_M2_Explainer.md` and `Overview/Layer1/Layer1_M3_Explainer.md`;
+- the M4 record `Overview/Layer1/Layer1_M4_2026-10-06.md`;
+- the audit `Overview/Layer1/Layer1_M4_Audit_2026-10-06.md`;
+- `Overview/Layer1/Layer1_Plan.md` §5.
 
 **Code and logs:**
 - `Two_Target_Pursuit_Missile/layer1/test_m4.py`;

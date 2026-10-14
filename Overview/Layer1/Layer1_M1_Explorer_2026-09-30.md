@@ -1,7 +1,7 @@
 # Layer 1 — explorer: $\ell(x)$, and $V(x,\tau)$ for M2 and M3
 
 **AE 8900 · 2026-09-30, v6 on 2026-10-01 · Ethan Stroup**
-File: `Two_Target_Pursuit_Missile/layer1/viz/ell_explorer.html`. It is saved in the repo and was checked by md5 after each write. It is one standalone page with no build step and no server, and it opens straight from the filesystem. Companion to `claude/Layer1_M1_Explainer.md`.
+File: `Two_Target_Pursuit_Missile/layer1/viz/ell_explorer.html`. It is saved in the repo and was checked by md5 after each write. It is one standalone page with no build step and no server, and it opens straight from the filesystem. Companion to `Overview/Layer1/Layer1_M1_Explainer.md`.
 
 **v6 (2026-10-01):** the page now also shows the solved value functions of M2 (frozen evader) and M3 (two-player), and steps through $\tau$. Building the M2 field turned up a defect in M2's frozen-evader solve; see "The M2 field is not valid everywhere" below.
 

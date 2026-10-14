@@ -5,8 +5,8 @@
 The first M4 attempt reported "every assertion passes", but six problems sat behind that. This note
 records each problem, the fix now in `layer1/test_m4.py`, and what the rerun logs
 (`layer1/m4_101x102.log`, `layer1/m4_201x204.log`) show. Results are in
-`claude/Layer1_M4_2026-10-06.md`, and the plain-language walkthrough is in
-`claude/Layer1_M4_Explainer.md`.
+`Overview/Layer1/Layer1_M4_2026-10-06.md`, and the plain-language walkthrough is in
+`Overview/Layer1/Layer1_M4_Explainer.md`.
 
 **Status: all six resolved.** Item 3 carries into M5. One comparison stays open without blocking
 it: test E against Table 3 (item 6).

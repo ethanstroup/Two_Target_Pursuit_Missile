@@ -1,7 +1,7 @@
 # Layer 1 Progress — M1 and M2 closed
 
 **AE 8900 · 2026-09-14 · Ethan Stroup**
-Plan of record: `claude/Layer1_Plan.md`. Spec of record: `claude/ProblemStatement.md`.
+Plan of record: `Overview/Layer1/Layer1_Plan.md`. Spec of record: `Overview/ProblemStatement.md`.
 Code: `Two_Target_Pursuit_Missile/layer1/` (`ell.py`, `hji.py`, `test_m1.py`, `test_m2.py`,
 `README_LAYER1.md`).
 

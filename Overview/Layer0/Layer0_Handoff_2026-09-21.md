@@ -1,7 +1,7 @@
 # Layer 0 Handoff — Max-Range Barrier & Explorer (2026-09-21)
 
 **AE 8900 · Ethan Stroup.** A summary for starting a new chat. It reconstructs D&S (1989) Sec. 4.1, the maximum-range barrier and the two small closed capture zones of Fig. 8.
-Full detail: `claude/Layer0_MaxRangeAudit_2026-09-17.md` (Findings 1–8).
+Full detail: `Overview/Layer0/Layer0_MaxRangeAudit_2026-09-17.md` (Findings 1–8).
 
 Repo: `C:\Users\estro\Projects\AE8900\Two_Target_Pursuit_Missile\layer0` (files use CRLF line endings).
 

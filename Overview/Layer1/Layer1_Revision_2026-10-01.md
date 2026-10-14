@@ -1,7 +1,7 @@
 # Method revision after outside review (2026-10-01)
 
 **AE 8900 · 2026-10-01 · Ethan Stroup**
-Ethan gave a second model seven project records (ProblemStatement, Layer1_Plan, the M1 explainer, the Layer 0 close-out, the M3 record, the D&S notes and the lit index) and asked for its view of the method, not the arithmetic. The review read those files plus the Layer 1 amendment and the 09-29 deck record. It did not reproduce any computation. This file records what it found, what we accepted, and what changed.
+Ethan gave a second model seven project records (ProblemStatement, Layer1_Plan, the M1 explainer, the Layer 0 close-out, the M3 record, the D&S notes and the lit index) and asked for its view of the method, not the arithmetic. The review read those files plus the Layer 1 amendment. It did not reproduce any computation. This file records what it found, what we accepted, and what changed.
 
 **Bottom line.** The computations stand. The step from the solved games to outcome claims did not. The main fix is to compute the two-target partition directly as a **reach-avoid** problem instead of inferring it by comparing arrival times.
 
@@ -67,26 +67,24 @@ Ethan gave a second model seven project records (ProblemStatement, Layer1_Plan, 
   - Layer 0's status is qualified as single-target machinery.
   - M4's comparison is scoped to barrier segments on the active boundary, with departures listed as candidate junctions rather than failures.
   - The R ≥ 0.45 mask is described as supporting results on the retained domain only.
-- **Rejected:** "the M3 scripts are missing". This was our own false flag from the 09-29 and 09-30 records. Ethan confirms that `solve_m3.py`, the other M3 scripts and `m3_out/` are on his computer. Both records are corrected.
+- **Rejected:** "the M3 scripts are missing". This was our own false flag from the 09-30 record. Ethan confirms that `solve_m3.py`, the other M3 scripts and `m3_out/` are on his computer. That record is corrected.
 
-**Noted, not changed.** "Terminal miss" is a loose name, because the value is the minimum of $\ell$ over the trajectory. The accurate description is noted in ProblemStatement §4. The name is kept so file and slide references stay valid.
+**Noted, not changed.** "Terminal miss" is a loose name, because the value is the minimum of $\ell$ over the trajectory. The accurate description is noted in ProblemStatement §4. The name is kept so file references stay valid.
 
 ## Files changed
 
 | File | Change |
 |---|---|
-| `claude/ProblemStatement.md` | v0.5 → v0.6: banner; §3 status; §3.4; §4 status, continuation value, naming, Decision 2 limit; §5.2 what ports; §5.3 2β; §5.4 partition semantics + interface; §5.5 scope; §6.3 new; §7 instantaneous-kill row; §8 items 3, 6, new 7–8; §9 new bullet; §10 Layer 1 row |
-| `claude/Layer1_Plan.md` | Revision note; status; §0; Decision 2 soundness; §2.3 race paragraph; §2.5 retitled; M3 marked done; M4 scope; **M5 redefined**; §5 scope note, C2 reframed, test F; §6 new bullet; **§7 rewritten**; §8, §9, §10 updated; §11 note |
-| `claude/Layer1_M3_2026-09-18.md` | Revision note; "win-alone set" retitled; 4.53 % no longer called an upper bound |
-| `claude/Layer1_SlideDeck_2026-09-29.md` | False missing-files flag resolved; slides 4, 11, 24 and 25 listed as needing updates in the .pptx (not edited) |
-| `claude/Layer1_M1_Explorer_2026-09-30.md` | False missing-files flag resolved |
+| `Overview/ProblemStatement.md` | v0.5 → v0.6: banner; §3 status; §3.4; §4 status, continuation value, naming, Decision 2 limit; §5.2 what ports; §5.3 2β; §5.4 partition semantics + interface; §5.5 scope; §6.3 new; §7 instantaneous-kill row; §8 items 3, 6, new 7–8; §9 new bullet; §10 Layer 1 row |
+| `Overview/Layer1/Layer1_Plan.md` | Revision note; status; §0; Decision 2 soundness; §2.3 race paragraph; §2.5 retitled; M3 marked done; M4 scope; **M5 redefined**; §5 scope note, C2 reframed, test F; §6 new bullet; **§7 rewritten**; §8, §9, §10 updated; §11 note |
+| `Overview/Layer1/Layer1_M3_2026-09-18.md` | Revision note; "win-alone set" retitled; 4.53 % no longer called an upper bound |
+| `Overview/Layer1/Layer1_M1_Explorer_2026-09-30.md` | False missing-files flag resolved |
 
 The dated progress records (`Layer1_Progress_2026-09-14.md`, `Layer1_Amendment_2026-09-15.md`) are left as written. They describe the plan as it stood on their dates.
 
 ## Not done, and needs Ethan
 
 - **Code.** `layer1/reach_avoid.py` and `test_m5.py` are named in Plan §9 but not written. The repo has not been touched.
-- **The deck.** The `Layer1_Update_2026-09-29.pptx` slides listed above.
 - **Open decisions.**
   - The §5.4 team objective is still open.
   - §8 item 7 defaults to guarantees only. Confirm or change.

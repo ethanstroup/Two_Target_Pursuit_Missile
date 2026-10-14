@@ -3,11 +3,11 @@
 **AE 8900 · reference doc, written 2026-10-12**
 
 **Companion docs:**
-- `claude/Layer1_M1_Explainer.md` through `claude/Layer1_M4_Explainer.md`;
-- the M5 record `claude/Layer1_M5_2026-10-11.md`;
-- the pre-registered criteria `claude/Layer1_M5_Criteria_2026-10-11.md`;
-- the 10-01 method revision `claude/Layer1_Revision_2026-10-01.md`;
-- `claude/Layer1_Plan.md` §4 (M5), §5 (test F) and §7.
+- `Overview/Layer1/Layer1_M1_Explainer.md` through `Overview/Layer1/Layer1_M4_Explainer.md`;
+- the M5 record `Overview/Layer1/Layer1_M5_2026-10-11.md`;
+- the pre-registered criteria `Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`;
+- the 10-01 method revision `Overview/Layer1/Layer1_Revision_2026-10-01.md`;
+- `Overview/Layer1/Layer1_Plan.md` §4 (M5), §5 (test F) and §7.
 
 **Code and logs:**
 - `Two_Target_Pursuit_Missile/layer1/reach_avoid.py`, `sim_m5.py`, `smoke_m5.py`, `test_m5.py`,
@@ -405,7 +405,7 @@ for this value that isn't wide enough.
 It costs about 2× per solve, because the time step is set by $2/R_{\min}+1$, which goes from 11 to
 21.
 
-**What happened (2026-10-13).** The full story is in `claude/Layer1_M5_InnerFace_2026-10-13.md`.
+**What happened (2026-10-13).** The full story is in `Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md`.
 - **At $R_{\min}=0.1$ the failures moved inward.** So it is real play close to $R=0$: the winning
   maneuver is a close pass, where the two aircraft fly by each other and player 1 shoots
   afterward.

@@ -3,7 +3,7 @@
 **AE 8900 · 2026-09-16 · Ethan Stroup**
 Everything lives in `layer0/viz/` and calls `layer0/barrier.js` / `layer0/barrier.py`.
 Nothing re-derives anything. The written method account is
-`claude/Layer0_RetrogradeMethod.md`, mirrored in the repo at `layer0/RETROGRADE_METHOD.md`.
+`Overview/Layer0/Layer0_RetrogradeMethod.md`.
 
 `reproduce_figures.py` redraws the figures the paper prints. This does the other job:
 it shows how the barrier is *built*. The (BUP) is a curve; every point of it is a terminal
@@ -109,7 +109,7 @@ all checks, `verify_symbolic.py` 22/23 with the documented Eq. (63) failure,
 ## Files
 
 ```
-layer0/RETROGRADE_METHOD.md                 the method, surface by surface
+Overview/Layer0/Layer0_RetrogradeMethod.md  the method, surface by surface
 layer0/viz/README.md                        how to run it
 layer0/viz/bup_curves.py                    ordered seed curves, all four families
 layer0/viz/bup_curves.js                    its twin, cross-checked by test_viz.py

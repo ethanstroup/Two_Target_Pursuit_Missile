@@ -19,16 +19,16 @@
 > *simultaneous* threat, not sequential kills, so it is not a safety condition; §5.4 gains the
 > partition semantics and the Layer 1 → Layer 2 interface; §6.3 records that "impact-time
 > difference" is undefined after the first kill. Full record:
-> `claude/Layer1_Revision_2026-10-01.md`.
+> `Overview/Layer1/Layer1_Revision_2026-10-01.md`.
 >
 > **v0.5 change (2026-09-14, later).** **Doomed-player behaviour is decided:** a player who
 > cannot avoid being killed prefers a mutual kill to dying alone (§7, new assumption row; §4).
 > Layer 1's instructions are **closed** — no open decisions remain at that layer. M1 and M2 are
-> already done (`claude/Layer1_Progress_2026-09-14.md`). §5.4 records what this does and does
+> already done (`Overview/Layer1/Layer1_Progress_2026-09-14.md`). §5.4 records what this does and does
 > not settle for Layer 2.
 >
 > **v0.4 change (2026-09-14).** **Layer 1's two open decisions are closed** and the plan
-> is written: `claude/Layer1_Plan.md`. The payoff is **terminal miss**, not signed
+> is written: `Overview/Layer1/Layer1_Plan.md`. The payoff is **terminal miss**, not signed
 > time-to-kill — §4 records why the signed-time option fails this document's own acceptance
 > criterion. §3.4 gains the target-set-2 mirror (now verified, not assumed) and states
 > plainly that Layer 0's barriers are **single-target**. §8 items 2 and 6 updated.
@@ -36,7 +36,7 @@
 > **v0.3 change (2026-09-11).** **Layer 0 is closed.** §3.4 is rewritten from a task list
 > into a record of what was built and what remains; §3.2 records a corrected parameter;
 > §9 gains a third verification standard. Full detail in
-> `claude/Layer0_CloseOut_2026-09-11.md`. Nothing else in the document changed.
+> `Overview/Layer0/Layer0_CloseOut_2026-09-11.md`. Nothing else in the document changed.
 >
 > **v0.2 scope change (2026-09-09).** Synchronized impact is **deferred**. The driving
 > question for this semester is the **2v1 game of kind with bidirectional lethality** —
@@ -125,7 +125,7 @@ heuristic reads $\sigma_i = +\operatorname{sign}(\phi_i)$.
 **Status: CLOSED 2026-09-11** — as a reconstruction of D&S's **single-target** barrier machinery
 (BUP, retrograde trajectories, invariants, Table 2 acceptance). It is **not** a reconstruction of
 the assembled two-target outcome partition; §3.4 says what remains. Close-out record:
-`claude/Layer0_CloseOut_2026-09-11.md`.
+`Overview/Layer0/Layer0_CloseOut_2026-09-11.md`.
 Code: `Two_Target_Pursuit_Missile/layer0/` plus `barrier.js`.
 
 ### 3.1 State and dynamics
@@ -232,7 +232,7 @@ resolution, 2026-09-14, not held to the §9 symbolic standard.
 
 This is exactly the right ground truth for Layer 1's single-target reach solve (§4). The
 two-target synthesis is now Layer 1's M5, done as a reach-avoid solve rather than by set algebra
-(`claude/Layer1_Plan.md` §7, revised 2026-10-01); extending it to four target sets is Layer 2
+(`Overview/Layer1/Layer1_Plan.md` §7, revised 2026-10-01); extending it to four target sets is Layer 2
 (§5.5).
 
 **What remains, and it is not small.** Layer 0 now supplies verified barrier *trajectories*
@@ -307,7 +307,7 @@ Solve for a value function $V(R, \phi_1, \phi_2)$ over the 1v1 game, yielding a 
 law valid everywhere, not only on the barrier.
 
 **DECIDED 2026-09-14: the payoff is terminal miss, solved as a level-set reachability value;
-the method is an HJI grid.** Full plan in `claude/Layer1_Plan.md`. The candidates were:
+the method is an HJI grid.** Full plan in `Overview/Layer1/Layer1_Plan.md`. The candidates were:
 
 - **Time-to-kill.** $V = \min_{\sigma_1}\max_{\sigma_2} t_f$ subject to termination in
   $T_{1\to2}$. Classical, but ill-posed wherever player 1 cannot win.
@@ -340,7 +340,7 @@ picture remains available for visualization without being what the solver optimi
 *(2026-10-01: this sentence previously also offered $t^*$ as Layer 2's continuation value. It is
 not — see item 2 above and §5.4.)* **On the name:** "terminal miss" is loose. The solved quantity
 is the minimum of $\ell$ over the trajectory, not miss at a fixed final time; "weapon-envelope
-reachability" is the accurate description (`claude/Layer1_M1_Explainer.md`).
+reachability" is the accurate description (`Overview/Layer1/Layer1_M1_Explainer.md`).
 
 **Method: DECIDED — HJI grid.** Three routes were live: an HJI solve on a
 $(R,\phi_1,\phi_2)$ grid; direct orthogonal collocation (Dillon et al.'s route, and the
@@ -371,7 +371,7 @@ solve. **Limit on this (2026-10-01):** the ordering is an outcome ranking, not a
 concept. It does not by itself select a policy, and the two separately time-optimal policies are
 not shown to form an equilibrium. Which outcome each side can *guarantee* comes from the
 reach-avoid solve (M5), not from comparing $t_1^*$ with $t_2^*$. The alternative, *maximize survival time*, is the classical choice and is recorded with a
-switching procedure in `claude/Layer1_Plan.md` §11; the two differ only in which gradient field
+switching procedure in `Overview/Layer1/Layer1_Plan.md` §11; the two differ only in which gradient field
 player 2's interior law is read from.
 
 **Acceptance:** four tests of increasing sharpness against the 122 verified Layer 0
@@ -379,7 +379,7 @@ trajectories — level ($|V| < $ grid tolerance on them), gradient ($\nabla V$ v
 costate), feedback law (bang-bang controls reproduced, switches included, and no long-range
 inversion), and Table 2 ($\{V=0\}$ through the 27 placed points) — plus a **negative
 control**: the old pursuit heuristic must *fail* the feedback test at long range, or the
-suite is not testing anything. Detail in `claude/Layer1_Plan.md` §5.
+suite is not testing anything. Detail in `Overview/Layer1/Layer1_Plan.md` §5.
 
 ---
 
@@ -412,7 +412,7 @@ bandit's single control $\sigma_B$.** Nothing else is shared in the *kinematics*
 mathematical statement of "the bandit has one nose."
 
 **What ports and what does not (checked 2026-10-01; record in
-`claude/Layer1_Revision_2026-10-01.md`).** An earlier version said every piece of D&S machinery
+`Overview/Layer1/Layer1_Revision_2026-10-01.md`).** An earlier version said every piece of D&S machinery
 "ports to each pair unchanged." That was too broad. What was actually checked, with the barrier
 Hamiltonian $H = \sum_i \lambda_i \cdot f_i$:
 
@@ -616,7 +616,7 @@ Layer 3 needs one of these fixed before it needs a better optimizer.
 | Perfect state information, both sides | Firm. Standard for this literature. |
 | Attackers cooperate fully; bandit knows this | Firm. |
 | Kill is permanent and removes the aircraft | Firm, with the continuation-game convention of §5.4. |
-| **A doomed player prefers a mutual kill to dying alone** (ordering: win alone ≻ draw ≻ mutual kill ≻ die alone) | Decided 2026-09-14, and **a modelling choice rather than a derived fact** — flagged as such wherever interior results are reported. Firm at Layer 1. It does not affect the barrier, the reach solve, or the mutual-kill *geometry*; it governs only interior play. The alternative (maximize survival time) is classical and tidier but models an unarmed evader, not an aircraft carrying an all-aspect missile. Cheaply reversible: `claude/Layer1_Plan.md` §11. |
+| **A doomed player prefers a mutual kill to dying alone** (ordering: win alone ≻ draw ≻ mutual kill ≻ die alone) | Decided 2026-09-14, and **a modelling choice rather than a derived fact** — flagged as such wherever interior results are reported. Firm at Layer 1. It does not affect the barrier, the reach solve, or the mutual-kill *geometry*; it governs only interior play. The alternative (maximize survival time) is classical and tidier but models an unarmed evader, not an aircraft carrying an all-aspect missile. Cheaply reversible: `Overview/Layer1/Layer1_Plan.md` §11. |
 
 ---
 
@@ -629,7 +629,7 @@ Layer 3 needs one of these fixed before it needs a better optimizer.
 2. ~~**§4 — Layer 1 payoff and solution method.**~~ **CLOSED 2026-09-14: terminal miss
    (level-set reachability), HJI grid.** The standing recommendation of signed time-to-kill
    was rejected — it fails this document's own acceptance criterion, see §4. Plan in
-   `claude/Layer1_Plan.md`.
+   `Overview/Layer1/Layer1_Plan.md`.
 3. **Whether the $2\beta$ separation result (§5.3) is a strategy or a consequence.** With
    synchronization deferred, this is promoted to the **leading candidate for the semester's
    headline analytic result**. *(Rescoped 2026-10-01.)* If the team can *guarantee* maintaining
@@ -653,7 +653,7 @@ Layer 3 needs one of these fixed before it needs a better optimizer.
    because a game of kind has no clock — it infers priority from set overlap. Layer 1 supplies
    a clock, so the partition becomes a comparison of arrival times. Falsifiable prediction:
    mutual kill as $\{t_1^* = t_2^*\}$ is generically codimension-1 and should sit on
-   $|\phi_1| = |\phi_2|$, which is exactly D&S Eq. (87). `claude/Layer1_Plan.md` §7 makes
+   $|\phi_1| = |\phi_2|$, which is exactly D&S Eq. (87). `Overview/Layer1/Layer1_Plan.md` §7 makes
    this milestone M5.)* *(2026-10-01: withdrawn as stated. Comparing $t_1^*$ with $t_2^*$ does
    not establish event order, because each is a guarantee against a different opponent behavior.
    The partition is obtained instead from a reach-avoid solve, which is the rigorous form of the
@@ -738,7 +738,7 @@ successful semester and a well-defined starting point for the synchronization wo
   *JGCD* 42(7) — simultaneity as a derived property under simple motion.
 - **Dillon et al. (2023)** — aspect-dependent WEZ framing; direct-collocation fallback.
 
-Full notes for each in `LitReview_Index.md` and the `LitNotes_*.md` files.
-Layer 0's close-out record is `claude/Layer0_CloseOut_2026-09-11.md`; the retrograde method it
-uses is explained with worked numbers in `claude/Layer0_StudyGuide.md`. Layer 1's plan of
-record is `claude/Layer1_Plan.md`.
+Full notes for each in `Overview/LitReview/LitReview_Index.md` and the `Overview/LitReview/LitNotes_*.md` files.
+Layer 0's close-out record is `Overview/Layer0/Layer0_CloseOut_2026-09-11.md`; the retrograde method it
+uses is explained in `Overview/Layer0/Layer0_RetrogradeMethod.md`. Layer 1's plan of
+record is `Overview/Layer1/Layer1_Plan.md`.

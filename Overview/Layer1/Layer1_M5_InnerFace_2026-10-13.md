@@ -20,8 +20,8 @@ The two diagnostics in §5.6 were added after the tests ran, and they are labele
   them needs a fine pole solve.
 
 **Parent records:**
-- `claude/Layer1_M5_2026-10-11.md` (§4.4) and `claude/Layer1_M5_Explainer.md` (§12);
-- the pre-registered criteria `claude/Layer1_M5_Criteria_2026-10-11.md`.
+- `Overview/Layer1/Layer1_M5_2026-10-11.md` (§4.4) and `Overview/Layer1/Layer1_M5_Explainer.md` (§12);
+- the pre-registered criteria `Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`.
 
 ---
 

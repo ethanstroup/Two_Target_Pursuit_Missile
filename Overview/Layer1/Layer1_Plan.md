@@ -3,13 +3,13 @@
 **AE 8900 · drafted 2026-09-14 · Ethan Stroup**
 **Status:** **instructions closed 2026-09-14; revised 2026-10-01** (M5 redefined, see the
 revision note below). Test F scoped and M5's criteria pre-registered 2026-10-11
-(`claude/Layer1_M5_Criteria_2026-10-11.md`). **M5 solved and scored 2026-10-11**
-(`claude/Layer1_M5_2026-10-11.md`: guarantee and D&S corrected boundary reproduced; contested
+(`Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`). **M5 solved and scored 2026-10-11**
+(`Overview/Layer1/Layer1_M5_2026-10-11.md`: guarantee and D&S corrected boundary reproduced; contested
 set fat but resolves to a draw, shown by the converse check 13 added 2026-10-12). Inner face
-followed up 2026-10-13 (`claude/Layer1_M5_InnerFace_2026-10-13.md`): a pole condition at $R=0$
+followed up 2026-10-13 (`Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md`): a pole condition at $R=0$
 passed all four pre-registered tests and fixes check 3; check 8 stays open pending a fine pole solve. M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
-`claude/Layer1_Progress_2026-09-14.md`. Layer 0 closed 2026-09-11
-(`claude/Layer0_CloseOut_2026-09-11.md`).
+`Overview/Layer1/Layer1_Progress_2026-09-14.md`. Layer 0 closed 2026-09-11
+(`Overview/Layer0/Layer0_CloseOut_2026-09-11.md`).
 **Schedule slot:** ProblemStatement §10, weeks 3–6.
 
 > **Revision 2026-10-01 — read this before §2.3, §2.5, §4 (M5), §5 (C2, M4 scope) and §7.**
@@ -27,7 +27,7 @@ passed all four pre-registered tests and fixes check 3; check 8 stays open pendi
 > - **Decision 2's soundness argument is corrected**: $\{V\le0\}$ is a guarantee of reaching
 >   $T_{1\to2}$ in the single-target game, not of winning in the two-target game.
 > - **M4's comparison is scoped** to barrier segments that are actually part of the boundary.
-> Record: `claude/Layer1_Revision_2026-10-01.md`.
+> Record: `Overview/Layer1/Layer1_Revision_2026-10-01.md`.
 
 This document is written to be read cold, by a session with no prior context. Everything
 needed to start is here or named here.
@@ -136,7 +136,7 @@ outside the guaranteed sets.
 
 **What it newly requires.** Mutual kill is defined by $T_{2\to1}$, so the second target set
 enters Layer 1 rather than waiting for Layer 2. The index-swap mirror — verified at machine
-precision in `layer0/test_mirror.py` — is therefore **required**, not optional. §2.5 shows it
+precision in `layer0/closeout/test_mirror.py` — is therefore **required**, not optional. §2.5 shows it
 costs no second solve.
 
 ---
@@ -310,7 +310,7 @@ $dV/dt = -\min(0,H)$). Derivation: $V(x,\tau+\Delta\tau)\approx\min\{V(x,\tau),\
 gives $V\leftarrow V+\Delta\tau\,\min(0,H)$. The Lax–Friedrichs dissipation in this form carries a
 **plus** sign, $\hat H = H\big(x,\tfrac{D^-+D^+}{2}\big)+\tfrac12\sum_i\alpha_i(D_i^+-D_i^-)$, and the clamp
 acts on $\hat H$: $V\leftarrow V+\Delta\tau\,\min(0,\hat H)$. `hj_reachability` 0.7.0 does exactly
-this (checked against its source and on a 1D test, 2026-10-02; see `claude/Layer1_M1_Explainer.md` §5).
+this (checked against its source and on a 1D test, 2026-10-02; see `Overview/Layer1/Layer1_M1_Explainer.md` §5).
 
 **Verify whichever form you use against its own primary source before relying on it — do not
 transcribe either from this document.** (The attribution of form 2 to Mitchell et al. 2005 was
@@ -330,7 +330,7 @@ Let $S$ be the index swap $(R,\phi_1,\phi_2) \mapsto (R,\phi_2,\phi_1)$ with the
 exchanged, and $Rf$ the reflection $(R,\phi_1,\phi_2) \mapsto (R,-\phi_1,-\phi_2)$ with the
 controls negated. All four of the following are **exact identities** — verified at *zero*
 residual, not merely small, over $2\times10^5$ random states, alongside
-`layer0/test_mirror.py`'s machine-precision check of the same structure at the Hamiltonian
+`layer0/closeout/test_mirror.py`'s machine-precision check of the same structure at the Hamiltonian
 level:
 
 $$\ell_2(x) = \ell_1(Sx), \qquad \ell_1(Rf\,x) = \ell_1(x)$$
@@ -413,13 +413,13 @@ from memory.
 **M1 — Formulation, verified before any solve. DONE 2026-09-14.** $\ell(x)$ vs.
 `barrier.in_target` with zero mismatches on 5.93M nodes; `dynamics.hamiltonian` vs.
 `barrier.hamiltonian_star` to 3 ulp. Details and two carried findings in
-`claude/Layer1_Progress_2026-09-14.md`.
+`Overview/Layer1/Layer1_Progress_2026-09-14.md`.
 
 **M2 — One-player smoke test. DONE 2026-09-14.** $\sigma_2$ frozen; reach front at the
 analytic closing speed 2.003 vs 2; every margin tightens under refinement; the old pursuit
 heuristic fails to beat $V$ by even one grid cell.
 
-**M3 — Full two-player solve. DONE 2026-09-18** (`claude/Layer1_M3_2026-09-18.md`). Converged in horizon (zero level set stops moving — the
+**M3 — Full two-player solve. DONE 2026-09-18** (`Overview/Layer1/Layer1_M3_2026-09-18.md`). Converged in horizon (zero level set stops moving — the
 progress note already observes the outer edge pinning at $R = 5.98$ against
 $\bar R(0) = 6.1416$) and in grid ($101^3$ vs $201^3$, measuring drift of the **zero level
 set**, not of $V$). Budget it as an overnight job: ~2 h at $201^3$, and gradient storage is the
@@ -560,7 +560,7 @@ single counterexample means the reach-avoid formulation or its implementation is
 - **No long-range starts.** $W_1$ has no states at $R\ge8$, because $W_1\subseteq\{V_1\le0\}$ and
   that set ends at $R=6.100$. So the long-range inversion check stays with C2.
 - **Details.** Numbers, the Table 2 tags, the simulation protocol and the derivation of the update
-  are pre-registered in `claude/Layer1_M5_Criteria_2026-10-11.md`.
+  are pre-registered in `Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`.
 
 **Negative control — run this, it is not optional.** The old heuristic
 $\sigma_i = -\operatorname{sign}(\phi_i)$ must **fail** test C at long range. A test suite
@@ -658,36 +658,36 @@ tempting and collectively a semester.
 Existing, in `Two_Target_Pursuit_Missile/`:
 
 ```
-layer0/barrier.py          dynamics, costates, hamiltonian_star, BUP, retrograde integrator
-layer0/test_mirror.py      verifies the T_2 index swap (4/4, machine precision)
-layer0/validate_table2.py  the 59 Table 2 points, 27 placed
-layer0/test_barrier.py     invariant + control-law tests; emits the 122 trajectories
-layer0/LAYER0_CLOSEOUT.md  what Layer 0 does and does not supply
+layer0/common/barrier.py          dynamics, costates, hamiltonian_star, BUP, retrograde integrator
+layer0/closeout/test_mirror.py    verifies the T_2 index swap (4/4, machine precision)
+layer0/common/validate_table2.py  the 59 Table 2 points, 27 placed
+layer0/closeout/test_barrier.py   invariant + control-law tests; emits the 122 trajectories
+Overview/Layer0/Layer0_CloseOut_2026-09-11.md   what Layer 0 does and does not supply
 ```
 
 Existing, in `layer1/` (M1–M2, see the progress note):
 
 ```
-layer1/ell.py              implicit surface fn; imports BETA/A1/B1/RBAR0 from layer0/barrier.py
-layer1/hji.py              hj_reachability 0.7.0 setup; make_policy is the ONLY supported
+layer1/common/ell.py       implicit surface fn; imports BETA/A1/B1/RBAR0 from layer0/barrier.py
+layer1/common/hji.py       hj_reachability 0.7.0 setup; make_policy is the ONLY supported
                            way to build a feedback law (it enforces the remaining-horizon read)
-layer1/test_m1.py          formulation gate
-layer1/test_m2.py          one-player smoke test, incl. the stale-horizon read as a failing case
+layer1/M1/test_m1.py       formulation gate
+layer1/M2/test_m2.py       one-player smoke test, incl. the stale-horizon read as a failing case
 layer1/README_LAYER1.md
 ```
 
 Created at M3 (see the M3 record), plus still to be created:
 
 ```
-layer1/solve_m3.py         converged two-player solve + grid study; emits V and t1* (exists)
-layer1/test_m4.py          acceptance tests A-E plus the negative control
-layer1/reach_avoid.py      M5: V_RA_1 (reach T1 minus T2, avoid T2); W1, W2 = W1 o S, D, contested
-layer1/test_m5.py          test F: D&S corrected zones + W1 guarantee simulations
+layer1/M3/solve_m3.py      converged two-player solve + grid study; emits V and t1* (exists)
+layer1/M4/test_m4.py       acceptance tests A-E plus the negative control
+layer1/M5/reach_avoid.py   M5: V_RA_1 (reach T1 minus T2, avoid T2); W1, W2 = W1 o S, D, contested
+layer1/M5/test_m5.py       test F: D&S corrected zones + W1 guarantee simulations
 ```
 
-Reference documents: `claude/ProblemStatement.md` (the spec of record),
-`claude/Layer0_CloseOut_2026-09-11.md`, `claude/Layer0_StudyGuide.md` (the retrograde method
-explained with worked numbers), `LitNotes_DavidovitzShinar1989_TwoTargetAirCombat.md`.
+Reference documents: `Overview/ProblemStatement.md` (the spec of record),
+`Overview/Layer0/Layer0_CloseOut_2026-09-11.md`,
+`Overview/LitReview/LitNotes_DavidovitzShinar1989_TwoTargetAirCombat.md`.
 
 ---
 
@@ -695,7 +695,7 @@ explained with worked numbers), `LitNotes_DavidovitzShinar1989_TwoTargetAirComba
 
 *(Rewritten 2026-10-01. M1–M3 are closed; the previous text described starting M3.)*
 
-1. **Read `claude/Layer1_Revision_2026-10-01.md`** and this plan's revision note at the top.
+1. **Read `Overview/Layer1/Layer1_Revision_2026-10-01.md`** and this plan's revision note at the top.
    The arrival-time comparison is withdrawn; do not build M5 on it.
 2. **Set up M5's reach-avoid solve** on the $101\times102^2$ grid: derive the variational
    inequality from Fisac et al. (arXiv:1410.6445) rather than transcribing it, confirm how

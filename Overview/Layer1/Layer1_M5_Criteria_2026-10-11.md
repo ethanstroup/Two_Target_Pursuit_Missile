@@ -6,8 +6,8 @@ This file is written to be read cold. It fixes M5's method, checks and numbers *
 reach-avoid solve has run**. Nothing below was chosen with an M5 result visible. If a number
 is changed later, the change goes in the M5 record with its reason, and this file stays as written.
 
-**Plan of record:** `claude/Layer1_Plan.md` §4 (M5) and §5 (test F), as revised 2026-10-01.
-**Inputs carried in:** `claude/Layer1_M4_2026-10-06.md` §6 and the M3 fields in `layer1/m3_out/`.
+**Plan of record:** `Overview/Layer1/Layer1_Plan.md` §4 (M5) and §5 (test F), as revised 2026-10-01.
+**Inputs carried in:** `Overview/Layer1/Layer1_M4_2026-10-06.md` §6 and the M3 fields in `layer1/m3_out/`.
 
 ---
 

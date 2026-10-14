@@ -1,7 +1,7 @@
 # Layer 1 — M1 Explainer
 
 **AE 8900 · reference doc, written 2026-09-30**
-Companion to `claude/Layer1_Plan.md` and `claude/Layer1_Progress_2026-09-14.md`. Code:
+Companion to `Overview/Layer1/Layer1_Plan.md` and `Overview/Layer1/Layer1_Progress_2026-09-14.md`. Code:
 `Two_Target_Pursuit_Missile/layer1/ell.py`, `hji.py`, `test_m1.py`.
 
 This is a plain-language walkthrough of what M1 actually checks and why, section by section,
@@ -211,7 +211,7 @@ the analytic value for whichever weighting is active.
 ### Section 8 — Conditioning of ell
 
 Measures $|\nabla\ell|$ near the zero level set under all three weightings (`raw`/`plan`/`sdist`),
-reporting the table that motivated defaulting to `sdist` (see `claude/Layer1_Amendment_2026-09-15.md`).
+reporting the table that motivated defaulting to `sdist` (see `Overview/Layer1/Layer1_Amendment_2026-09-15.md`).
 Not a correctness gate — the zero level set is weight-invariant by construction — this is
 purely "does the chosen weighting actually achieve Plan §2.1's own stated goal of
 $|\nabla\ell|\approx1$."

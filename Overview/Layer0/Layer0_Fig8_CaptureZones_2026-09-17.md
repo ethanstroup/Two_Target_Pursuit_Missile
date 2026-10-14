@@ -1,7 +1,7 @@
 # The Two Small Maximum-Range Capture Zones — how to see them
 
 **AE 8900 · Layer 0 · 2026-09-17 · Ethan Stroup**
-Completes `claude/Layer0_MaxRangeAudit_2026-09-17.md`. The audit concluded the zones
+Completes `Overview/Layer0/Layer0_MaxRangeAudit_2026-09-17.md`. The audit concluded the zones
 "cannot be bounded". That is true of the full three-dimensional winning-zone boundary and
 **not** true of what Fig. 8 actually shows — read against the paper itself (p. 149), the
 zones are computable now, and are.
