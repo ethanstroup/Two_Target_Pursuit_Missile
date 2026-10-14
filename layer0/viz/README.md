@@ -1,12 +1,12 @@
 # layer0/viz — the barrier as a swept surface
 
-`reproduce_figures.py` redraws the figures Davidovitz & Shinar print. This directory does
+`../closeout/reproduce_figures.py` redraws the figures Davidovitz & Shinar print. This directory does
 the other job: it shows how the barrier is *built*. The boundary of the usable part is a
 curve; every point of it is a terminal condition fixed by transversality; integrating the
 state–costate system retrograde from each one gives a barrier trajectory, and the bundle of
 them is the semipermeable sheet.
 
-`../RETROGRADE_METHOD.md` is the written account, surface by surface.
+`Overview/Layer0/Layer0_RetrogradeMethod.md` is the written account, surface by surface.
 
 ## Files
 
@@ -16,6 +16,14 @@ them is the semipermeable sheet.
 | `bup_curves.js` | its twin, for the browser — cross-checked point by point by `test_viz.py` |
 | `visualize.py` | the static figure set → `figs/` |
 | `barrier_explorer.html` | interactive explorer; open it straight from the filesystem |
+| `test_viz.py` | 45 acceptance checks, plus the 11 from `test_los_coords.js` |
+| `explorer/` | the page's stylesheets, its JS modules, and their tests (below) |
+
+`explorer/` holds everything `barrier_explorer.html` loads besides `../common/barrier.js` and
+`bup_curves.js`, with the tests for it:
+
+| file | what it is |
+|---|---|
 | `explorer.css` | responsive presentation styles; local and dependency-free |
 | `workspace_chrome.js`, `test_workspace_chrome.js` | compact navigation and settings drawer; focus, Escape, and tab-switch checks with DOM doubles |
 | `dock_layout.js` | pure split-tree operations, minimum sizes, drop zones, and saved-layout validation |
@@ -26,11 +34,10 @@ them is the semipermeable sheet.
 | `test_barrier_render_cache.js`, `benchmark_barrier_render.js` | error-bound, playback, and cache checks; repeatable CPU/draw-command benchmark using canvas doubles |
 | `gif_encoder.js` | shared local GIF encoder used by all three views |
 | `test_barrier_export.js`, `test_barrier_render.js`, `test_gif_encoder.py` | export/controller checks, renderer checks with canvas doubles, and independent GIF decoding with Pillow |
-| `los_coords.js` | world frame (x, y, heading) ↔ (R, φ₁, φ₂), for the coordinates tabs; T₁ comes from `../barrier.js` |
-| `test_los_coords.js` | 11 checks on `los_coords.js`, including against `../../heuristic_simulator/sim.js`; `test_viz.py` §10 runs it |
-| `test_viz.py` | 45 acceptance checks, plus the 11 from `test_los_coords.js` |
+| `los_coords.js` | world frame (x, y, heading) ↔ (R, φ₁, φ₂), for the coordinates tabs; T₁ comes from `../../common/barrier.js` |
+| `test_los_coords.js` | 11 checks on `los_coords.js`, including against `../../../heuristic_simulator/sim.js`; `test_viz.py` §10 runs it |
 
-Both modules call `../barrier.py` / `../barrier.js` for the maths. Nothing here re-derives
+`bup_curves.py` and `bup_curves.js` call `../common/barrier.py` / `../common/barrier.js` for the maths. Nothing here re-derives
 anything.
 
 ## Running
@@ -41,10 +48,10 @@ python3 layer0/viz/visualize.py [outdir] [--tau 1.5] [--nseed 45]
 ```
 
 The explorer needs no build and no server — open `barrier_explorer.html` in a browser.
-It loads `../barrier.js`, `./bup_curves.js`, `./los_coords.js`, `./dock_layout.js`,
-`./dock_workspace.js`, `./workspace_chrome.js`, `./gif_encoder.js`, `./barrier_export.js`,
-and `./barrier_render_cache.js` as plain scripts. Keep `explorer.css` and
-`dock_workspace.css` beside it for the interface styles.
+It loads `../common/barrier.js`, `./bup_curves.js`, and from `./explorer/` `los_coords.js`,
+`dock_layout.js`, `dock_workspace.js`, `workspace_chrome.js`, `gif_encoder.js`,
+`barrier_export.js` and `barrier_render_cache.js`, as plain scripts. Keep `explorer/` (which
+also holds `explorer.css` and `dock_workspace.css`) beside it.
 
 ### Explorer interface
 
@@ -103,7 +110,7 @@ All six panels on the **Barrier surface** page share a docking workspace:
 Run the docking checks with:
 
 ```sh
-node --test layer0/viz/test_dock_layout.js layer0/viz/test_dock_workspace.js
+node --test layer0/viz/explorer/test_dock_layout.js layer0/viz/explorer/test_dock_workspace.js
 ```
 
 ### Barrier export and appearance
@@ -138,8 +145,8 @@ Open **Export & appearance** on **Barrier surface**:
 Export checks (the Python check needs Pillow and Node.js on PATH):
 
 ```sh
-node --test layer0/viz/test_barrier_export.js layer0/viz/test_barrier_render.js
-python layer0/viz/test_gif_encoder.py
+node --test layer0/viz/explorer/test_barrier_export.js layer0/viz/explorer/test_barrier_render.js
+python layer0/viz/explorer/test_gif_encoder.py
 ```
 
 ### Plot interactions
@@ -237,8 +244,8 @@ they do not load data or repeat integration.
 Run performance-related checks and the drawing benchmark with:
 
 ```sh
-node --test layer0/viz/test_barrier_render_cache.js layer0/viz/test_barrier_render.js
-node layer0/viz/benchmark_barrier_render.js
+node --test layer0/viz/explorer/test_barrier_render_cache.js layer0/viz/explorer/test_barrier_render.js
+node layer0/viz/explorer/benchmark_barrier_render.js
 ```
 
 The benchmark uses no-op canvas calls, so its CPU timings are **not browser FPS**.

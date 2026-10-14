@@ -1,6 +1,6 @@
 /* test_barrier_js.js — acceptance tests for barrier.js.
  *
- * Mirrors layer0/test_barrier.py. The two invariants ARE the test: a genuine
+ * Mirrors layer0/closeout/test_barrier.py. The two invariants ARE the test: a genuine
  * barrier trajectory carries FI = 1 (Eq. 23) and H* = 0 (Eq. 15) all the way
  * back from the BUP, and H* is the one that catches a mishandled switch.
  *
@@ -8,7 +8,7 @@
  */
 'use strict';
 
-var Bar = require('../layer0/barrier.js');
+var Bar = require('../layer0/common/barrier.js');
 
 var nPass = 0, nFail = 0;
 function pass(ok, msg) {

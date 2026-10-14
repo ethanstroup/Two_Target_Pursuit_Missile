@@ -26,7 +26,7 @@
     // 3 + pi = 6.141593 the table's A_1 = 3.0, O_1 = 6.1416, beta = 4.649 and
     // delta = 4.649 all come out to their printed precision; with 6.14 none of
     // them do (2.99841, 6.14000, 4.64750). 6.14 is the rounded quotation, not
-    // the value the figures were computed with. See layer0/LAYER0_CLOSEOUT.md.
+    // the value the figures were computed with. See Overview/Layer0/Layer0_CloseOut_2026-09-11.md.
     Rbar0: 3 + Math.PI,   // no-escape range at phi_j = 0, Eq. (9)
     a: 0.55,        // Eq. (8)
     b: 0.30,        // Eq. (8)

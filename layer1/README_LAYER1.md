@@ -1,7 +1,30 @@
 # Layer 1 — status
 
 **AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-09-18**
-Plan of record: `claude/Layer1_Plan.md`. Spec of record: `claude/ProblemStatement.md`.
+Plan of record: `Overview/Layer1/Layer1_Plan.md`. Spec of record: `Overview/ProblemStatement.md`.
+
+## Layout (reorganized 2026-10-14)
+
+```
+layer1/
+  common/   ell.py, hji.py -- shared by every milestone; hji puts layer0/common/ on sys.path
+  M1/       formulation gate: test_m1.py, cmp_scaling.py
+  M2/       one-player smoke test: test_m2.py, solve_m2_snap.py, m2_out/
+  M3/       two-player solve: solve_m3.py, grid_study.py, zone_structure.py, win_alone.py,
+            sym_test.py, m3_out/
+  M4/       acceptance against Layer 0: test_m4.py, l0_traj.py, m4_out/ (the m4_*.log runs)
+  M5/       reach-avoid partition and inner face: reach_avoid.py, sim_m5.py, smoke_m5.py,
+            test_m5.py, converse_m5.py, pole.py, inertial.py, verify_pole.py, run_m5_pole.py,
+            m5_out/
+  M5/diag/  report-only diagnostics (diag_*.py)
+  viz/      ell_explorer.html
+```
+
+**Run every script from its own milestone folder** (`cd layer1/M3; python solve_m3.py ...`),
+as everything was once run from `layer1/`: each milestone writes its outputs to its own
+`m<k>_out/` relative to the working directory. The diagnostics run from `M5/` as
+`python diag/diag_<name>.py`, so they find `m5_out/`. Each script adds `common/` (and the
+diagnostics `M5/`) to `sys.path` itself. M4 and M5 read M3's fields from `../M3/m3_out/`.
 
 | Milestone | State |
 |---|---|
@@ -26,9 +49,9 @@ see it: none bounds V from below, and the trajectory tests drop every sample tha
 leaves the R domain. M3 does not do this (min V −0.802). Found while building
 `solve_m2_snap.py` for the explorer, which reports the bound as a failing check;
 the inner-face condition has not been changed. Explorer record:
-`claude/Layer1_M1_Explorer_2026-09-30.md`.
+`Overview/Layer1/Layer1_M1_Explorer_2026-09-30.md`.
 
-**2026-09-18.** M3 closed. Full record: `claude/Layer1_M3_2026-09-18.md`. Headline
+**2026-09-18.** M3 closed. Full record: `Overview/Layer1/Layer1_M3_2026-09-18.md`. Headline
 numbers and the one grid rule that came out of it are below; the fields M4 and M5
 need are in `m3_out/`.
 
@@ -172,7 +195,7 @@ multiplies a large residual, which inflated the statistic from 0.118 to 0.239 un
 ell(x) = max( |phi_1| - beta,  R_lo(phi_2) - R,  R - R_hi(phi_2) )
 ```
 
-and imports `BETA`, `A1`, `B1`, `RBAR0` **from `layer0/barrier.py` rather than
+and imports `BETA`, `A1`, `B1`, `RBAR0` **from `layer0/common/barrier.py` rather than
 re-entering them** — re-declaring `RBAR0` would be a way to silently lose the
 `3 + pi` correction. Asserted in `test_m1.py` §0.
 
@@ -287,61 +310,61 @@ Two smaller fixes fell out of the same investigation:
 ## Files
 
 ```
-layer1/ell.py          implicit surface fn, numpy + jax; parameters from layer0;
-                       SCALING selects the weighting (default 'sdist', see above)
-layer1/hji.py          dynamics, grid, solver setup, gradient/feedback/forward-sim;
-                       make_policy is the ONLY supported way to build a feedback law
-layer1/test_m1.py      M1 — formulation verified before any solve, + conditioning (§8)
-layer1/test_m2.py      M2 — one-player smoke test, two-sided
-layer1/cmp_scaling.py  does the weighting move the computed zero level set? (it does
-                       not, beyond discretization error — the table above)
-layer1/README_LAYER1.md  this file
+layer1/common/ell.py      implicit surface fn, numpy + jax; parameters from layer0;
+                          SCALING selects the weighting (default 'sdist', see above)
+layer1/common/hji.py      dynamics, grid, solver setup, gradient/feedback/forward-sim;
+                          make_policy is the ONLY supported way to build a feedback law
+layer1/M1/test_m1.py      M1 — formulation verified before any solve, + conditioning (§8)
+layer1/M2/test_m2.py      M2 — one-player smoke test, two-sided
+layer1/M1/cmp_scaling.py  does the weighting move the computed zero level set? (it does
+                          not, beyond discretization error — the table above)
+layer1/README_LAYER1.md   this file
 ```
 
 Added at M3:
 
 ```
-layer1/solve_m3.py        the march: pre-flight, horizon convergence, emits V and t_1*
-layer1/grid_study.py      nested-grid comparison + the exact-symmetry checks
-layer1/zone_structure.py  connected components of {V<=0}, phi-periodic
-layer1/win_alone.py       components of W_1 = {V_1<=0} \ {V_2<=0}, with the R mask
-layer1/sym_test.py        the beta-on-node isolation experiment
-layer1/m3_out/            m3_<grid>_fields.npz   V and t_1* (float32; sign of V exact,
-                          round-trip error 4.7e-07 against a 0.059 cell scale)
-                          Vsnap_101x102_T6.npz   V(.,tau) every 0.5, for M4 test C1
-                          m3_<grid>.json         convergence diagnostics
+layer1/M3/solve_m3.py        the march: pre-flight, horizon convergence, emits V and t_1*
+layer1/M3/grid_study.py      nested-grid comparison + the exact-symmetry checks
+layer1/M3/zone_structure.py  connected components of {V<=0}, phi-periodic
+layer1/M3/win_alone.py       components of W_1 = {V_1<=0} \ {V_2<=0}, with the R mask
+layer1/M3/sym_test.py        the beta-on-node isolation experiment
+layer1/M3/m3_out/            m3_<grid>_fields.npz   V and t_1* (float32; sign of V exact,
+                             round-trip error 4.7e-07 against a 0.059 cell scale)
+                             Vsnap_101x102_T6.npz   V(.,tau) every 0.5, for M4 test C1
+                             m3_<grid>.json         convergence diagnostics
 ```
 
 Added 2026-10-01, for the explorer:
 
 ```
-layer1/solve_m2_snap.py   the frozen-evader (M2) game re-solved on M3's 101x102 grid to
-                          tau = 6, snapshotted like Vsnap; ~13 min on two cores.
-                          Reports the lower-bound check, which FAILS (see the note above)
-layer1/m2_out/            Vsnap_frozen_101x102_T6.npz   V(.,tau) every 0.5, + R, phi1, phi2
-                          m2_frozen_101x102_T6.json     zone share, front, nodes below the bound
+layer1/M2/solve_m2_snap.py     the frozen-evader (M2) game re-solved on M3's 101x102 grid to
+                               tau = 6, snapshotted like Vsnap; ~13 min on two cores.
+                               Reports the lower-bound check, which FAILS (see the note above)
+layer1/M2/m2_out/              Vsnap_frozen_101x102_T6.npz   V(.,tau) every 0.5, + R, phi1, phi2
+                               m2_frozen_101x102_T6.json     zone share, front, nodes below the bound
 layer1/viz/ell_explorer.html   ell (M1) and V(x, tau) of M2 and M3; loads the two Vsnap
-                          files in the browser (load files... or drop them on the page)
+                               files in the browser (load files... or drop them on the page)
 ```
 
 Env switches: `M3_PREFLIGHT=0`, `M3_SNAP_EVERY` (solve_m3); `R_MARGIN` (win_alone,
 grid_study); `COARSE` / `FINE` (grid_study); `LAYER1_ELL_SCALING` (everything).
 
-Added 2026-10-11, for M5 (record `claude/Layer1_M5_2026-10-11.md`, criteria
-`claude/Layer1_M5_Criteria_2026-10-11.md`):
+Added 2026-10-11, for M5 (record `Overview/Layer1/Layer1_M5_2026-10-11.md`, criteria
+`Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`):
 
 ```
-layer1/reach_avoid.py     the reach-avoid solve: V <- max(V + dtau min(0,H), -ell_2),
+layer1/M5/reach_avoid.py  the reach-avoid solve: V <- max(V + dtau min(0,H), -ell_2),
                           V(x,0) = max(ell_1, -ell_2); kinds game | single | frozen_p2;
                           `cut <tag> T` takes horizon-T outputs from a longer march
-layer1/sim_m5.py          vectorized rollouts of the stopped game, event-located kills,
+layer1/M5/sim_m5.py       vectorized rollouts of the stopped game, event-located kills,
                           make_policy's remaining-horizon read, the five player-2 laws
-layer1/smoke_m5.py        checks 1, 1b, 2, 3 at 61x62^2
-layer1/test_m5.py         checks 4-12, partition volumes, thin/fat, C2
-layer1/converse_m5.py     check 13 (added 2026-10-12): outside W_1 the reach-avoid
+layer1/M5/smoke_m5.py     checks 1, 1b, 2, 3 at 61x62^2
+layer1/M5/test_m5.py      checks 4-12, partition volumes, thin/fat, C2
+layer1/M5/converse_m5.py  check 13 (added 2026-10-12): outside W_1 the reach-avoid
                           adversary stops every player-1 law
-layer1/diag_*.py          report-only diagnostics behind the record's Sec. 4
-layer1/m5_out/            m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arrival time,
+layer1/M5/diag/diag_*.py  report-only diagnostics behind the record's Sec. 4
+layer1/M5/m5_out/         m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arrival time,
                           and from 2026-10-13 the node arrays R, phi1, phi2),
                           m5_<grid>_T*.json, all logs
                           Vsnap_RA_<tag>.npz (added 2026-10-13): V_RA(., tau) every 0.5 for
@@ -350,28 +373,28 @@ layer1/m5_out/            m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arr
                           python reach_avoid.py vsnap <tag> [<tag> ...]
 ```
 
-Added 2026-10-13, for the inner face (record `claude/Layer1_M5_InnerFace_2026-10-13.md`):
+Added 2026-10-13, for the inner face (record `Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md`):
 
 ```
-layer1/pole.py            pole condition at R = 0: staggered rows (i + 1/2) dR, 3 ghost rows
-                          below zero refilled every step by the mirror
-                          (-R, phi1, phi2) = (R, phi1 + pi, phi2 + pi); solver settings with
-                          the pole; pole.stepper flips rollouts through the pass
-layer1/inertial.py        exact inertial kinematics (closed-form arcs), conversions to and
-                          from (R, phi1, phi2), exact outcomes and rollouts (truth for V1, V2)
-layer1/verify_pole.py     V1-V4 of the record's Sec. 4:  python verify_pole.py v1|v2|v3|v4
-layer1/diag_pole_check3.py   smoke check 3 on the pole grid
-layer1/diag_check3_rmin.py   smoke check 3 at a chosen R_min (the R_min = 0.1 trial)
-layer1/diag_pole_oldfails.py the 12 old check 3 failures re-flown on the pole grid (D1)
-layer1/diag_pole_check8.py   check 8's far flips on the pole grid; near-face W_1 shares (D2)
-layer1/run_m5_pole.py     M5 rerun on the pole grids, unattended and resumable (see below)
-layer1/diag_check8_interp.py check 8 scored with fine values interpolated in R vs exact (old
-                             grids): the procedure for check 8 on pole grids, which don't nest
-layer1/m5_out/pole/       V1-V4 and D1-D2 logs and json, pole solve logs
-layer1/m5_out/rmin0.1/    the R_min = 0.1 smoke and diagnostic logs
+layer1/M5/pole.py                     pole condition at R = 0: staggered rows (i + 1/2) dR, 3 ghost rows
+                                      below zero refilled every step by the mirror
+                                      (-R, phi1, phi2) = (R, phi1 + pi, phi2 + pi); solver settings with
+                                      the pole; pole.stepper flips rollouts through the pass
+layer1/M5/inertial.py                 exact inertial kinematics (closed-form arcs), conversions to and
+                                      from (R, phi1, phi2), exact outcomes and rollouts (truth for V1, V2)
+layer1/M5/verify_pole.py              V1-V4 of the record's Sec. 4:  python verify_pole.py v1|v2|v3|v4
+layer1/M5/diag/diag_pole_check3.py    smoke check 3 on the pole grid
+layer1/M5/diag/diag_check3_rmin.py    smoke check 3 at a chosen R_min (the R_min = 0.1 trial)
+layer1/M5/diag/diag_pole_oldfails.py  the 12 old check 3 failures re-flown on the pole grid (D1)
+layer1/M5/diag/diag_pole_check8.py    check 8's far flips on the pole grid; near-face W_1 shares (D2)
+layer1/M5/run_m5_pole.py              M5 rerun on the pole grids, unattended and resumable (see below)
+layer1/M5/diag/diag_check8_interp.py  check 8 scored with fine values interpolated in R vs exact (old
+                                      grids): the procedure for check 8 on pole grids, which don't nest
+layer1/M5/m5_out/pole/                V1-V4 and D1-D2 logs and json, pole solve logs
+layer1/M5/m5_out/rmin0.1/             the R_min = 0.1 smoke and diagnostic logs
 ```
 
-**Rerunning M5 on the pole grids** (2026-10-13): `python run_m5_pole.py` runs every solve and
+**Rerunning M5 on the pole grids** (2026-10-13): `python run_m5_pole.py` (from `M5/`) runs every solve and
 check in order (smoke, coarse march and cut, V_1, third grid, fine game and V_1, checks 4-13),
 one log per step in `m5_out/pole_run/`, and resumes where it stopped if started again
 (`--list` shows the steps; `--parallel-fine` runs the two fine solves at once). Under

@@ -23,7 +23,7 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))          # layer0/
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'common'))  # layer0/common/
 sys.path.insert(0, HERE)
 
 import barrier as B
@@ -352,7 +352,7 @@ except Exception as e:
 
 print('\n10. Coordinates tabs: los_coords.js (world frame -> (R, phi1, phi2), T1 from barrier.js)')
 try:
-    raw = subprocess.run(['node', 'test_los_coords.js'], cwd=HERE, capture_output=True,
+    raw = subprocess.run(['node', 'test_los_coords.js'], cwd=os.path.join(HERE, 'explorer'), capture_output=True,
                          text=True, timeout=120)
     lines = [l.strip() for l in raw.stdout.splitlines() if l.strip()[:4] in ('PASS', 'FAIL')]
     for l in lines:

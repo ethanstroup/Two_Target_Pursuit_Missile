@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))          # layer0/
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'common'))  # layer0/common/
 sys.path.insert(0, HERE)
 
 import barrier as B

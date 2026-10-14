@@ -30,7 +30,7 @@
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory(require('../barrier.js'));
+    module.exports = factory(require('../common/barrier.js'));
   } else {
     root.BupCurves = factory(root.Barrier);
   }

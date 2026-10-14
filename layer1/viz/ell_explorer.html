@@ -13,9 +13,9 @@
              weights are strictly positive, so the sign and the zero level set
              are the same under all three.  ell has no tau.
     V (M2)   the frozen-evader value function (sigma_2 = 0), V(x, tau),
-             from m2_out/Vsnap_frozen_101x102_T6.npz (layer1/solve_m2_snap.py).
+             from m2_out/Vsnap_frozen_101x102_T6.npz (layer1/M2/solve_m2_snap.py).
     V (M3)   the two-player value function, V(x, tau), from
-             m3_out/Vsnap_101x102_T6.npz (layer1/solve_m3.py).
+             m3_out/Vsnap_101x102_T6.npz (layer1/M3/solve_m3.py).
   Both V files are solved under 'sdist', so V(x, 0) = ell_sdist(x), not the
   raw ell this page shows by default.  The tau slider steps through the
   stored snapshots (0, 0.5, ..., 6); nothing is interpolated in tau.  tau is
@@ -36,9 +36,9 @@
   matching m3_*.json / m2_frozen_*.json too and the page checks its own node
   counts of {V <= 0} against the solver's at every snapshot.  Loaded files are
   kept in this browser (IndexedDB), so the next visit restores them; served
-  over http(s) instead, the page fetches ../m2_out and ../m3_out itself.
+  over http(s) instead, the page fetches ../M2/m2_out and ../M3/m3_out itself.
 
-  Constants come from ../../layer0/barrier.js (Barrier.PARAMS) when it loads,
+  Constants come from ../../layer0/common/barrier.js (Barrier.PARAMS) when it loads,
   as ell.py takes them from barrier.py, and are checked against the inline copy
   below; the status line says which was used.  Without barrier.js the page
   still runs standalone on the inline copy (Rbar_0 = 3 + pi, not 6.14).
@@ -282,7 +282,7 @@
       <option value="plan">plan</option>
     </select>
   </div>
-  <button id="loadBtn" title="pick Vsnap .npz files (and their .json diagnostics) from layer1/m2_out and layer1/m3_out; dropping them on the page does the same">load files…</button>
+  <button id="loadBtn" title="pick Vsnap .npz files (and their .json diagnostics) from layer1/M2/m2_out and layer1/M3/m3_out; dropping them on the page does the same">load files…</button>
   <input type="file" id="loadIn" accept=".npz,.json" multiple hidden>
   <div class="ctl off" id="tauCtl" title="ℓ is static: it has no τ. Pick M2 or M3 to step through τ.">
     <label for="tau">τ (time remaining)</label>
@@ -478,7 +478,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
-<script src="../../layer0/barrier.js"></script>
+<script src="../../layer0/common/barrier.js"></script>
 <script>
 (function () {
 'use strict';
@@ -512,7 +512,7 @@ var PI = Math.PI, TWO_PI = 2 * Math.PI;
 // constants and ell(x)
 // ===========================================================================
 
-/* Inline copy, used only when ../../layer0/barrier.js is not beside the repo.
+/* Inline copy, used only when ../../layer0/common/barrier.js is not beside the repo.
    Rbar_0 is 3 + pi, not the 6.14 quoted in D&S Sec. 4 (ProblemStatement 3.2). */
 var INLINE = { beta: PI / 4, a: 0.55, b: 0.30, Rbar0: 3 + PI };
 
@@ -2555,7 +2555,7 @@ function showSourceMessage(extra) {
   });
   if (extra) lines.push(extra);
   if (!lines.length) lines.push('<span style="color:var(--ink3)">To step through τ: load files… (or drop them here) — ' +
-    'layer1/m3_out/Vsnap_101x102_T6.npz for M3 and layer1/m2_out/Vsnap_frozen_101x102_T6.npz for M2, ' +
+    'layer1/M3/m3_out/Vsnap_101x102_T6.npz for M3 and layer1/M2/m2_out/Vsnap_frozen_101x102_T6.npz for M2, ' +
     'plus their .json to check them. They are kept in this browser for next time.</span>');
   document.getElementById('srcMsg').innerHTML = lines.join('<br>');
 }
@@ -2822,8 +2822,8 @@ async function storeGetAll() {
 
 /* On opening: served over http(s), fetch the files beside the repo;
    otherwise restore what this browser kept.  Never switches away from ℓ. */
-var AUTO_FILES = ['../m3_out/Vsnap_101x102_T6.npz', '../m3_out/m3_101x102_T6.json',
-                  '../m2_out/Vsnap_frozen_101x102_T6.npz', '../m2_out/m2_frozen_101x102_T6.json'];
+var AUTO_FILES = ['../M3/m3_out/Vsnap_101x102_T6.npz', '../M3/m3_out/m3_101x102_T6.json',
+                  '../M2/m2_out/Vsnap_frozen_101x102_T6.npz', '../M2/m2_out/m2_frozen_101x102_T6.json'];
 async function autoLoad() {
   var items = [];
   if (/^https?:$/.test(location.protocol)) {

@@ -163,8 +163,8 @@
   .lx-missing { padding: 16px; border: 1px solid #e6c9c4; border-left: 4px solid var(--no);
                 border-radius: 8px; background: #fff; }
 </style>
-<link rel="stylesheet" href="./explorer.css">
-<link rel="stylesheet" href="./dock_workspace.css">
+<link rel="stylesheet" href="./explorer/explorer.css">
+<link rel="stylesheet" href="./explorer/dock_workspace.css">
 </head>
 <body>
 
@@ -536,15 +536,15 @@
   <div class="dock-dialog-actions"><button id="barrierExportCancel">Cancel export</button></div>
 </dialog>
 
-<script src="../barrier.js"></script>
+<script src="../common/barrier.js"></script>
 <script src="./bup_curves.js"></script>
-<script src="./los_coords.js"></script>
-<script src="./dock_layout.js"></script>
-<script src="./dock_workspace.js"></script>
-<script src="./workspace_chrome.js"></script>
-<script src="./gif_encoder.js"></script>
-<script src="./barrier_export.js"></script>
-<script src="./barrier_render_cache.js"></script>
+<script src="./explorer/los_coords.js"></script>
+<script src="./explorer/dock_layout.js"></script>
+<script src="./explorer/dock_workspace.js"></script>
+<script src="./explorer/workspace_chrome.js"></script>
+<script src="./explorer/gif_encoder.js"></script>
+<script src="./explorer/barrier_export.js"></script>
+<script src="./explorer/barrier_render_cache.js"></script>
 <script>
 'use strict';
 var B = window.Barrier, C = window.BupCurves, RenderCache = window.BarrierRenderCache;
@@ -555,7 +555,7 @@ var B = window.Barrier, C = window.BupCurves, RenderCache = window.BarrierRender
    about why.  Say it instead. */
 (function requireModules() {
   var missing = [];
-  if (!B) missing.push(['../barrier.js', 'layer0/barrier.js',
+  if (!B) missing.push(['../common/barrier.js', 'layer0/common/barrier.js',
                         'the reconstruction: dynamics, costates, invariants, BUP seeds']);
   if (!C) missing.push(['./bup_curves.js', 'layer0/viz/bup_curves.js',
                         'the ordered seed curves along each (BUP) branch']);

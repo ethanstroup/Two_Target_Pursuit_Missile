@@ -32,7 +32,7 @@
   pass(near(Sim.RminOf(-Math.PI), 0.25, 5e-3), 'R_min(-180deg) = ' + Sim.RminOf(-Math.PI).toFixed(4) + '   expected 0.25');
   // Table 2 prints O_1 = Rbar(0) as 6.1416 and A_1 = Rbar(pi) as 3.0 exactly.
   // Both are met only by Rbar_0 = 3 + pi; the tolerances below are tight enough
-  // to fail if someone puts 6.14 back. See layer0/LAYER0_CLOSEOUT.md.
+  // to fail if someone puts 6.14 back. See Overview/Layer0/Layer0_CloseOut_2026-09-11.md.
   pass(near(Sim.RmaxOf(0), 6.1416, 5e-5),      'R_max(0deg)    = ' + Sim.RmaxOf(0).toFixed(4) + '   Table 2 O_1 = 6.1416');
   pass(near(Sim.RmaxOf(Math.PI), 3.00, 5e-4),  'R_max(180deg)  = ' + Sim.RmaxOf(Math.PI).toFixed(4) + '   Table 2 A_1 = 3.0');
   pass(near(Sim.RmaxOf(-Math.PI), 3.00, 5e-4), 'R_max(-180deg) = ' + Sim.RmaxOf(-Math.PI).toFixed(4) + '   Table 2 A_1 = 3.0');
@@ -99,13 +99,13 @@
   }
 
   // The spec §9 table, RE-BASELINED for Rbar_0 = 3 + pi (see sim.js and
-  // layer0/LAYER0_CLOSEOUT.md). The spec's original numbers were measured with
+  // Overview/Layer0/Layer0_CloseOut_2026-09-11.md). The spec's original numbers were measured with
   // Rbar_0 = 6.14; the two long-range rows moved when the constant was
   // corrected. Superseded values, for the record:
   //     R0 = 8 : p1 = p2 = 0.405, mutual = 0.189
   //     R0 = 12: p1 = p2 = 0.065, mutual = 0.869
   // The short-range rows did not move at all, which is the point: run
-  // layer0/sens.js and a 0.026% change in Rbar_0 shifts the R0 = 8 mutual-kill
+  // layer0/closeout/sens.js and a 0.026% change in Rbar_0 shifts the R0 = 8 mutual-kill
   // fraction by 1.3 points and the R0 = 12 one by 1.7, NON-MONOTONICALLY, while
   // R0 = 5 moves by 0.15. The long-range fractions under the pure-pursuit
   // heuristic are not a stable quantity to three digits, so they are a weak

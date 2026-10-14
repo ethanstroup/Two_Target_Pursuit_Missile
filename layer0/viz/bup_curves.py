@@ -33,7 +33,7 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))          # layer0/
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'common'))  # layer0/common/
 import barrier as B
 
 TWO_PI = 2.0 * np.pi
