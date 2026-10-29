@@ -18,9 +18,12 @@ The two diagnostics in §5.6 were added after the tests ran, and they are labele
 - **The game value hardly changes.** It moves only within 2 cells of its boundary.
 - **Check 8 stays open.** Its flips are not caused by the coarse grid's inner face, and settling
   them needs a fine pole solve.
+  *(Settled 2026-10-15: on both pole grids the six states have $V^{RA}_1=\ell_1>0$. The flips were the
+  old fine grid's own face. `Layer1_M5_PoleRerun_2026-10-15.md` §4.2.)*
 
 **Parent records:**
-- `Overview/Layer1/Layer1_M5_2026-10-11.md` (§4.4) and `Overview/Layer1/Layer1_M5_Explainer.md` (§12);
+- `Overview/Layer1/Layer1_M5_2026-10-11.md` (§4.4) and `Overview/Layer1/Layer1_M5_Explainer.md`
+  (§13 since its 2026-10-14 rewrite);
 - the pre-registered criteria `Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`.
 
 ---
@@ -416,7 +419,7 @@ row of the table in §5.3.
     exactly at the end of the solve.
 - **It changes nothing it shouldn't.**
   - There are no far sign changes anywhere (V3).
-  - The partition shares move by less than 0.04 points.
+  - The partition shares move by at most 0.06 points: $W_1$ by 0.010, $D$ by 0.056, $C$ by 0.037.
   - Checks 11 and 13 pass on the pole grid (V4).
 - **It fixes check 3.** All 12 inner-face failures seen so far win on the pole grid (D1). Check 3
   scores 500/500 at $T=4$. At $T=6$ it scores 498/500, and both remaining failures are the outer
@@ -434,14 +437,20 @@ row of the table in §5.3.
 **Not established**
 - **Check 8.** The six flips at $R=0.554$ are not explained by the coarse inner face (D2). A fine
   pole solve is needed.
+  *(Closed 2026-10-15: check 8 passes on the pole grids, with 0 far flips. The six states read
+  $+0.258$ to $+0.274$ on both pole grids. PoleRerun §4.2.)*
 - **Where the near-face $W_1$ share converges.** It grows under refinement on both grid families
   (§5.3).
+  *(2026-10-15: the fine pole grid gives 19.17 %. The pole family's steps are $+0.89$ and $+0.49$
+  points, which is converging. A three-point estimate puts the limit near 19.8 % (report only).
+  PoleRerun §4.3.)*
 
 ---
 
 ## 7. Decisions for Ethan
 
 1. **Adopt the pole condition, grid and simulator together, for M5 and Layer 2?** *Recommended.*
+   *(Adopted 2026-10-15: the pole fields are M5's fields of record. `Layer1_CloseOut_2026-10-15.md` §5.)*
    - **Keep the two together.** `pole.stepper` costs nothing, but on an old grid a run through the
      pass would read clamped values below $R_{\min}$. The stepper belongs with the pole grid.
    - **Grid cost.** About 3× per step at $101\times102^2$ and about 6× at $201\times204^2$.
@@ -466,6 +475,7 @@ row of the table in §5.3.
    - or score an exit through $R=12$ separately from a failure.
 
    This is a test-design choice, and it only matters for check 3 so far.
+   *(2026-10-15: still open, non-blocking; close-out §6, item 5.)*
 
 Whatever is rerun gets scored against the original M5 criteria, and the M5 record is amended with
 this file as the reason.

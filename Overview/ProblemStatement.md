@@ -2,9 +2,19 @@
 
 **2v1 Air Combat with Bidirectional Lethality**
 
-**Author:** Ethan Stroup · **Started:** 2026-09-09 · **Status:** v0.6, draft for revision
+**Author:** Ethan Stroup · **Started:** 2026-09-09 · **Status:** v0.7, draft for revision
 **Deliverable:** AE 8900 final report + presentation, end of Fall 2026 semester (~14 weeks from this date)
 
+> **v0.7 change (2026-10-15).** **Layer 1 is closed** (`Overview/Layer1/Layer1_CloseOut_2026-10-15.md`).
+> - **M4** passed as the gate for the single-target solve.
+> - **M5**'s reach-avoid partition was rerun on a pole condition at $R=0$, and that rerun is of record.
+> - **Test C2's long-range check passed.** Every live state at $R\ge8$ is a guaranteed draw, and the
+>   heuristic's inversion comes from both players pressing into it.
+> - **The §5.4 interface is delivered** (close-out §3).
+>
+> §4's status, §5.4's interface heading and §10's Layer 1 row are updated. Nothing else changed.
+> §8 item 1 still blocks Layer 2.
+>
 > **v0.6 change (2026-10-01).** **An outside review of the method found a gap between the games
 > solved and the outcomes claimed, and it was right.** Comparing the two arrival-time fields
 > $t_1^*$, $t_2^*$ does not certify who arrives first: each is a guarantee against an opponent
@@ -209,7 +219,7 @@ $R \approx 8$.
    orientation, with the Table 2 points overlaid.
 6. **`barrier.js`**, a port of the same machinery for the browser visualiser, passing the
    same invariant tests.
-7. **The target-set-2 mirror, verified rather than assumed** (`layer0/test_mirror.py`,
+7. **The target-set-2 mirror, verified rather than assumed** (`layer0/closeout/test_mirror.py`,
    2026-09-14). $T_{2\to1}$'s usable-part conditions are recomputed from $T_2$'s own outer
    normals with the min/max roles exchanged, and compared against the swapped call of the
    $T_1$ machinery: agreement to $2.3\times10^{-15}$ on all three families, plus the
@@ -270,7 +280,9 @@ strictly positive. Open.
 
 ## 4. Layer 1 — 1v1 game of degree
 
-**Status: in progress.** M1–M3 closed (2026-09-14 to 09-18: formulation verified, one-player
+**Status: CLOSED 2026-10-15** (`Overview/Layer1/Layer1_CloseOut_2026-10-15.md`). M4 and M5 are done,
+the M5 partition was rerun on a pole grid, and test C2 at long range passed. *Status before the
+close-out:* M1–M3 closed (2026-09-14 to 09-18: formulation verified, one-player
 smoke test, converged two-player single-target solve). M4 (acceptance against Layer 0) and M5
 (two-target reach-avoid partition, redefined 2026-10-01) open. This is the enabling layer and the
 first new work of the semester.
@@ -505,7 +517,8 @@ Mutual kill is an *event* in the stopped game (simultaneous first entry), not a 
 outcome region, unless a computation shows otherwise. The 2v1 partition uses the same three-way
 split at the team level, once §5.4's team objective is fixed.
 
-**Layer 1 → Layer 2 interface (fixed now, not after Layer 1 closes).** What Layer 2 needs from
+**Layer 1 → Layer 2 interface (fixed now, not after Layer 1 closes; delivered 2026-10-15,
+`Overview/Layer1/Layer1_CloseOut_2026-10-15.md` §3).** What Layer 2 needs from
 the 1v1 layer, and therefore what Layer 1 must deliver:
 
 1. The 1v1 sets $W_1$, $W_2$, $D$ and the contested remainder on the $(R,\phi_1,\phi_2)$ grid,
@@ -710,7 +723,7 @@ Carried over from the literature-review process, which has been working:
 | Weeks | Work | Output |
 |---|---|---|
 | 1–2 | Close Layer 0: barrier reconstruction from costate ODEs; validate against D&S figures. In parallel, attack the $2\beta$ separation result (§8.3) — it needs only Layer 0 machinery | **Barrier reconstruction done 2026-09-11** — verified trajectories, BUP, Table 2 acceptance, figures. $2\beta$ result not yet attempted |
-| 3–6 | Layer 1: pick payoff, solve the 1v1 game of degree, verify zero level set against Layer 0 | Global feedback law; validated numerical method. **As of 2026-10-01:** M1–M3 done; M4 acceptance and M5 reach-avoid partition (redefined) remain |
+| 3–6 | Layer 1: pick payoff, solve the 1v1 game of degree, verify zero level set against Layer 0 | Global feedback law; validated numerical method. **Closed 2026-10-15:** M1–M5 done; test C2 at long range passed (`Overview/Layer1/Layer1_CloseOut_2026-10-15.md`) |
 | 7–10 | Layer 2: implement six-state dynamics and four target sets; $R_2\to\infty$ regression against Layer 0; partition what can be partitioned | 2v1 game of kind, partially solved |
 | 11–12 | Layer 2 depth: characterize the mutual-kill structure (§8.5); extend D&S Appendix B rules to four target sets as far as they go | The report's central result |
 | 13–14 | Write-up, presentation | Final report |

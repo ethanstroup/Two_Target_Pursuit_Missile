@@ -17,7 +17,7 @@ then numerically; Layer 2 is the 2v1 game itself. The full specification is
 | Layer | Question | State |
 |---|---|---|
 | 0 | Reconstruct D&S's 1v1 barriers from the costate equations | **Closed 2026-09-11.** Barrier trajectories and the boundary of the usable part verified against the paper's Table 2 |
-| 1 | Solve the 1v1 game numerically (HJI reachability) and partition it by guarantees | **M1–M4 done; M5 solved 2026-10-11.** The central claims hold and D&S's corrected boundary is reproduced; the failed checks are diagnosed in the M5 record, and the 2026-10-13 inner-face follow-up leaves check 8 open |
+| 1 | Solve the 1v1 game numerically (HJI reachability) and partition it by guarantees | **Closed 2026-10-15** ([close-out](Overview/Layer1/Layer1_CloseOut_2026-10-15.md)). M1–M5 done; M5 rerun on a pole condition at $R=0$ is of record (9 of 14 checks; check 8 settled); test C2 at long range passed. Test E against Table 3 (2026-10-28) fails by one hit |
 | 2 | The 2v1 game: six states, four target sets | Not started |
 | 3 | Synchronization as a derived property | Deferred |
 
@@ -50,7 +50,8 @@ git; the scripts regenerate them.
    for how a barrier trajectory is built.
 3. Layer 1: [`Layer1_Plan.md`](Overview/Layer1/Layer1_Plan.md), then the explainers in milestone
    order (`Layer1_M1_Explainer.md` … `Layer1_M5_Explainer.md`). They are plain-language
-   walkthroughs written to be read cold.
+   walkthroughs written to be read cold. For what Layer 1 established and hands to Layer 2, read
+   [`Layer1_CloseOut_2026-10-15.md`](Overview/Layer1/Layer1_CloseOut_2026-10-15.md).
 4. The dated files (`Layer1_M4_2026-10-06.md`, `Layer1_M5_2026-10-11.md`, …) are the records of
    what each run found. Read them for detail, in date order.
 

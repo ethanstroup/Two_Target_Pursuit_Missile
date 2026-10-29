@@ -1,13 +1,16 @@
 # Layer 1 Plan — 1v1 Game of Degree via HJI Reachability
 
 **AE 8900 · drafted 2026-09-14 · Ethan Stroup**
-**Status:** **instructions closed 2026-09-14; revised 2026-10-01** (M5 redefined, see the
+**Status: Layer 1 CLOSED 2026-10-15** (`Overview/Layer1/Layer1_CloseOut_2026-10-15.md`). M1–M5 are
+done; M5's rerun on the pole grids is of record; test C2 at long range passed. History follows.
+**Instructions closed 2026-09-14; revised 2026-10-01** (M5 redefined, see the
 revision note below). Test F scoped and M5's criteria pre-registered 2026-10-11
 (`Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`). **M5 solved and scored 2026-10-11**
 (`Overview/Layer1/Layer1_M5_2026-10-11.md`: guarantee and D&S corrected boundary reproduced; contested
 set fat but resolves to a draw, shown by the converse check 13 added 2026-10-12). Inner face
 followed up 2026-10-13 (`Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md`): a pole condition at $R=0$
-passed all four pre-registered tests and fixes check 3; check 8 stays open pending a fine pole solve. M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
+passed all four pre-registered tests and fixes check 3; check 8 stays open pending a fine pole solve (settled 2026-10-15 by that solve:
+`Overview/Layer1/Layer1_M5_PoleRerun_2026-10-15.md`). M1–M3 done. M4 and the redefined M5 are executable as written. M1 and M2 are already done — see
 `Overview/Layer1/Layer1_Progress_2026-09-14.md`. Layer 0 closed 2026-09-11
 (`Overview/Layer0/Layer0_CloseOut_2026-09-11.md`).
 **Schedule slot:** ProblemStatement §10, weeks 3–6.
@@ -425,13 +428,15 @@ $\bar R(0) = 6.1416$) and in grid ($101^3$ vs $201^3$, measuring drift of the **
 set**, not of $V$). Budget it as an overnight job: ~2 h at $201^3$, and gradient storage is the
 binding constraint.
 
-**M4 — Acceptance against Layer 0.** §5 below. This is the gate for the single-target solve.
+**M4 — Acceptance against Layer 0. DONE 2026-10-07** (`Overview/Layer1/Layer1_M4_2026-10-06.md`). §5 below. This is the gate for the single-target solve.
 *(Scoped 2026-10-01: Layer 0's trajectories are locally correct characteristics, but the global
 assembly that decides which segments are actually part of the barrier was never done. Compare
 only where a trajectory is on the active boundary — see §5's note — and treat a departure as a
 candidate inactive segment, not automatically as a failure.)*
 
-**M5 — The two-target partition by reach-avoid, now this layer's central claim.**
+**M5 — The two-target partition by reach-avoid, now this layer's central claim. DONE 2026-10-11;
+rerun on the pole grids 2026-10-15, of record** (`Overview/Layer1/Layer1_M5_2026-10-11.md`,
+`Overview/Layer1/Layer1_M5_PoleRerun_2026-10-15.md`).
 *(Redefined 2026-10-01; the previous M5, a comparison of $t_1^*$ with $t_2^*$, is withdrawn —
 §2.3.)*
 
@@ -526,6 +531,7 @@ this half of the test is run against the **arrival-time gradients**, not $\nabla
   direct check of that guarantee);
 - no long-range inversion of the angular-advantage result beyond $R \approx 8$, which is the
   §4 criterion proper and the heuristic's known failure.
+  *(Run 2026-10-15, pre-registered: PASS. `Overview/Layer1/Layer1_C2LongRange_2026-10-15.md`.)*
 
 Do **not** run C2 against $\nabla V$. Inside the winning zone that gradient optimizes
 penetration depth into the WEZ, which under instantaneous kill on entry is physically
@@ -542,6 +548,9 @@ against D&S Table 3's 25 singular lines. **This is how Layer 0's largest open it
 universal-line endpoints, dispersal junctions, switch-line crossings — and if they lie on the
 detected locus, Layer 1 places them. Cheap to run once $V$ exists, and a result in its own
 right rather than only a check.
+*(Compared with Table 3 on 2026-10-28, pre-registered:
+`Overview/Layer1/Layer1_TestE_Table3_2026-10-28.md`. FAIL by one hit. The scored endpoints and the
+$S_1U_1$ line mostly sit on the right player's switch locus. Five more Table 2 points are placed.)*
 
 **F — Two-target acceptance (M5, added 2026-10-01).** $W_1$ should reproduce D&S's
 **corrected** winning zone for player 1: five disconnected closed subregions (two small
@@ -694,6 +703,9 @@ Reference documents: `Overview/ProblemStatement.md` (the spec of record),
 ## 10. Next session's opening move
 
 *(Rewritten 2026-10-01. M1–M3 are closed; the previous text described starting M3.)*
+
+*(2026-10-15: Layer 1 is closed and this section is historical. What comes next is
+`Overview/Layer1/Layer1_CloseOut_2026-10-15.md` §7.)*
 
 1. **Read `Overview/Layer1/Layer1_Revision_2026-10-01.md`** and this plan's revision note at the top.
    The arrival-time comparison is withdrawn; do not build M5 on it.

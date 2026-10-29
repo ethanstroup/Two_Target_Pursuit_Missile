@@ -1,6 +1,9 @@
 # Layer 1 — status
 
-**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-09-18**
+**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-10-28**
+
+**Layer 1 is closed (2026-10-15).** The summary is `Overview/Layer1/Layer1_CloseOut_2026-10-15.md`,
+and what Layer 2 receives is its §3. The status entries below are kept as they were written.
 Plan of record: `Overview/Layer1/Layer1_Plan.md`. Spec of record: `Overview/ProblemStatement.md`.
 
 ## Layout (reorganized 2026-10-14)
@@ -12,11 +15,16 @@ layer1/
   M2/       one-player smoke test: test_m2.py, solve_m2_snap.py, m2_out/
   M3/       two-player solve: solve_m3.py, grid_study.py, zone_structure.py, win_alone.py,
             sym_test.py, m3_out/
-  M4/       acceptance against Layer 0: test_m4.py, l0_traj.py, m4_out/ (the m4_*.log runs)
+  M4/       acceptance against Layer 0: test_m4.py, l0_traj.py, test_e_table3.py,
+            m4_out/ (the m4_*.log runs, test E's logs)
+  M4/diag/  report-only diagnostics for test E (diag_table3_misses.py)
   M5/       reach-avoid partition and inner face: reach_avoid.py, sim_m5.py, smoke_m5.py,
             test_m5.py, converse_m5.py, pole.py, inertial.py, verify_pole.py, run_m5_pole.py,
-            m5_out/
+            c2_longrange.py, m5_out/
   M5/diag/  report-only diagnostics (diag_*.py)
+  M5/m5_out/m5_out_V0/       the original R_min = 0.2 M5 outputs
+  M5/m5_out/m5_out_V1_pole/  the pole rerun's outputs, of record (fields, json, snapshots,
+                             pole_run/ logs, C2 long range, test E)
   viz/      ell_explorer.html
 ```
 
@@ -25,6 +33,10 @@ as everything was once run from `layer1/`: each milestone writes its outputs to 
 `m<k>_out/` relative to the working directory. The diagnostics run from `M5/` as
 `python diag/diag_<name>.py`, so they find `m5_out/`. Each script adds `common/` (and the
 diagnostics `M5/`) to `sys.path` itself. M4 and M5 read M3's fields from `../M3/m3_out/`.
+The scripts added at close-out (`c2_longrange.py`, `diag/diag_pole_rerun.py`, `test_e_table3.py`,
+`M4/diag/diag_table3_misses.py`) read the pole fields from `m5_out/m5_out_V1_pole/` by default.
+`test_m5.py` and `converse_m5.py` still read `m5_out/` directly; to rescore, move the pole outputs
+back there or point `OUT` at `m5_out/m5_out_V1_pole`.
 
 | Milestone | State |
 |---|---|
@@ -36,8 +48,10 @@ re-run and green under all three choices. One proposed amendment to §2.1 — se
 "The ell weighting" below; it is a one-line revert and it wants your decision
 before the 201³ run.
 | M3 full two-player solve, converged in horizon and grid | **DONE** — `solve_m3.py` + `grid_study.py`, all checks pass |
-| M4 acceptance against Layer 0 | not started — unblocked |
-| M5 mutual-kill / arrival-time comparison | not started — unblocked |
+| M4 acceptance against Layer 0 | **DONE** 2026-10-07 — `M4/test_m4.py`; `Overview/Layer1/Layer1_M4_2026-10-06.md` |
+| M5 two-target partition by reach-avoid (redefined 2026-10-01) | **DONE** 2026-10-11; rerun on the pole grids 2026-10-15, of record — `Overview/Layer1/Layer1_M5_PoleRerun_2026-10-15.md` |
+| Test C2 at long range | **PASS** 2026-10-15 — `M5/c2_longrange.py`; `Overview/Layer1/Layer1_C2LongRange_2026-10-15.md` |
+| Test E against D&S Table 3 (after close-out) | **FAIL by one hit** 2026-10-28 (6 of 9, bar 7; $P=1.6\times10^{-4}$) — `M4/test_e_table3.py`; `Overview/Layer1/Layer1_TestE_Table3_2026-10-28.md` |
 
 **2026-10-01. M2's frozen-evader V is not valid everywhere — open, needs a decision.**
 V is a minimum of `ell` along a trajectory, so `V >= min ell = -beta` always. The
@@ -50,6 +64,10 @@ leaves the R domain. M3 does not do this (min V −0.802). Found while building
 `solve_m2_snap.py` for the explorer, which reports the bound as a failing check;
 the inner-face condition has not been changed. Explorer record:
 `Overview/Layer1/Layer1_M1_Explorer_2026-09-30.md`.
+*(Closed 2026-10-15. The breakdown is the R = 0.2 inner face. On M2's own 101³ grid it reproduces
+exactly: min V = −14,594 at T = 3, with 3.29 % of nodes below the bound. On the 101 × 102² pole grid
+the same frozen-evader solve keeps V ≥ min ℓ = −0.785 to within the scheme's usual 0.04 (min V
+−0.825, at R = 1.85). `M5/diag/diag_m2_pole.py`; logs in `M5/m5_out/m5_out_V1_pole/`; close-out §5.)*
 
 **2026-09-18.** M3 closed. Full record: `Overview/Layer1/Layer1_M3_2026-09-18.md`. Headline
 numbers and the one grid rule that came out of it are below; the fields M4 and M5
@@ -371,6 +389,7 @@ layer1/M5/m5_out/         m5_<grid>_T6_fields.npz (V_RA float32, reach-avoid arr
                           visualization, in M3's Vsnap layout plus R, phi1, phi2; real rows
                           only. Written by every solve; for older runs:
                           python reach_avoid.py vsnap <tag> [<tag> ...]
+                          (since 2026-10-15 these sit in m5_out/m5_out_V0/)
 ```
 
 Added 2026-10-13, for the inner face (record `Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md`):
@@ -396,7 +415,8 @@ layer1/M5/m5_out/rmin0.1/             the R_min = 0.1 smoke and diagnostic logs
 
 **Rerunning M5 on the pole grids** (2026-10-13): `python run_m5_pole.py` (from `M5/`) runs every solve and
 check in order (smoke, coarse march and cut, V_1, third grid, fine game and V_1, checks 4-13),
-one log per step in `m5_out/pole_run/`, and resumes where it stopped if started again
+one log per step in `m5_out/pole_run/` (the run of record was then moved to
+`m5_out/m5_out_V1_pole/pole_run/`), and resumes where it stopped if started again
 (`--list` shows the steps; `--parallel-fine` runs the two fine solves at once). Under
 `LAYER1_POLE=1`, `smoke_m5.py`, `test_m5.py` and `converse_m5.py` read the `_pole` runs: V_1
 from `reach_avoid.py ... single`, field checks on the rows at R > 0, rollouts with
@@ -409,6 +429,30 @@ Solve on the pole grid with `LAYER1_POLE=1 python reach_avoid.py <n_R> <n_phi> <
 R = (i + 1/2) dR with dR = 12 / (n_R - 1/2), and the full-grid files (VRA, tRA, VRAsnap,
 fields) keep 3 mirror rows at R < 0; read R from the file (fields npz, or R_nodes in the
 json), never linspace(0.2, 12, n_R). Vsnap_RA drops the mirror rows.
+
+Added 2026-10-15, for the pole rerun and the close-out (records
+`Overview/Layer1/Layer1_M5_PoleRerun_2026-10-15.md`, `Overview/Layer1/Layer1_C2LongRange_2026-10-15.md`,
+`Overview/Layer1/Layer1_CloseOut_2026-10-15.md`):
+
+```
+layer1/M5/c2_longrange.py           test C2 at long range, LR-1 to LR-5 (pre-registered)
+layer1/M5/diag/diag_pole_rerun.py   PoleRerun Sec. 6 diagnostics: checks 4, 5, 6, 8, 9, C, near face
+layer1/M5/diag/diag_m2_pole.py      M2's frozen-evader bound, old inner face vs pole (closes the
+                                    2026-10-01 M2 item above)
+layer1/M5/m5_out/m5_out_V0/         the original R_min = 0.2 M5 outputs and logs
+layer1/M5/m5_out/m5_out_V1_pole/    m5_<grid>_T6[_single]_pole_fields.npz, json, VRA/tRA .npy,
+                                    VRAsnap / Vsnap_RA snapshots, pole_run/ logs, c2_longrange.*,
+                                    diag_pole_rerun.log, diag_m2_pole_*.log, test_e_table3.json
+```
+
+Added 2026-10-28, for test E against D&S Table 3 (record
+`Overview/Layer1/Layer1_TestE_Table3_2026-10-28.md`; run from `M4/`):
+
+```
+layer1/M4/test_e_table3.py           T3-1 level, T3-2 locus, T3-3 the S_1 U_1 line (pre-registered);
+                                     log in m4_out/, json beside the pole fields
+layer1/M4/diag/diag_table3_misses.py report only: the misses, the S_1 U_1 samples, hit radii 1-4
+```
 
 `test_m4.py` exists (M4). The `mutual_kill.py` named earlier was superseded by the
 reach-avoid M5 (Plan revision 2026-10-01).
