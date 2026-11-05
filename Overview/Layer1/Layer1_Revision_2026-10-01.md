@@ -67,7 +67,7 @@ Ethan gave a second model seven project records (ProblemStatement, Layer1_Plan, 
   - Layer 0's status is qualified as single-target machinery.
   - M4's comparison is scoped to barrier segments on the active boundary, with departures listed as candidate junctions rather than failures.
   - The R ≥ 0.45 mask is described as supporting results on the retained domain only.
-- **Rejected:** "the M3 scripts are missing". This was our own false flag from the 09-30 record. Ethan confirms that `solve_m3.py`, the other M3 scripts and `m3_out/` are on his computer. That record is corrected.
+- **Rejected:** "the M3 scripts are missing". This was our own false flag from the 09-30 record. Ethan confirms that `solve_m3.py`, the other M3 scripts and `layer1/M3/m3_out/` are on his computer. That record is corrected.
 
 **Noted, not changed.** "Terminal miss" is a loose name, because the value is the minimum of $\ell$ over the trajectory. The accurate description is noted in ProblemStatement §4. The name is kept so file references stay valid.
 
@@ -84,7 +84,7 @@ The dated progress records (`Layer1_Progress_2026-09-14.md`, `Layer1_Amendment_2
 
 ## Not done, and needs Ethan
 
-- **Code.** `layer1/reach_avoid.py` and `test_m5.py` are named in Plan §9 but not written. The repo has not been touched.
+- **Code.** `layer1/M5/reach_avoid.py` and `test_m5.py` are named in Plan §9 but not written. The repo has not been touched.
 - **Open decisions.**
   - The §5.4 team objective is still open.
   - §8 item 7 defaults to guarantees only. Confirm or change.

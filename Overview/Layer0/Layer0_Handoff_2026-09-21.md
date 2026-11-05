@@ -35,7 +35,7 @@ Repo: `C:\Users\estro\Projects\AE8900\Two_Target_Pursuit_Missile\layer0` (files 
   - Retrograde R strictly increases here, so any point involving the corner family has R ≥ R̄₀.
 - **Universal lines end at c₁** because they meet the dispersal line there, not because they reach the corner.
 
-## Files added or changed (layer0/viz)
+## Files added or changed (in `layer0/viz/` then; the first four are in `layer0/singular_lines/` now)
 
 | file | what it does |
 |---|---|

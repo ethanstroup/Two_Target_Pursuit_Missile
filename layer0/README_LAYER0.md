@@ -51,9 +51,6 @@ from any working directory.
 | `Layer0_MaxRangeAudit_2026-09-17.md`, `Layer0_Fig8_CaptureZones_2026-09-17.md`, `Layer0_Handoff_2026-09-21.md` | `singular_lines/` |
 | `Layer0_BoresightSec33_2026-09-21.md` | `viz/` (`bup_curves`, `test_viz` §9) |
 
-The dated records quote the paths as they were on their dates (`layer0/barrier.py`,
-`layer0/viz/universal_d1.py`, ...); the layout above is current.
-
 ## Run order
 
 ```

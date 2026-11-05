@@ -7,7 +7,7 @@ reach-avoid solve has run**. Nothing below was chosen with an M5 result visible.
 is changed later, the change goes in the M5 record with its reason, and this file stays as written.
 
 **Plan of record:** `Overview/Layer1/Layer1_Plan.md` §4 (M5) and §5 (test F), as revised 2026-10-01.
-**Inputs carried in:** `Overview/Layer1/Layer1_M4_2026-10-06.md` §6 and the M3 fields in `layer1/m3_out/`.
+**Inputs carried in:** `Overview/Layer1/Layer1_M4_2026-10-06.md` §6 and the M3 fields in `layer1/M3/m3_out/`.
 
 ---
 
@@ -157,13 +157,15 @@ at $201\times204^2$, the same values as M4. At $61\times62^2$ and $51\times51^2$
 | 6 | Disjointness | 101, 201 | $W_1\cap W_2$ and $W_1\cap D$: 0 nodes in $\Omega$ |
 | 7 | Horizon | 101, 201 | final 0.25-step moves $<0.5\,\%$ of $\{V^{RA}_1=0\}$ |
 | 8 | Grid convergence of $\partial W_1$, using the M3 metric (`grid_study.py`) | 101 vs 201 | displacement $\le0.5$ coarse cells, and 0 disagreements beyond 3 cells |
-| 9 | Test F topology, see below | 201 | 3 components above 0.01 % of $\Omega$: one $Rf$-invariant, two $Rf$-mirrors |
+| 9 | Test F topology, see below | 201 | 3 components of $W_1$ outside the target sets, no $R$ mask, above 0.01 % of $\Omega$: one $Rf$-invariant, two $Rf$-mirrors |
 | 10 | Test F, Table 2 points (§5) | 201 | off-$\partial T_{1\to2}$ set: at most **2** misses of $\lvert V^{RA}_1\rvert\le\delta$; on-$\partial T_{1\to2}$ set: at most **1** miss of $V^{RA}_1\ge-\delta$. Every miss listed |
 | 11 | Test F, guarantee, see below | 201 | **0** failures over all starts and all five laws |
 | 12 | Negative control: player 1 flies $-\operatorname{sign}(\phi_1)$ from the same starts | 201 | at least **20** starts fail, where a start fails if any of the five laws beats it |
 
 **Check 9.**
-- **What's counted.** Components of $W_1\cap\Omega$, face-connected and periodic in both angles.
+- **What's counted.** Components of $W_1$ outside $T_{1\to2}$ and $T_{2\to1}$, face-connected and
+  periodic in both angles. The $R\ge0.45$ mask is not applied, since it cuts D&S's min-range
+  subregion in two at $R=0.45$. *(Corrected 2026-11-04; as first written, the count used $\Omega$.)*
 - **Why three.** D&S's two max-range zones lie on $T_{1\to2}$ itself (M4 §4.2), so they are not
   expected in $\Omega$. The three expected are D&S's min-range subregion and the two off-boresight
   zones above the $\beta\delta$ intersection lines (Fig. 14).
@@ -231,7 +233,7 @@ paper, p. 154–159, on 2026-10-11:
 | reason | points |
 |---|---|
 | below the $R\ge0.45$ mask | $V_1$ (0.412), $\tilde W_1$ (0.148), $q_1$ (0.381) |
-| row flagged inconsistent as printed (`layer0/table3.py`: $I_1P_1$) | $I_1$, $P_1$ |
+| row flagged inconsistent as printed (`layer0/singular_lines/table3.py`: $I_1P_1$) | $I_1$, $P_1$ |
 | on $\partial T_{1\to2}\cap\partial T_{2\to1}$, where $V^{RA}_1=0$ exactly by construction | $\beta,\gamma,\delta,\eta$ |
 
 **Scored.** "On $\partial T_{1\to2}$" means $|\ell_1|\le2.5\times10^{-3}$, the `validate_table2.py`
@@ -255,12 +257,12 @@ D&S keep on the corrected boundary.
 ## 6. Files
 
 ```
-layer1/reach_avoid.py   the solve: obstacle setup, march with snapshots, partition
-layer1/smoke_m5.py      checks 1, 1b, 2, 3 at 61x62^2
-layer1/sim_m5.py        vectorized rollouts, the five player-2 laws, event location
-layer1/test_m5.py       checks 4-12 and the report-only quantities
-layer1/converse_m5.py   check 13 (addendum, Sec. 7)
-layer1/m5_out/          V_RA fields, snapshots, json diagnostics, logs
+layer1/M5/reach_avoid.py  the solve: obstacle setup, march with snapshots, partition
+layer1/M5/smoke_m5.py     checks 1, 1b, 2, 3 at 61x62^2
+layer1/M5/sim_m5.py       vectorized rollouts, the five player-2 laws, event location
+layer1/M5/test_m5.py      checks 4-12 and the report-only quantities
+layer1/M5/converse_m5.py  check 13 (addendum, Sec. 7)
+layer1/M5/m5_out/         V_RA fields, snapshots, json diagnostics, logs
 ```
 
 ---

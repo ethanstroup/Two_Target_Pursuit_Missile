@@ -17,7 +17,7 @@ then numerically; Layer 2 is the 2v1 game itself. The full specification is
 | Layer | Question | State |
 |---|---|---|
 | 0 | Reconstruct D&S's 1v1 barriers from the costate equations | **Closed 2026-09-11.** Barrier trajectories and the boundary of the usable part verified against the paper's Table 2 |
-| 1 | Solve the 1v1 game numerically (HJI reachability) and partition it by guarantees | **Closed 2026-10-15** ([close-out](Overview/Layer1/Layer1_CloseOut_2026-10-15.md)). M1–M5 done; M5 rerun on a pole condition at $R=0$ is of record (9 of 14 checks; check 8 settled); test C2 at long range passed. Test E against Table 3 (2026-10-28) fails by one hit |
+| 1 | Solve the 1v1 game numerically (HJI reachability) and partition it by guarantees | **Closed 2026-10-15** ([close-out](Overview/Layer1/Layer1_CloseOut_2026-10-15.md)). M1–M5 done; M5 rerun on a pole condition at $R=0$ is of record (10 of 14 checks; check 8 settled); test C2 at long range passed. Test E against Table 3 (2026-10-28) fails by one hit. An M4 rerun on the pole field has pre-registered criteria (2026-10-29) and has not been run |
 | 2 | The 2v1 game: six states, four target sets | Not started |
 | 3 | Synchronization as a derived property | Deferred |
 
@@ -38,8 +38,9 @@ heuristic_simulator/      the original interactive demo: forward simulation unde
                           pure-pursuit heuristic (index.html), plus its acceptance tests
 ```
 
-Large solver outputs (`layer1/M*/m*_out/`) and generated figures (`*.png`) are not tracked by
-git; the scripts regenerate them.
+Large solver outputs (`layer1/M*/m*_out/`, and any stray `*.npy` / `*.npz`) and generated
+figures (`*.png`, the report-figure PDFs in `layer1/viz/`) are not tracked by git; the scripts
+regenerate them.
 
 ## Where to start reading
 
@@ -55,8 +56,8 @@ git; the scripts regenerate them.
 4. The dated files (`Layer1_M4_2026-10-06.md`, `Layer1_M5_2026-10-11.md`, …) are the records of
    what each run found. Read them for detail, in date order.
 
-The dated records quote file paths as they were on their dates. The code was reorganized into
-the folders above on 2026-10-14; each layer's README maps the current layout.
+File paths in the records follow the folder layout above (the code was reorganized into it on
+2026-10-14). Each layer's README maps the layout in more detail and gives the run order.
 
 ## Setup
 

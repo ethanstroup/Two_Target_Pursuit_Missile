@@ -1,10 +1,11 @@
 # Layer 1 — status
 
-**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-10-28**
+**AE 8900 · Ethan Stroup · started 2026-09-14 · updated 2026-11-04**
 
 **Layer 1 is closed (2026-10-15).** The summary is `Overview/Layer1/Layer1_CloseOut_2026-10-15.md`,
-and what Layer 2 receives is its §3. The status entries below are kept as they were written.
-Plan of record: `Overview/Layer1/Layer1_Plan.md`. Spec of record: `Overview/ProblemStatement.md`.
+and what Layer 2 receives is its §3. The dated notes below say what was found on their dates; where
+a later run changed a note, the note says so. Plan of record: `Overview/Layer1/Layer1_Plan.md`.
+Spec of record: `Overview/ProblemStatement.md`.
 
 ## Layout (reorganized 2026-10-14)
 
@@ -16,16 +17,18 @@ layer1/
   M3/       two-player solve: solve_m3.py, grid_study.py, zone_structure.py, win_alone.py,
             sym_test.py, m3_out/
   M4/       acceptance against Layer 0: test_m4.py, l0_traj.py, test_e_table3.py,
+            pole_source.py (the pole field for the M4 rerun),
             m4_out/ (the m4_*.log runs, test E's logs)
   M4/diag/  report-only diagnostics for test E (diag_table3_misses.py)
   M5/       reach-avoid partition and inner face: reach_avoid.py, sim_m5.py, smoke_m5.py,
             test_m5.py, converse_m5.py, pole.py, inertial.py, verify_pole.py, run_m5_pole.py,
             c2_longrange.py, m5_out/
-  M5/diag/  report-only diagnostics (diag_*.py)
+  M5/diag/  report-only diagnostics (diag_*.py), including diag_pole_report.py for the report
   M5/m5_out/m5_out_V0/       the original R_min = 0.2 M5 outputs
   M5/m5_out/m5_out_V1_pole/  the pole rerun's outputs, of record (fields, json, snapshots,
                              pole_run/ logs, C2 long range, test E)
-  viz/      ell_explorer.html
+  viz/      ell_explorer.html, and the report-figure scripts horizon_motion_plot.py
+            (M3 horizon convergence) and m2_front_report.py (M2 winning-zone edge)
 ```
 
 **Run every script from its own milestone folder** (`cd layer1/M3; python solve_m3.py ...`),
@@ -33,8 +36,9 @@ as everything was once run from `layer1/`: each milestone writes its outputs to 
 `m<k>_out/` relative to the working directory. The diagnostics run from `M5/` as
 `python diag/diag_<name>.py`, so they find `m5_out/`. Each script adds `common/` (and the
 diagnostics `M5/`) to `sys.path` itself. M4 and M5 read M3's fields from `../M3/m3_out/`.
-The scripts added at close-out (`c2_longrange.py`, `diag/diag_pole_rerun.py`, `test_e_table3.py`,
-`M4/diag/diag_table3_misses.py`) read the pole fields from `m5_out/m5_out_V1_pole/` by default.
+The scripts added at and after close-out (`c2_longrange.py`, `diag/diag_pole_rerun.py`,
+`diag/diag_pole_report.py`, `test_e_table3.py`, `M4/diag/diag_table3_misses.py`, and `test_m4.py`
+under `LAYER1_POLE=1`) read the pole fields from `m5_out/m5_out_V1_pole/` by default.
 `test_m5.py` and `converse_m5.py` still read `m5_out/` directly; to rescore, move the pole outputs
 back there or point `OUT` at `m5_out/m5_out_V1_pole`.
 
@@ -42,18 +46,19 @@ back there or point `OUT` at `m5_out/m5_out_V1_pole`.
 |---|---|
 | M1 formulation verified before any solve | **DONE** — `test_m1.py`, all checks pass |
 | M2 one-player smoke test | **DONE** — `test_m2.py`, all checks pass |
-
-**2026-09-15.** `ell.py` now carries the Plan §2.1 weighting, selectable. M1 and M2
-re-run and green under all three choices. One proposed amendment to §2.1 — see
-"The ell weighting" below; it is a one-line revert and it wants your decision
-before the 201³ run.
 | M3 full two-player solve, converged in horizon and grid | **DONE** — `solve_m3.py` + `grid_study.py`, all checks pass |
 | M4 acceptance against Layer 0 | **DONE** 2026-10-07 — `M4/test_m4.py`; `Overview/Layer1/Layer1_M4_2026-10-06.md` |
 | M5 two-target partition by reach-avoid (redefined 2026-10-01) | **DONE** 2026-10-11; rerun on the pole grids 2026-10-15, of record — `Overview/Layer1/Layer1_M5_PoleRerun_2026-10-15.md` |
 | Test C2 at long range | **PASS** 2026-10-15 — `M5/c2_longrange.py`; `Overview/Layer1/Layer1_C2LongRange_2026-10-15.md` |
 | Test E against D&S Table 3 (after close-out) | **FAIL by one hit** 2026-10-28 (6 of 9, bar 7; $P=1.6\times10^{-4}$) — `M4/test_e_table3.py`; `Overview/Layer1/Layer1_TestE_Table3_2026-10-28.md` |
+| M4 rerun on the pole field | criteria fixed 2026-10-29, **not run**; M4 of record stays the $R_{\min}=0.2$ run — `M4/test_m4.py` with `LAYER1_POLE=1`; `Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md` |
+| The report's M5 numbers on the pole grids | report only, 2026-11-03 — `M5/diag/diag_pole_report.py`; `Overview/Layer1/Layer1_M5_ReportNumbers_2026-11-03.md` |
 
-**2026-10-01. M2's frozen-evader V is not valid everywhere — open, needs a decision.**
+**2026-09-15.** `ell.py` carries the Plan §2.1 weighting, selectable. M1 and M2 re-ran green under
+all three choices. `sdist` was adopted 2026-10-07 (see "The ell weighting" below).
+
+**2026-10-01. M2's frozen-evader V is not valid everywhere** *(closed 2026-10-15, see the end of
+this note)*.
 V is a minimum of `ell` along a trajectory, so `V >= min ell = -beta` always. The
 frozen-evader solve breaks that from τ ≈ 0.75 on: it starts at the inner face
 R = 0.2 near φ₁ = φ₂ = 0 (nose-on, closing, i.e. leaving through that face) and
@@ -114,7 +119,9 @@ barely-negative V at R = 0.200 and 0.318 that forward simulation shows are
 unreachable (`min ell` = +0.41 to +0.54). They are the only grid-study
 disagreements not adjacent to the barrier, and left in they made the win-alone
 component count come out at exactly D&S's five. **Use `R_MARGIN = 0.45` in M4's
-tests**; `{V ≤ 0}` should not be quoted without it.
+tests**; `{V ≤ 0}` should not be quoted without it. From M5 on, the pole condition at R = 0
+(`M5/pole.py`) replaced the face, and the mask was kept so every result is measured on the same
+domain.
 
 ## Tooling decision (Plan §3)
 
@@ -145,7 +152,7 @@ Environment: JAX must run in **float64** (`jax_enable_x64`); the default float32
 would make the M1 machine-precision comparison meaningless. Set in `hji.py`
 before any array is created, and asserted in `test_m1.py` §0.
 
-## The ell weighting — a proposed amendment to Plan §2.1
+## The ell weighting — Plan §2.1 amended (adopted 2026-10-07)
 
 §2.1 asks for `ell` to be nondimensionalized: boresight term over `beta`, both range
 terms over `Rbar_0`. The reason it gives is conditioning — *"level-set schemes want
@@ -190,10 +197,10 @@ of its own gradient is the closed-form approximation of that, done up front for 
 radian against two normalized lengths under *every* weighting, so a nonzero value is
 a weapon-envelope margin, never a miss distance. Nothing here makes it one.
 
-**Status: `SCALING = 'sdist'` is the default, flagged in `ell.py` as a deviation
-awaiting your decision.** Revert with one string, or `LAYER1_ELL_SCALING=plan`. All
-weights are strictly positive, so the zero level set — and acceptance tests A–E — are
-invariant to the choice either way.
+**Status: decided 2026-10-07, `SCALING = 'sdist'` is the default**
+(`Overview/Layer1/Layer1_Amendment_2026-09-15.md`). The other weightings stay selectable with
+`LAYER1_ELL_SCALING=raw|plan`. All weights are strictly positive, so the zero level set — and
+acceptance tests A–E — are invariant to the choice either way.
 
 ### One test unit changed with it
 
@@ -289,7 +296,7 @@ solver cannot pass by accident, and it replaced a check that was simply the wron
 question: *"has the zero level set stopped moving?"* is an **M3** test. Against a
 frozen evader the zone never stops growing — it is range-limited and just runs
 out of domain. Against a maneuvering evader it converges, and its outer edge
-stays pinned at R = 5.90 < `R_hi(0) = 6.1416`. That is D&S's bounded winning zone
+stays pinned at R = 5.98 on 101³ (5.90 on 61³), below `R_hi(0) = 6.1416`. That is D&S's bounded winning zone
 appearing on its own, before any acceptance test has been run.
 
 **2. A finite-horizon value function must be read at the REMAINING horizon.** The
@@ -365,8 +372,26 @@ layer1/viz/ell_explorer.html   ell (M1) and V(x, tau) of M2 and M3; loads the tw
                                files in the browser (load files... or drop them on the page)
 ```
 
+Added 2026-11-02: the same game on the pole grid of record (`M5/pole.py`), so the explorer's
+M2 tab no longer shows the R = 0.2 breakdown. From `layer1/M2/`, in cmd:
+`set "LAYER1_POLE=1" && python solve_m2_snap.py` (PowerShell: `$env:LAYER1_POLE = "1"`).
+
+```
+layer1/M2/m2_out/              Vsnap_frozen_101x102_T6_pole.npz   real rows only, R = (i + 1/2) dR
+                               m2_frozen_101x102_T6_pole.json     as above, plus R_nodes
+                               solve_m2_snap_101x102_T6_pole.log  the run
+```
+
+All checks pass on 101 × 102² to τ = 6. min V = −0.825 from τ = 0.75 on, with 0 nodes more than a
+cell below min ℓ = −0.785. The front moves at 1.989 until it meets R = 12 at τ = 3.0. The mirror
+rows equal the flipped real rows after the last step. V_frozen ≤ M5's single-target V₁ on the same
+grid at all 13 snapshots (largest excess +3.3e−3, one cell 0.119). The two-player comparison uses
+M5's V₁, not M3's, because M3 is on the old grid. 49 min on the two-core cloud workspace.
+
 Env switches: `M3_PREFLIGHT=0`, `M3_SNAP_EVERY` (solve_m3); `R_MARGIN` (win_alone,
-grid_study); `COARSE` / `FINE` (grid_study); `LAYER1_ELL_SCALING` (everything).
+grid_study, test_m4); `COARSE` / `FINE` (grid_study); `M4_READ`, `M4_TOL`, `M4_POLE_DIR`
+(test_m4); `M5_POLE_DIR` (diag_pole_report); `LAYER1_POLE` (M2, M4, M5); `LAYER1_ELL_SCALING`
+(everything).
 
 Added 2026-10-11, for M5 (record `Overview/Layer1/Layer1_M5_2026-10-11.md`, criteria
 `Overview/Layer1/Layer1_M5_Criteria_2026-10-11.md`):
@@ -454,12 +479,31 @@ layer1/M4/test_e_table3.py           T3-1 level, T3-2 locus, T3-3 the S_1 U_1 li
 layer1/M4/diag/diag_table3_misses.py report only: the misses, the S_1 U_1 samples, hit radii 1-4
 ```
 
-`test_m4.py` exists (M4). The `mutual_kill.py` named earlier was superseded by the
-reach-avoid M5 (Plan revision 2026-10-01).
+Added 2026-10-29, for the M4 rerun on the pole field (criteria
+`Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md`, not run yet; run from `M4/`):
+
+```
+layer1/M4/pole_source.py   loads M5's single-target V_1 on the pole grids (VRAsnap_*_single_pole.npz,
+                           every 0.25, mirror rows kept) and refuses any other field
+layer1/M4/test_m4.py       LAYER1_POLE=1 python test_m4.py 101x102_T6_single_pole | 201x204_T6_single_pole
+```
+
+Added 2026-11-02 and 2026-11-03, for the final report:
+
+```
+layer1/viz/horizon_motion_plot.py  M3 horizon convergence, from M3/m3_out/m3_101x102_T10.json
+                                   (the 101 x 102^2 march to tau = 10)
+layer1/viz/m2_front_report.py      M2 winning-zone edge vs horizon, frozen evader against the
+                                   two-player V_1, both on the 101 x 102^2 pole grid
+layer1/M5/diag/diag_pole_report.py the report's M5 extents, harness and retreat numbers on the pole
+                                   grids (record Overview/Layer1/Layer1_M5_ReportNumbers_2026-11-03.md)
+```
+
+The figures they write (`*.png`, `*.pdf`) are not tracked by git.
 
 Run any suite under a different weighting with `LAYER1_ELL_SCALING=raw|plan|sdist`.
 
-## Cost, for planning M3
+## Cost (measured at M1–M3)
 
 Two CPU cores, no GPU. Solve cost scales as n⁴ (nodes × CFL steps):
 61³ / T=3 ≈ 31 s, 101³ ≈ 4 min, **201³ ≈ 2 h**. The CFL is dominated by the

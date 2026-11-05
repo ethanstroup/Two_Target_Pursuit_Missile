@@ -254,30 +254,37 @@ to do it in.
 
 ## 7. Files
 
+The close-out code lives in `layer0/common/` and `layer0/closeout/` (layout as of 2026-10-14;
+`layer0/README_LAYER0.md` lists every folder):
+
 ```
 layer0/
-  barrier.py             core: dynamics, costates, invariants, BUP, retrograde integrator
-  verify_symbolic.py     23 sympy re-derivations          → 22 pass, 1 documented failure
-  validate_table2.py     Table 2 acceptance test
-  test_barrier.py        integration tests on the invariants and the printed control laws
-  reproduce_figures.py   redraws Figs. 4, 5, 6, 8, 10, 11 → figs/
-  figs/                  the reconstructed figures
-  sens.js                Rbar_0 sensitivity of the §9 grid statistics
-  LAYER0_CLOSEOUT.md     this file
-barrier.js               port of barrier.py for the browser visualiser
-test_barrier_js.js       node acceptance tests for barrier.js  (14 pass)
+  common/
+    barrier.py           core: dynamics, costates, invariants, BUP, retrograde integrator
+    barrier.js           port of barrier.py for the browser visualiser
+    validate_table2.py   Table 2 acceptance test
+  closeout/
+    verify_symbolic.py   23 sympy re-derivations          → 22 pass, 1 documented failure
+    test_barrier.py      integration tests on the invariants and the printed control laws
+    test_mirror.py       the T_2 index swap (4/4, machine precision)
+    reproduce_figures.py redraws Figs. 4, 5, 6, 8, 10, 11 → figs/
+    figs/                the reconstructed figures
+    sens.js              Rbar_0 sensitivity of the §9 grid statistics
+heuristic_simulator/
+  test_barrier_js.js     node acceptance tests for barrier.js  (14 pass)
+Overview/Layer0/Layer0_CloseOut_2026-09-11.md   this file
 ```
 
-Run order:
+Run order, from the repository root:
 
 ```
-python3 layer0/verify_symbolic.py      # equations
-python3 layer0/validate_table2.py      # published ground truth
-python3 layer0/test_barrier.py         # the reconstruction
-python3 layer0/reproduce_figures.py layer0/figs
-node    test_barrier_js.js             # the JS port
-node    test_acceptance.js             # the existing sim, re-baselined
-node    layer0/sens.js                 # the sensitivity result of §5.3
+python3 layer0/closeout/verify_symbolic.py      # equations
+python3 layer0/common/validate_table2.py        # published ground truth
+python3 layer0/closeout/test_barrier.py         # the reconstruction
+python3 layer0/closeout/reproduce_figures.py layer0/closeout/figs
+node    heuristic_simulator/test_barrier_js.js  # the JS port
+node    heuristic_simulator/test_acceptance.js  # the existing sim, re-baselined
+node    layer0/closeout/sens.js                 # the sensitivity result of §5.3
 ```
 
 Requires `numpy`, `scipy`, `sympy`, `matplotlib`.

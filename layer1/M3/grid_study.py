@@ -38,15 +38,15 @@ import numpy as np
 from scipy import ndimage
 
 # Inner-boundary mask: the extrapolation condition at R = R_min sits on the
-# singular R -> 0 face (Plan Sec. 3, trap 2) and leaks slightly.  At 101x100 it
+# singular R -> 0 face (Plan Sec. 3, trap 2) and leaks slightly.  At 101x102 it
 # makes two 23-node blobs of |V| < 0.015 (12% of a cell) whose forward simulations
 # miss by +0.5, and it accounts for the only grid-study disagreements that are not
 # adjacent to the barrier.  The target set cannot exist below R_lo,min = 0.25.
 R_MARGIN = float(os.environ.get('R_MARGIN', '0.45'))
 
 OUT = 'm3_out'
-COARSE = os.environ.get('COARSE', '101x100_T6')
-FINE = os.environ.get('FINE', '201x200_T6')
+COARSE = os.environ.get('COARSE', '101x102_T6')
+FINE = os.environ.get('FINE', '201x204_T6')
 
 FAILS = []
 

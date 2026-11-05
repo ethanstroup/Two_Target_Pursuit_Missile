@@ -9,11 +9,11 @@
 - `Overview/Layer1/Layer1_Plan.md` §5.
 
 **Code and logs:**
-- `Two_Target_Pursuit_Missile/layer1/test_m4.py`;
-- `layer1/l0_traj.py`;
-- `layer0/table3.py`;
-- `layer0/viz/commuting_s1u1.py`;
-- the logs `layer1/m4_101x102.log` and `layer1/m4_201x204.log`.
+- `layer1/M4/test_m4.py`;
+- `layer1/M4/l0_traj.py`;
+- `layer0/singular_lines/table3.py`;
+- `layer0/singular_lines/commuting_s1u1.py`;
+- the logs `layer1/M4/m4_out/m4_101x102.log` and `layer1/M4/m4_out/m4_201x204.log`.
 
 This is a plain-language walkthrough of what M4 does and why each check exists, in the same style as
 the M1–M3 explainers. Every number here comes from the logs.
@@ -141,6 +141,9 @@ and 2 off-boresight.
   - The 28 outward departures are not yet explained. They are test E's job (§9).
 - **Min-range.** It sits next to the inner face, which M3 found leaks. It is unconfirmed rather than
   failed, and deprioritized.
+  *(2026-10-29: the face is not the reason. These trajectories run into $T_{1\to2}$ or stay within a
+  cell of its face, where $\ell$ alone decides the test, so the family cannot test the solve.
+  `Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md` §3.1.)*
 - **Max-range.** The departure is correct (§5).
 
 **Agreement length in $\tau$ is not distance in state.** A trajectory seeded next to a stagnation
@@ -241,7 +244,7 @@ the fine), the grid matches Layer 0's control **at** the switch 0 times. The rea
 **The nearby Table 3 structure: D&S's commuting line $S_1U_1$.** D&S fill the hole inside the
 closed barrier trajectory $J_1E_1J_1$ with closed $(-1,-1)$ orbits around the stagnation point $S_1$.
 The commuting line $S_1U_1$ (the pursuer's strategy $(0,-1)$) connects them. On those orbits,
-$\lambda_1$ only *touches* zero, so $\sigma_1=-1$ never changes. `layer0/viz/commuting_s1u1.py`
+$\lambda_1$ only *touches* zero, so $\sigma_1=-1$ never changes. `layer0/singular_lines/commuting_s1u1.py`
 builds the line.
 
 **The construction:**
@@ -311,7 +314,7 @@ sign. It also flags $\ell$'s own kinks and smooth extrema, so it is run on $\ell
 | converged $V$ | 2.203 % | 1.146 % |
 | excess (the solve's own structure) | 0.346 % | 0.235 % |
 
-**Closing test E means comparing that excess with D&S Table 3**, which is in `layer0/table3.py`:
+**Closing test E means comparing that excess with D&S Table 3**, which is in `layer0/singular_lines/table3.py`:
 - **Size.** 34 rows, all resolving to Table 2 points. 16 have both endpoints above the mask.
 - **One line already rebuilt.** $S_1U_1$ is reconstructed (§7).
 - **Inconsistent as printed.** $M_1n_1$ and $I_1P_1$: the control that changes doesn't match the
@@ -353,7 +356,7 @@ Each line type predicts what the grid should show on $\{V=0\}$ between its endpo
 **Not established (none of it blocks M5)**
 
 - **The min-range family.** Most of it is untested, and the rest is unconfirmed next to the inner
-  face.
+  face. *(2026-10-29: it cannot test the solve at all; see the note in §4.)*
 - **A long-range negative control.** It moves to M5's test F.
 - **Test E's comparison with Table 3,** and with it the 28 outward off-boresight departures.
 - **C2 and anything about the two-target game.** Those are M5.
@@ -362,11 +365,11 @@ Each line type predicts what the grid should show on $\{V=0\}$ between its endpo
 
 ## 11. How to read a run
 
-Run from `layer1/`, and save each run to a file:
+Run from `layer1/M4/`, and save each run to a file:
 
 ```
-python test_m4.py 101x102_T6 | Tee-Object m4_101x102.log
-python test_m4.py 201x204_T6 | Tee-Object m4_201x204.log
+python test_m4.py 101x102_T6 | Tee-Object m4_out/m4_101x102.log
+python test_m4.py 201x204_T6 | Tee-Object m4_out/m4_201x204.log
 ```
 
 **Start at the last line.** `M4 COMPLETE -- every asserted check passed; 1 SKIPPED` is the result
@@ -427,13 +430,13 @@ leaves the barrier is the finding. Three kinds have been seen:
 ## 13. Quick file map
 
 ```
-layer1/test_m4.py              the suite: A, B, C1, negative control, D, E
-layer1/l0_traj.py              regenerates the 122-trajectory bundle from test_barrier.py's seeds
-layer1/m4_101x102.log          the M4 run logs
-layer1/m4_201x204.log
-layer1/m3_out/Vsnap_*.npz      M3's V(., tau) snapshot stacks, read by test_m4.py
-layer0/table3.py               D&S Table 3 as data, with Table 2 lookups
-layer0/viz/commuting_s1u1.py   the S1 U1 commuting line, checked against U1 and the L0 switches
+layer1/M4/test_m4.py                     the suite: A, B, C1, negative control, D, E
+layer1/M4/l0_traj.py                     regenerates the 122-trajectory bundle from test_barrier.py's seeds
+layer1/M4/m4_out/m4_101x102.log          the M4 run logs
+layer1/M4/m4_out/m4_201x204.log
+layer1/M3/m3_out/Vsnap_*.npz             M3's V(., tau) snapshot stacks, read by test_m4.py
+layer0/singular_lines/table3.py          D&S Table 3 as data, with Table 2 lookups
+layer0/singular_lines/commuting_s1u1.py  the S1 U1 commuting line, checked against U1 and the L0 switches
 ```
 
 **Environment switches for `test_m4.py`:**

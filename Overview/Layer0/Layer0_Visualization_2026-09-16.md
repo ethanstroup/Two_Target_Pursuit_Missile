@@ -1,7 +1,7 @@
 # Layer 0 Visualization — the barrier as a swept surface
 
 **AE 8900 · 2026-09-16 · Ethan Stroup**
-Everything lives in `layer0/viz/` and calls `layer0/barrier.js` / `layer0/barrier.py`.
+Everything lives in `layer0/viz/` and calls `layer0/common/barrier.js` / `layer0/common/barrier.py`.
 Nothing re-derives anything. The written method account is
 `Overview/Layer0/Layer0_RetrogradeMethod.md`.
 
@@ -119,12 +119,13 @@ layer0/viz/test_viz.py                      26 acceptance checks
 layer0/viz/figs/*.png                       11 figures
 ```
 
-**Stale copies to delete** — no delete capability in that session, so they are still on disk:
+**Stale copies (status 2026-11-04).** The 2026-09-16 session could not delete files, so these
+stayed on disk for a while. All but the first are gone:
 
 ```
-layer0/viz/figs/maxrange_[1-5]_*.png        superseded by the four-family set
-layer0/visualize.py                         superseded by layer0/viz/
-layer0/figs/maxrange_[1-5]_*.png            superseded; mixed in with reproduce_figures output
-heuristic_simulator/barrier.js              a shim re-exporting layer0/barrier.js
-heuristic_simulator/barrier_explorer.html   superseded by layer0/viz/
+layer0/viz/figs/maxrange_[1-5]_*.png        superseded by the four-family set; still tracked
+layer0/visualize.py                         superseded by layer0/viz/visualize.py; deleted
+layer0/figs/maxrange_[1-5]_*.png            superseded; deleted with the old layer0/figs/
+heuristic_simulator/barrier.js              a shim re-exporting the Layer 0 barrier.js; deleted
+heuristic_simulator/barrier_explorer.html   superseded by layer0/viz/barrier_explorer.html; deleted
 ```

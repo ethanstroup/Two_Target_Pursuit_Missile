@@ -46,7 +46,7 @@ Per Ethan, 2026-10-15, Layer 2 is not started yet. The schedule slot for Layer 1
 | M2 | one-player smoke test ($\sigma_2\equiv0$) | DONE 09-14 | reach front at closing speed 2.003 against 2; the heuristic fails to beat $V$ by even one cell | the same, and `layer1/README_LAYER1.md` |
 | M3 | converged two-player single-target solve | DONE 09-18 | barrier moves 0.16 coarse cells under 2× refinement; converged by $\tau=6$; edge at $R=6.100$; $V_2=V_1\circ S$ to $6.5\times10^{-13}$ | `Layer1_M3_2026-09-18.md` |
 | M4 | acceptance against Layer 0 | DONE 10-07 | off-boresight family: level agreement for a median 1.65 in $\tau$; direction $0.51°$ against a $33°$ null; controls 97–98 % | `Layer1_M4_2026-10-06.md` |
-| M5 | two-target partition by reach-avoid | DONE; pole rerun 10-15 is of record | 9 of 14 checks pass; guarantee 0 failures in 11,885 runs; converse 0 wins in 10,000; Table 2 0 / 17 misses; contested set fat | `Layer1_M5_2026-10-11.md`, `…_InnerFace_2026-10-13.md`, `…_PoleRerun_2026-10-15.md` |
+| M5 | two-target partition by reach-avoid | DONE; pole rerun 10-15 is of record | 10 of 14 checks pass; guarantee 0 failures in 11,885 runs; converse 0 wins in 10,000; Table 2 0 / 17 misses; contested set fat | `Layer1_M5_2026-10-11.md`, `…_InnerFace_2026-10-13.md`, `…_PoleRerun_2026-10-15.md` |
 | C2, long range | no long-range inversion | **PASS** 10-15 | every live state at $R\ge8$ is a guaranteed draw; the avoid law is killed in 0 of 53,290 runs; the harness reproduces the inversion | `Layer1_C2LongRange_2026-10-15.md` |
 
 ---
@@ -55,13 +55,13 @@ Per Ethan, 2026-10-15, Layer 2 is not started yet. The schedule slot for Layer 1
 
 | test | what it checks | state | where |
 |---|---|---|---|
-| A, level | $\lvert V\rvert<$ tolerance on Layer 0 trajectories | PASS on the off-boresight family. Max-range departures are the correct answer. Min-range is unconfirmed (§6) | M4 §3.1, §4.2, §4.4 |
+| A, level | $\lvert V\rvert<$ tolerance on Layer 0 trajectories | PASS on the off-boresight family. Max-range departures are the correct answer. The min-range bundle cannot test the solve, since $\ell$ alone decides it (§6) | M4 §3.1, §4.2, §4.4 |
 | B, gradient | $\nabla V$ against the Layer 0 costate | PASS: $0.51°$ against a $32.6°$ null on the fine grid | M4 §3.2 |
 | C1, controls on the barrier | bang-bang controls reproduced | PASS: 97.1 % / 98.4 %, and they improve with refinement | M4 §3.3 |
 | C2, interior model | the trading player 2; $W_1$ starts still win; no long-range inversion | $W_1$ starts win against the trader (check 11, PASS). Race in $C$ reported (499 / 498 / 3). **Long range PASS** | M5 checks 11, C2; C2 record |
 | D, Table 2 | $\{V=0\}$ through the placed points | on $\partial T_1$, a check of $\ell$ (M4). On $\partial W_1$: 0 / 12 and 0 / 5 misses (M5 check 10, PASS) | M4 §3.4; M5 |
 | E, singular structure | kink locus against Table 3 | locus measured (excess 0.235 % of nodes). Compared with Table 3 on 2026-10-28: **FAIL** by one hit, with strong partial agreement (§6, item 1) | M4 §3.4; Test E record |
-| F, two-target | D&S's corrected zones; guarantee simulations | Table 2 PASS; guarantee PASS; converse PASS; topology FAIL as specified, with the structure right | M5 |
+| F, two-target | D&S's corrected zones; guarantee simulations | Table 2 PASS; guarantee PASS; converse PASS; topology PASS (D&S's three subregions) | M5 |
 | negative control | a known-wrong law must fail | M4: SKIP (no long-range Layer 0 points). M5 check 12: FAIL (the heuristic plays as well inside $W_1$). Covered from the other side by check 13 (PASS) and C2's LR-4 (PASS) | M4 §3.5; M5 §4.5; C2 |
 
 **Every scored failure on record is diagnosed:**
@@ -71,7 +71,6 @@ Per Ethan, 2026-10-15, Layer 2 is not started yet. The schedule slot for Layer 1
 | M5 check 4, fine grid | a $0.042\,\delta$ asymmetry on the tail-chase line at $R\le0.15$; $W_1$ is exactly symmetric | PoleRerun §4.1 |
 | check 5 | the scheme's non-monotonicity, $0.27\,\delta$ inside $T_{2\to1}$; the set inclusion holds | PoleRerun §4.4 |
 | check 6 | sign noise on D&S's mutual-kill diagonal | PoleRerun §4.5 |
-| check 9 | mis-specified; the components are right | M5 §4.6 |
 | check 12 | the heuristic is good inside $W_1$ | M5 §4.5 |
 
 All stay scored as failures, as run.
@@ -172,7 +171,7 @@ All stay scored as failures, as run.
 - **The pole fields are adopted** as M5's fields of record (PoleRerun decision 1).
 - **Check 4 (fine) is accepted as diagnosed** and stays scored FAIL. Its mechanism is an optional open
   item (PoleRerun decision 2).
-- **Checks 5, 6, 9 and 12 stay scored FAIL** as specified (M5 decision 4, unchanged).
+- **Checks 5, 6 and 12 stay scored FAIL** as specified (M5 decision 4, unchanged).
 - **Test C2 at long range was pre-registered and run: PASS** (`Layer1_C2LongRange_2026-10-15.md`).
   - Its criteria were written to Ethan's machine before the first run.
   - The harness first reproduced the logged coarse check 13 line for line.
@@ -210,8 +209,13 @@ All stay scored as failures, as run.
        $U_1$.
      - **What it placed:** five more Table 2 points ($b_1$, $C_1$, $E_1$, $G_1$, $H_1$).
      - **Not compared:** the 28 outward departures.
-2. **M4's min-range family.** It was untestable behind the old inner face, and it is testable on the
-   pole fields now. Not run.
+2. **M4's min-range family.** *(Revised 2026-10-29.)* Layer 0's min-range bundle cannot test the
+   solve on any grid, and the inner face is not the reason
+   (`Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md` §3.1). Retrograde from their seeds,
+   20 trajectories enter $T_{1\to2}$ at once, where $V\le\ell<-\delta$ forces the departure. The
+   other 28 stay within 0.084 of its face, where $\ell$ alone gives $\lvert V\rvert\le\delta$.
+   - An M4 rerun on the pole field is pre-registered in that record. It has not been run, so M4 of
+     record stays the $R_{\min}=0.2$ run.
 3. **The optional $J_1$ seed check** (M4 item 3).
 4. **What causes the fine-grid check 4 asymmetry** (PoleRerun §4.1, decision 2b). The solve is
    float64, so it grows from roundoff; where and why is not known.
@@ -261,15 +265,22 @@ All stay scored as failures, as run.
 | `Layer1_M5_PoleRerun_2026-10-15.md` | the M5 rerun on pole grids |
 | `Layer1_C2LongRange_2026-10-15.md` | test C2 at long range |
 | `Layer1_TestE_Table3_2026-10-28.md` | test E against D&S Table 3 (after the close-out) |
+| `Layer1_M4_PoleRerun_Criteria_2026-10-29.md` | the M4 rerun on the pole field: criteria fixed, not run |
+| `Layer1_M5_ReportNumbers_2026-11-03.md` | the report's M5 extents and simulation counts, on the pole grids |
 | `Layer1_CloseOut_2026-10-15.md` | this record |
 
-The explainers (`Layer1_M*_Explainer.md`, `Layer1_M1_Explorer_2026-09-30.md`) are companions, not
-records.
+The explainers (`Layer1_M1_Explainer.md` to `Layer1_M5_Explainer.md`) and the explorer notes
+(`Layer1_M1_Explorer_2026-09-30.md`, `Layer1_M5_Explorer_2026-10-16.md`,
+`Layer1_Explorer_Redesign_2026-10-16.md`, `Layer1_Explorer_SliceMap_2026-10-29.md`) are companions,
+not records.
 
 **Code**, in `layer1/`:
-- `common/` (`ell.py`, `hji.py`), `M1/` to `M4/`;
+- `common/` (`ell.py`, `hji.py`), `M1/` to `M4/` (`M4/pole_source.py` loads the pole field for the
+  M4 rerun);
 - `M5/`: `reach_avoid.py`, `pole.py`, `sim_m5.py`, `inertial.py`, `smoke_m5.py`, `test_m5.py`,
-  `converse_m5.py`, `c2_longrange.py`, `run_m5_pole.py`, `verify_pole.py`, and `diag/`.
+  `converse_m5.py`, `c2_longrange.py`, `run_m5_pole.py`, `verify_pole.py`, and `diag/`
+  (`diag/diag_pole_report.py` recomputes the report's M5 numbers on the pole grids);
+- `viz/`: `ell_explorer.html` and the scripts for the report's Layer 1 figures.
 - Run each script from its own milestone folder (`README_LAYER1.md`).
 
 **Close-out runs, from `layer1/M5/`:**

@@ -42,7 +42,7 @@ meaningless. Asserted in `test_m1.py` §0.
 ## M1 — formulation verified before any solve
 
 `ell.py` implements `ell(x) = max(|phi_1| - beta, R_lo(phi_2) - R, R - R_hi(phi_2))`
-and **imports `BETA`, `A1`, `B1`, `RBAR0` from `layer0/barrier.py` rather than
+and **imports `BETA`, `A1`, `B1`, `RBAR0` from `layer0/common/barrier.py` rather than
 re-entering them** — re-declaring `RBAR0` would be a way to silently lose the
 `3 + pi` correction. That import identity is itself asserted.
 

@@ -2,7 +2,7 @@
 
 **AE 8900 · reference doc, written 2026-10-02; revised after the section-by-section walkthrough**
 Companion to `Overview/Layer1/Layer1_M1_Explainer.md`, `Overview/Layer1/Layer1_Plan.md` and
-`Overview/Layer1/Layer1_Progress_2026-09-14.md`. Code: `Two_Target_Pursuit_Missile/layer1/hji.py`,
+`Overview/Layer1/Layer1_Progress_2026-09-14.md`. Code: `layer1/common/hji.py`,
 `ell.py`, `test_m2.py`.
 
 A plain-language walkthrough of what M2 checks and why, section by section, in the same style
@@ -317,7 +317,7 @@ cell it stays near 0.6 at both resolutions, so it scales with the cell.
 Contrast against a two-player solve on the same grid, with the same $V_0$ and the same $\tau$
 values. **This is a throwaway solve for contrast, not the real two-player result.** The real one is
 M3: $101\times102^2$ then $201\times204^2$, to $\tau=6$, with horizon and grid convergence studies
-and the fields kept in `m3_out/`. Both use `TwoTargetPursuit`; M2's run has no convergence study
+and the fields kept in `layer1/M3/m3_out/`. Both use `TwoTargetPursuit`; M2's run has no convergence study
 and saves nothing.
 
 **Check 1: $V_{\text{frozen}}\le V_{\text{two-player}}+2$ cells everywhere.** Freezing $\sigma_2=0$
@@ -472,9 +472,9 @@ cell" in §5 for what a cell is and why it is measured near $\ell=0$.
 ## 10. Quick file map
 
 ```
-layer1/hji.py          FrozenEvader, make_grid, solve_backward, make_policy, forward_sim
-layer1/ell.py          ell, value_scale (the "cell")
-layer1/test_m2.py      this file: five sections, usage test_m2.py [n_grid] [T]
-layer1/solve_m2_snap.py  frozen-evader re-solve on M3's grid to tau = 6 (explorer field)
+layer1/common/hji.py   FrozenEvader, make_grid, solve_backward, make_policy, forward_sim
+layer1/common/ell.py   ell, value_scale (the "cell")
+layer1/M2/test_m2.py   this file: five sections, usage test_m2.py [n_grid] [T]
+layer1/M2/solve_m2_snap.py  frozen-evader re-solve on M3's grid to tau = 6 (explorer field)
 layer1/viz/ell_explorer.html   explorer with M2 and M3 fields; grey = invalid nodes
 ```

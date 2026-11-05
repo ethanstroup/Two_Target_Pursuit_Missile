@@ -75,7 +75,7 @@ the (φ₂, φ₁) face to ±12° × ±45° with φ₁ increasing upward as prin
 shading on. A `capture zones` toggle controls the shading independently; it draws only for
 the maximum-range family, since that is the only one these zones belong to.
 
-**As a figure** — `python3 layer0/viz/fig8_zones.py` → `layer0/viz/figs/fig8_capture_zones.png`.
+**As a figure** — `python3 layer0/singular_lines/fig8_zones.py` → `layer0/singular_lines/figs/fig8_capture_zones.png`.
 Both zones shaded, the BUP lens, the φ₂ = 0 corner edge, barrier trajectories at τ ≤ 0.40,
 and O, e₁, e₁′, d₁, d₁′, f₁, f₁′ marked. The points land where Table 2 puts them.
 

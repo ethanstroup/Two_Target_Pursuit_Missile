@@ -7,8 +7,8 @@ zones being generated, or only the ordinary backward-integrated sheets?
 **Answer: only the ordinary sheets.** Of the paper's two maximum-range families, one is
 generated and one is absent, and none of the pieces that close a zone exist.
 
-Run it: `python3 layer0/viz/diag_maxrange.py` → `layer0/viz/figs/diag_maxrange.{png,txt}`
-Corner family and the f₁ question: `python3 layer0/viz/corner_family.py`
+Run it: `python3 layer0/singular_lines/diag_maxrange.py` → `layer0/singular_lines/figs/diag_maxrange.{png,txt}`
+Corner family and the f₁ question: `python3 layer0/singular_lines/corner_family.py`
 
 > **Amended 2026-09-21 (later).** Finding 8: the dispersal line e₁c₁O is found, closed, and meets the universal line at c₁ ≈ f₁.
 >
@@ -70,7 +70,7 @@ the corner edge on the other. One family is seeded on the lens; the other on the
 `n_maxrange`, `n_minrange`, `n_boresight` exactly zero times. `lam_corner` exists and
 `test_barrier.py` validates it at this very corner to 1.1e−15. Nothing called it.
 
-`layer0/viz/corner_family.py` now does. 60 seeds on 0 < φ₁ < e₁, max \|FI−1\| 3.3e−16,
+`layer0/singular_lines/corner_family.py` now does. 60 seeds on 0 < φ₁ < e₁, max \|FI−1\| 3.3e−16,
 max \|H\*\| 1.1e−15 at the seeds and 2.7e−14 integrated. Control pair **(−1,+1) throughout** —
 see Finding 6 for why the (+1,+1) half does not appear.
 
@@ -176,7 +176,7 @@ authors got the number; and it does not rule out a condition for f₁ coming fro
 outside Sec. 3.1 that happens to land on the same value. The 4-significant-figure match to a
 2-parameter-free closed form makes coincidence unlikely.
 
-Reproduce: `python3 layer0/viz/corner_family.py` → the `f_1 diagnostic` block, or call
+Reproduce: `python3 layer0/singular_lines/corner_family.py` → the `f_1 diagnostic` block, or call
 `corner_family.f1_diagnostic()`.
 
 ## Termination events
@@ -188,7 +188,7 @@ max \|FI−1\| = 1.6e−14, max \|H\*\| = 7.0e−14.
 
 ## What would have to be built
 
-1. ~~Seed the φ₂ = 0 corner family~~ — **done**, `layer0/viz/corner_family.py`. Not yet
+1. ~~Seed the φ₂ = 0 corner family~~ — **done**, `layer0/singular_lines/corner_family.py`. Not yet
    wired into `bup_curves.py` / `bup_curves.js` / the explorer as a fifth family.
 2. **Resolve the (+1,+1) family.** Finding 6 shows it does not follow from Eqs. (38)–(42)
    as printed, or from the second cone root. Either the paper has a further condition not
@@ -213,7 +213,7 @@ but it is a live trap for anything else copied between those two files.
 
 ## Finding 7 — the universal line from d₁ (option 1), and what f₁ really is
 
-`python3 layer0/viz/universal_d1.py` → `layer0/viz/figs/universal_d1.png`
+`python3 layer0/singular_lines/universal_d1.py` → `layer0/singular_lines/figs/universal_d1.png`
 
 **Singular control, derived not assumed.** With λ₁ = 0, sympy gives
 λ̈₁ = A·σ₁ with A = −λ_R cos φ₁ + λ₂ sin φ₁ / R and **no σ-free term**. Keeping
@@ -257,7 +257,7 @@ meets this universal line. By the R bound, only near f₁ or beyond it (φ₂ > 
 
 ## Finding 8 — the dispersal line e₁c₁O, solved exactly (option 2)
 
-`python3 layer0/viz/dispersal_e1c1O.py` → `layer0/viz/figs/dispersal_e1c1O.png`
+`python3 layer0/singular_lines/dispersal_e1c1O.py` → `layer0/singular_lines/figs/dispersal_e1c1O.png`
 
 **The missing sheet piece was the peel-offs.** Every point of the d₁ universal line launches
 a barrier trajectory to each side: σ₁ = −1 gives λ₁ > 0, σ₁ = +1 gives λ₁ < 0 (since λ̈₁ = −σ₁

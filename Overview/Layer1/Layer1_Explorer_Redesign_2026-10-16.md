@@ -10,6 +10,10 @@
 - **Companion records:** `Overview/Layer1/Layer1_M1_Explorer_2026-09-30.md` and
   `Overview/Layer1/Layer1_M5_Explorer_2026-10-16.md`.
 
+> **Since v9 (2026-10-29).** The slice panel has a second style, *regions*: every grid node on
+> the plane as a solid cell (`Overview/Layer1/Layer1_Explorer_SliceMap_2026-10-29.md`). The
+> presets below are unchanged. Hidden panels no longer leave a gap in their split.
+
 The science is unchanged:
 - the fields;
 - the load-time checks;

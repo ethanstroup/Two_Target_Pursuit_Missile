@@ -146,10 +146,11 @@ below the first node on a pole grid.
 | player 1 | rule | | player 2 | rule |
 |---|---|---|---|---|
 | reach-avoid | −sign ∂Vᴿᴬ₁/∂φ₁ | | reach-avoid adversary | +sign ∂Vᴿᴬ₁/∂φ₂ |
-| single-target | −sign ∂V₁/∂φ₁ | | own reach-avoid | −sign ∂Vᴿᴬ₂/∂φ₂ |
-| retreat (`diag_retreat`) | +sign ∂V₂/∂φ₁ | | avoid (M3's evader) | +sign ∂V₁/∂φ₂ |
-| heuristic | −sign φ₁ | | single-target | −sign ∂V₂/∂φ₂ |
-| straight | 0 | | heuristic, straight, random | as for player 1 |
+| reach-avoid adversary (added 2026-10-29) | +sign ∂Vᴿᴬ₂/∂φ₁ | | own reach-avoid | −sign ∂Vᴿᴬ₂/∂φ₂ |
+| single-target | −sign ∂V₁/∂φ₁ | | avoid (M3's evader) | +sign ∂V₁/∂φ₂ |
+| retreat (`diag_retreat`) | +sign ∂V₂/∂φ₁ | | single-target | −sign ∂V₂/∂φ₂ |
+| heuristic | −sign φ₁ | | heuristic, straight, random | as for player 1 |
+| straight | 0 | | | |
 | random | ±1 every 0.25 | | | |
 
 - **The V₁ laws** use M5's single-target file. Without it they fall back to M3's V.
@@ -173,7 +174,9 @@ below the first node on a pole grid.
   time and dashed after it. A ring moves with the replay.
 
 **The outcome table** (in the readout) runs the selected state against every available pair of
-laws, up to 6 × 7. A cell gives the outcome and the kill time. Clicking it plays that pair.
+laws, up to 7 × 7 since 2026-10-29. A cell gives the outcome and the kill time. Clicking it plays that pair.
+Since 2026-10-29 the table and the replay follow each player's **Kill** box
+(`Overview/Layer1/Layer1_Explorer_SliceMap_2026-10-29.md`).
 
 **Capture** (Export & appearance since v8). "engagement" is a capture panel. The GIF menu gains "play the engagement", which
 moves the plan view, the 3-D ring and the slice path together. The slice capture now includes the

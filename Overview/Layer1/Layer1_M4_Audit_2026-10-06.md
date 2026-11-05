@@ -3,8 +3,8 @@
 **AE 8900 · audit 2026-10-06, closed out by the 2026-10-07 rerun · Ethan Stroup**
 
 The first M4 attempt reported "every assertion passes", but six problems sat behind that. This note
-records each problem, the fix now in `layer1/test_m4.py`, and what the rerun logs
-(`layer1/m4_101x102.log`, `layer1/m4_201x204.log`) show. Results are in
+records each problem, the fix now in `layer1/M4/test_m4.py`, and what the rerun logs
+(`layer1/M4/m4_out/m4_101x102.log`, `layer1/M4/m4_out/m4_201x204.log`) show. Results are in
 `Overview/Layer1/Layer1_M4_2026-10-06.md`, and the plain-language walkthrough is in
 `Overview/Layer1/Layer1_M4_Explainer.md`.
 
@@ -52,7 +52,8 @@ headline into a non-result.
 - **Excluded:** 30 trajectories (28 min-range, 2 off-boresight).
 - **Min-range:** 20 of 48 are testable, and they leave at $\tau=0.26$ / $0.18$, all inward or
   never.
-- **Status:** unconfirmed and deprioritized.
+- **Status:** unconfirmed and deprioritized. *(2026-10-29: the family cannot test the solve, since
+  $\ell$ alone decides it; `Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md` §3.1.)*
 
 ## 3. Negative control measured a tie-break
 
@@ -124,7 +125,7 @@ departure.
 - **Independence.** The switches come from 8 / 7 distinct seeds, with mirror pairs, so they are
   not independent draws.
 
-**Identification: they are not $S_1U_1$** (`layer0/viz/commuting_s1u1.py`, run 2026-10-07). An
+**Identification: they are not $S_1U_1$** (`layer0/singular_lines/commuting_s1u1.py`, run 2026-10-07). An
 earlier version of this note said the switches lie along D&S's commuting line $S_1U_1$. That came
 from comparing endpoints only, and the run disproves it.
 
@@ -159,7 +160,7 @@ outside D&S's structure. They are not a Table 3 line.
 **Rerun.**
 - **Test E.** It flags 2.203 % / 1.146 % of masked nodes, against 1.857 % / 0.911 % for $\ell$
   alone. The solve's own excess is 0.346 % / 0.235 %.
-- **Open:** compare that excess with D&S Table 3, transcribed in `layer0/table3.py` (run
+- **Open:** compare that excess with D&S Table 3, transcribed in `layer0/singular_lines/table3.py` (run
   2026-10-07).
   - All 34 rows resolve to Table 2 points, and 16 have both endpoints above the mask.
   - It flags $M_1n_1$ and $I_1P_1$ as inconsistent as printed.

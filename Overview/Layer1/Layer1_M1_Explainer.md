@@ -2,7 +2,7 @@
 
 **AE 8900 · reference doc, written 2026-09-30**
 Companion to `Overview/Layer1/Layer1_Plan.md` and `Overview/Layer1/Layer1_Progress_2026-09-14.md`. Code:
-`Two_Target_Pursuit_Missile/layer1/ell.py`, `hji.py`, `test_m1.py`.
+`layer1/common/ell.py`, `hji.py`, `test_m1.py`.
 
 This is a plain-language walkthrough of what M1 actually checks and why, section by section,
 with the real code alongside. Written to be read cold, without re-deriving anything.
@@ -84,7 +84,7 @@ def _ell(xp, R, phi1, phi2):
     return xp.maximum(a, xp.maximum(b, c))
 ```
 
-- `BETA, A1, B1, RBAR0` are **imported from `layer0/barrier.py`**, never re-typed — this is
+- `BETA, A1, B1, RBAR0` are **imported from `layer0/common/barrier.py`**, never re-typed — this is
   the guard against silently losing the $\bar R_0 = 3+\pi$ (not 6.14) correction.
 - The `w_b, w_n, w_x` weights (`raw` / `plan` / `sdist`) only rescale conditioning
   (how well-behaved $|\nabla\ell|$ is for the solver) — since the weights are strictly
@@ -264,8 +264,8 @@ M4's test B for exactly the same reason.
 ## 6. Quick file map
 
 ```
-layer1/ell.py       implicit surface function T_{1->2}; raw/plan/sdist weighting
-layer1/hji.py        hj_reachability setup: TwoTargetPursuit dynamics, make_grid, make_policy
-layer1/test_m1.py    this file — formulation gate, sections 0-8, now with header comments
-layer1/test_m2.py    one-player smoke test (M2)
+layer1/common/ell.py  implicit surface function T_{1->2}; raw/plan/sdist weighting
+layer1/common/hji.py  hj_reachability setup: TwoTargetPursuit dynamics, make_grid, make_policy
+layer1/M1/test_m1.py  this file — formulation gate, sections 0-8, now with header comments
+layer1/M2/test_m2.py  one-player smoke test (M2)
 ```

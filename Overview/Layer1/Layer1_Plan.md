@@ -677,7 +677,7 @@ Overview/Layer0/Layer0_CloseOut_2026-09-11.md   what Layer 0 does and does not s
 Existing, in `layer1/` (M1–M2, see the progress note):
 
 ```
-layer1/common/ell.py       implicit surface fn; imports BETA/A1/B1/RBAR0 from layer0/barrier.py
+layer1/common/ell.py       implicit surface fn; imports BETA/A1/B1/RBAR0 from layer0/common/barrier.py
 layer1/common/hji.py       hj_reachability 0.7.0 setup; make_policy is the ONLY supported
                            way to build a feedback law (it enforces the remaining-horizon read)
 layer1/M1/test_m1.py       formulation gate

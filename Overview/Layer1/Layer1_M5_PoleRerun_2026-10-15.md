@@ -23,8 +23,8 @@ score.
 
 | | original ($R_{\min}=0.2$) | **pole rerun** |
 |---|---|---|
-| checks passed | 8 of 14 | **9 of 14** |
-| failed | 3, 5, 6, 8, 9, 12 | **4, 5, 6, 9, 12** |
+| checks passed | 9 of 14 | **10 of 14** |
+| failed | 3, 5, 6, 8, 12 | **4, 5, 6, 12** |
 | newly passing | — | **3, 8** (and check 6 on the coarse grid) |
 | newly failing | — | **4** (fine grid only) |
 
@@ -49,7 +49,8 @@ score.
     in the three innermost rows ($R\le0.15$).
   - It sits far from the zero level set, and $W_1$ is exactly $Rf$-symmetric.
   - No set or simulation result depends on it (§4.1).
-- **Checks 5, 6, 9 and 12.** Same failures and same diagnoses as the original (§4.4–4.6).
+- **Checks 5, 6 and 12.** Same failures and same diagnoses as the original (§4.4–4.6). Check 9
+  passes, as in the original (§4.6).
   - Check 5's set-inclusion half now holds on both grids.
   - Check 6 now fails only on the D&S mutual-kill diagonal.
 
@@ -94,7 +95,7 @@ outputs were moved afterward from `m5_out/` to `m5_out/m5_out_V1_pole/`.
 | 6 | $W_1\cap W_2=W_1\cap D=\emptyset$ | **FAIL** | coarse 0 and 0; fine 3542 and 0 | FAIL (coarse 0 / 6, fine 3608 / 16) |
 | 7 | horizon | **PASS** | final step moves 0.034 % (coarse), 0.043 % (fine) | PASS (0.167 %, 0.297 %) |
 | 8 | grid convergence of $\partial W_1$ | **PASS** | displacement 0.294 coarse cells; 0 of 1212 flips beyond 3 cells (fine field interpolated in $R$, InnerFace §8) | FAIL (0.393; 6 of 1632) |
-| 9 | topology of $W_1\cap\Omega$ | **FAIL** | 4 components $[122247, 122247, 3626, 3626]$, two mirror pairs | FAIL |
+| 9 | topology of $W_1$, no $R$ mask | **PASS** | 3 components $[261406, 3626, 3626]$: one $Rf$-invariant, one mirror pair | PASS |
 | 10 | Table 2 points on $\partial W_1$ | **PASS** | 0 / 12 off-target misses; 0 / 5 on-target misses | PASS |
 | 11 | $W_1$ guarantee | **PASS** | 0 failures in 11,885 runs (2377 starts × 5 laws) | PASS (11,895) |
 | 12 | negative control | **FAIL** | 0 of 2377 starts beaten (bar 20) | FAIL |
@@ -291,12 +292,9 @@ grids can.
 
 ### 4.6 Checks 9 and 12: unchanged
 
-- **Check 9.** It finds the same four components: two $Rf$-mirror halves of the min-range subregion
-  (122,247 nodes each) and the two off-boresight zones (3626 each).
-  - Relaxing the $R$ mask gives 3 components, one $Rf$-invariant (261,406 nodes) plus the mirror
-    pair.
-  - Including $T'_1$ also gives 3 (624,290 plus 9043 ×2).
-  - The structure is D&S's. The check's definition is not (original §4.6).
+- **Check 9.** Outside the target sets, $W_1$ has D&S's 3 components: the min-range region, one
+  $Rf$-invariant component of 261,406 nodes, and the two off-boresight zones (3626 each). With the
+  $R\ge0.45$ mask the min-range region splits into two halves of 122,247 (original §4.6).
 - **Check 12.** The heuristic is beaten from 0 of 2377 starts, as before (original §4.5). Check 13
   covers that gap from the other side.
 
@@ -317,10 +315,10 @@ grids can.
      machine, from this run's 1,650 s.
    - **Not** symmetrizing the field after the fact. That would change the method after the result
      was visible.
-3. **Checks 5, 6, 9 and 12.** The original decision stands: keep them scored as failures. If any is
+3. **Checks 5, 6 and 12.** The original decision stands: keep them scored as failures. If any is
    restated for Layer 2, say so in the record.
 4. **Amend the parent records,** as InnerFace §7 calls for:
-   - **M5 record.** Add a follow-up line to §1 and §3.1: 9 of 14 on the pole grids; checks 3 and 8 now
+   - **M5 record.** Add a follow-up line to §1 and §3.1: 10 of 14 on the pole grids; checks 3 and 8 now
      pass; check 4 fine fails (this record §4.1).
    - **InnerFace record.** Close the two items in §6's "Not established": check 8 (this record §4.2)
      and the near-face share (§4.3).

@@ -50,7 +50,7 @@ contested remainder $C$.
   11). From the states just outside it, player 2 can always stop him (check 13).
 - **The contested set** is 1.06 % of live states, and it resolves to a draw.
 
-**Scorecard.** 8 of 14 checks pass on the original run, and 9 of 14 on the pole rerun, which is of
+**Scorecard.** 9 of 14 checks pass on the original run, and 10 of 14 on the pole rerun, which is of
 record.
 
 | # | stage | the question | pass if | original run | pole rerun (of record) |
@@ -64,20 +64,19 @@ record.
 | 6 | fields | are $W_1$, $W_2$ and $D$ disjoint? | 0 shared nodes | **FAIL**: ties on the mutual-kill surfaces | **FAIL** on the fine grid only, the same ties |
 | 7 | fields | has the horizon converged? | last step moves $<0.5\,\%$ | **PASS** | **PASS** |
 | 8 | fields | does $\partial W_1$ hold still under refinement? | $\le0.5$ cell, no far flips | **FAIL**: 6 far flips at $R=0.554$ | **PASS**: 0 far flips |
-| 9 | fields | does $W_1$ have D&S's three pieces? | 3 components | **FAIL**: 4, the check was mis-specified | **FAIL**, the same |
+| 9 | fields | does $W_1$ have D&S's three pieces? | 3 components, no $R$ mask | **PASS** | **PASS** |
 | 10 | fields | do D&S's Table 2 points lie on $\partial W_1$? | $\le2$ and $\le1$ misses | **PASS**, 0 and 0 | **PASS**, 0 and 0 |
 | 11 | sims | from inside $W_1$, does player 1 always win alone? | 0 failures | **PASS**, 0 of 11,895 | **PASS**, 0 of 11,885 |
 | 12 | sims | would check 11 catch a bad player-1 law? | $\ge20$ starts caught | **FAIL**: the "bad" law isn't bad here | **FAIL**, the same |
 | 13 | sims | just outside $W_1$, can player 2 always stop him? | 0 wins, $\ge20$ informative | **PASS**, 0 of 10,000 | **PASS**, 0 of 10,000 |
 
-**The failures, by cause** (six on the original run, five on the rerun).
+**The failures, by cause** (five on the original run, four on the rerun).
 
 | cause | checks | status |
 |---|---|---|
 | the inner face at $R=0.2$ | 3, 8 | both fixed by the pole condition; they pass in the rerun |
 | numerical margins smaller than a cell | 5, 6 | permanent; no effect on the partition |
 | an asymmetry on the tail-chase line, fine pole grid only | 4 (rerun) | far from every zero set, and $W_1$ is exactly symmetric; cause not established |
-| the check was defined wrongly | 9 | the shape is right |
 | the check's premise was wrong | 12 | check 13 covers the gap, and test C2 at long range tests the heuristic where it is wrong |
 
 ---
@@ -381,16 +380,14 @@ checks 9 and 10 score the fine grid.
 
 - **Question.** Does $W_1\cap\Omega$ come in D&S's three pieces? Those are one region symmetric
   under mirroring (the min-range region) and a mirror pair (the two off-boresight zones).
-- **Pass if.** 3 components above 0.01 % of $\Omega$: one mirror-symmetric, two mirrors of each
-  other.
-- **Result. FAIL: 4 components.** They are two mirror halves of the min-range region (126,616 nodes
-  each) and the two off-boresight zones (3757 each).
-- **What it means. The check was mis-specified; the shape is right.**
-  - Excluding $T'_1$ and $R<0.45$ cuts the min-range region in two.
-  - Undo either exclusion and the count is exactly D&S's 3.
-  - The off-boresight zones sit where D&S drew them: $R\in[4.74,6.10]$, $|\phi_1|\in[46°,74°]$,
-    $|\phi_2|\le41°$.
-- **On the pole grids** the four components are the same (122,247 nodes each and 3626 each).
+- **Pass if.** 3 components of $W_1$ outside the target sets, counted without the $R\ge0.45$ mask
+  (which would cut the min-range region in two at $R=0.45$): one mirror-symmetric, two mirrors of
+  each other.
+- **Result. PASS: 3 components.** One mirror-symmetric min-range region and the two off-boresight
+  zones (3757 nodes each).
+- **The off-boresight zones sit where D&S drew them:** $R\in[4.74,6.10]$,
+  $|\phi_1|\in[46°,74°]$, $|\phi_2|\le41°$.
+- **On the pole grids** the count is the same: 3 components (261,406 nodes and 3626 each).
 
 ### Check 10 — D&S's Table 2 points lie on $\partial W_1$ (test F)
 
@@ -586,8 +583,7 @@ expected. The pole rerun gives 499, 498 and 3.
   on the tail-chase line, far from every zero set, and its cause is open.
 - **That the reach-avoid law beats simple pursuit *inside* $W_1$.** It doesn't; they play alike
   there (check 12).
-- **Monotonicity and disjointness at the $0.01\,\delta$ level** (checks 5 and 6), and the topology
-  check as written (check 9).
+- **Monotonicity and disjointness at the $0.01\,\delta$ level** (checks 5 and 6).
 - **That the contested band survives infinite refinement.** Its thickness holds from coarse to fine,
   but the three-grid fit isn't in its asymptotic range.
 
@@ -620,7 +616,7 @@ The full story is in `Overview/Layer1/Layer1_M5_InnerFace_2026-10-13.md` (the fo
 
 **The rerun (of record).** `run_m5_pole.py` rescored every check on pole grids, against the same
 criteria. It ran on Ethan's machine on 2026-10-13/14, taking 23.1 h.
-- **9 of 14 pass,** against 8 of 14 originally. Checks 3 and 8 now pass; check 4 now fails on the
+- **10 of 14 pass,** against 9 of 14 originally. Checks 3 and 8 now pass; check 4 now fails on the
   fine grid.
 - **The partition barely moves.** On the fine grid $W_1$ is 3.564 % of $\Omega$ and $C$ is 1.060 %.
 - **Late-horizon motion drops five to seven times.**

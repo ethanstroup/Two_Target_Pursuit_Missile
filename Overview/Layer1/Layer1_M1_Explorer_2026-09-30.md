@@ -10,8 +10,8 @@ File: `Two_Target_Pursuit_Missile/layer1/viz/ell_explorer.html`. It is saved in 
 A **field** bar at the top picks what is drawn:
 
 - **$\ell$ · M1.** $\ell(x)=\max\big(|\phi_1|-\beta,\ R_{lo}(\phi_2)-R,\ R-R_{hi}(\phi_2)\big)$, evaluated in the page, over $R\in[0.2,12]$ and $\phi_1,\phi_2\in[-\pi,\pi)$. The default weighting is still **raw**. An "$\ell$ weighting" menu adds `sdist` and `plan`, matching `ell.py`'s `_weights` term for term. The weighting never changes the sign or the zero set.
-- **V · M2 frozen evader.** $V(x,\tau)$ with $\sigma_2\equiv 0$, from `m2_out/Vsnap_frozen_101x102_T6.npz`.
-- **V · M3 two-player.** $V(x,\tau)$, from `m3_out/Vsnap_101x102_T6.npz`.
+- **V · M2 frozen evader.** $V(x,\tau)$ with $\sigma_2\equiv 0$, from `layer1/M2/m2_out/Vsnap_frozen_101x102_T6.npz`.
+- **V · M3 two-player.** $V(x,\tau)$, from `layer1/M3/m3_out/Vsnap_101x102_T6.npz`.
 
 Both V files were solved under `sdist`, so $V(x,0)=\ell_{\text{sdist}}(x)$, not the raw $\ell$ shown by default.
 
@@ -40,7 +40,10 @@ Both V files were solved under `sdist`, so $V(x,0)=\ell_{\text{sdist}}(x)$, not 
   - numpy's `.npy` header.
 - **Which slot.** A name with "frozen" or "m2" goes to M2; anything else goes to M3.
 - **Node arrays.** They come from the file when present. M2's file has them; M3's does not, so the page uses `hji.make_grid`'s defaults: $R$ from 0.2 to 12 with both ends included, and angles uniform on $[-\pi,\pi)$ with `endpoint=False`.
-- **Drop the matching `.json` too** (`m3_out/m3_101x102_T6.json`, `m2_out/m2_frozen_101x102_T6.json`). The page then checks its own node counts against the solver's, as described under "Load-time checks".
+- **Drop the matching `.json` too** (`layer1/M3/m3_out/m3_101x102_T6.json`, `layer1/M2/m2_out/m2_frozen_101x102_T6.json`). The page then checks its own node counts against the solver's, as described under "Load-time checks".
+- *(2026-11-04.)* `layer1/M2/m2_out/` now holds the pole-grid re-solve of 2026-11-02
+  (`Vsnap_frozen_101x102_T6_pole.npz` and its `.json`), and the M2 tab takes it the same way. The
+  $R_{\min}=0.2$ files named above are rebuilt by running `solve_m2_snap.py` without `LAYER1_POLE`.
 - **Kept in the browser.** Loaded files are stored in IndexedDB and restored on the next visit, while the page still opens on $\ell$. Served over http(s) instead, the page fetches `../m2_out` and `../m3_out` itself.
 
 **Load-time checks**, shown under the field bar for each file:
@@ -96,13 +99,13 @@ The rest of the M2 field behaves as M2 recorded:
 
 ## M2 field: how it was made
 
-`layer1/solve_m2_snap.py` re-solves the frozen-evader game on M3's 101×102×102 grid to $\tau=6$:
+`layer1/M2/solve_m2_snap.py` re-solves the frozen-evader game on M3's 101×102×102 grid to $\tau=6$:
 
 - It marches with `hj.step` every 0.25 and snapshots every 0.5, exactly as `solve_m3.march` does.
 - Nothing in `hji.py` or `ell.py` changed.
 - It takes 522 s on two cores.
 - The cloud environment reproduces Ethan's M3 snapshot at $\tau=0.5$ bit for bit, and two runs of the M2 script are bit-identical.
-- **The npz (31 MB) is over the 20 MB limit for writing into the folder from a session.** It was delivered in the chat. Save it to `layer1/m2_out/`, or rerun the script from `layer1/`. The json is in the repo.
+- **The npz (31 MB) is over the 20 MB limit for writing into the folder from a session.** It was delivered in the chat. Save it to `layer1/M2/m2_out/`, or rerun the script from `layer1/M2/`. The json is in the repo.
 
 ## Display (unchanged from v5 unless noted)
 
@@ -166,4 +169,4 @@ As in v5, plus:
   - leave M2 as a range-limited smoke test and add the lower-bound check to `test_m2.py`, where it would fail at 101³;
   - change the inner-face condition for the frozen game and re-run M2;
   - mask the M2 field by the bound for display only, which is what the page does now.
-- Saving the M2 npz into `m2_out/` (download, or rerun the script).
+- Saving the M2 npz into `layer1/M2/m2_out/` (download, or rerun the script).

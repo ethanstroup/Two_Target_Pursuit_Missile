@@ -3,7 +3,7 @@
 **AE 8900 · reference doc, written 2026-10-02**
 Companion to `Overview/Layer1/Layer1_M1_Explainer.md`, `Overview/Layer1/Layer1_M2_Explainer.md`,
 `Overview/Layer1/Layer1_M3_2026-09-18.md` (the record of the results) and `Overview/Layer1/Layer1_Plan.md`.
-Code: `Two_Target_Pursuit_Missile/layer1/solve_m3.py`, `grid_study.py`, `zone_structure.py`,
+Code: `layer1/M3/solve_m3.py`, `grid_study.py`, `zone_structure.py`,
 `win_alone.py`, `sym_test.py`.
 
 A plain-language walkthrough of what M3 does and why each check exists, in the same style as the
@@ -85,7 +85,7 @@ duplicated $+\pi$ node. A grid named $n_R\times n_\phi$ has $n_R\times n_\phi\ti
 | $101\times102$ | 1.05 M | $\tau=6$ | coarse member of the clean pair |
 | $201\times204$ | 8.36 M | $\tau=6$ | fine member of the clean pair |
 
-Stored in `m3_out/`: `m3_<grid>_fields.npz` ($V$ and $t_1^*$ in float32; the sign of $V$ is exact
+Stored in `layer1/M3/m3_out/`: `m3_<grid>_fields.npz` ($V$ and $t_1^*$ in float32; the sign of $V$ is exact
 and the round-trip error is $4.7\times10^{-7}$, far below the 0.059 cell scale),
 `Vsnap_101x102_T6.npz` ($V(\cdot,\tau)$ every 0.5, for M4's test C1), and `m3_<grid>.json`
 (convergence diagnostics).
@@ -380,12 +380,12 @@ one would naively pick.
 ## 13. Quick file map
 
 ```
-layer1/solve_m3.py        the march: pre-flight, horizon convergence, V and t_1*
-layer1/grid_study.py      nested-grid comparison + the symmetry checks (COARSE/FINE via env)
-layer1/zone_structure.py  connected components of {V<=0}, phi-periodic
-layer1/win_alone.py       components of W_1, with the inner-boundary mask
-layer1/sym_test.py        the beta-on-node isolation experiment
-layer1/m3_out/            fields .npz, Vsnap_101x102_T6.npz, diagnostics .json
+layer1/M3/solve_m3.py        the march: pre-flight, horizon convergence, V and t_1*
+layer1/M3/grid_study.py      nested-grid comparison + the symmetry checks (COARSE/FINE via env)
+layer1/M3/zone_structure.py  connected components of {V<=0}, phi-periodic
+layer1/M3/win_alone.py       components of W_1, with the inner-boundary mask
+layer1/M3/sym_test.py        the beta-on-node isolation experiment
+layer1/M3/m3_out/            fields .npz, Vsnap_101x102_T6.npz, diagnostics .json
 ```
 
 `solve_m3.py` honors `M3_PREFLIGHT=0` and `M3_SNAP_EVERY`; `win_alone.py` and `grid_study.py` honor

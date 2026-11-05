@@ -48,9 +48,26 @@ DESIGN RULES (each one is in the audit, with the evidence):
   * max-range departures are printed next to their phi_2 = 0 (Rbar corner) crossing
   * every number in a printed note is measured in the run
 
+WHICH FIELD.  By default the M3 snapshot stacks on the R_min = 0.2 grid (m3_out/).  With
+LAYER1_POLE=1, M5's single-target V_1 on the pole grids, of record since 2026-10-15, read by
+pole_source.py (every 0.25 in tau, mirror rows kept).  The pole rerun's criteria were fixed before
+it ran: Overview/Layer1/Layer1_M4_PoleRerun_Criteria_2026-10-29.md.
+
+THE ELL NULL AND FORCED DEPARTURES (report only; criteria doc Sec. 4).  The same walk with V
+replaced by ell on this grid (the tau = 0 snapshot) gives the agreement length owed to the target
+set alone.  V <= ell node for node (V is non-increasing in tau), so where the grid's ell is below
+-tol at a departure point, V had to be too: the trajectory is inside T_1 there and the departure
+says nothing about the solve.  Each departure is printed as forced, own (V < -tol <= ell) or outside.
+
+MIN-RANGE ON THE POLE GRID (pole runs only; criteria doc Sec. 5).  The min-range family is walked at
+R >= 0.20 and classified by its ell null: enters T_1, stays within a cell of it, or leaves it
+outward.  Only the outward ones can show the solve's own work; with fewer than 10 of them the
+family is NOT TESTABLE.
+
 Usage:  python3 test_m4.py [grid_tag]
+        LAYER1_POLE=1 python3 test_m4.py [101x102_T6_single_pole | 201x204_T6_single_pole]
 Env:    M4_READ (ceil|conv), M4_TOL (pin the tolerance), R_MARGIN (default 0.45),
-        LAYER1_ELL_SCALING (raw|plan|sdist).
+        LAYER1_ELL_SCALING (raw|plan|sdist), LAYER1_POLE (0|1), M4_POLE_DIR (pole_source.py).
 """
 
 import os
@@ -67,16 +84,24 @@ import ell as E
 import barrier as B
 import l0_traj
 
-TAG = sys.argv[1] if len(sys.argv) > 1 else '101x102_T6'
+POLE = os.environ.get('LAYER1_POLE', '0').strip() == '1'
+TAG = sys.argv[1] if len(sys.argv) > 1 else ('101x102_T6_single_pole' if POLE else '101x102_T6')
 R_MARGIN = float(os.environ.get('R_MARGIN', '0.45'))
 READ = os.environ.get('M4_READ', 'ceil')
 M3 = '../M3/m3_out'
 D = 180.0 / np.pi
 GCUT = 0.15          # |dV/dphi_i| below which a bang-bang sign is reported as unresolvable
 FAMILIES = ('max-range', 'min-range', 'boresight')
+PER_TRAJ = 240       # samples per trajectory (every 0.025 in tau)
+
+# Min-range on the pole grid, fixed in the criteria doc Sec. 5 before the run
+R_MINRANGE = 0.20    # every min-range sample (lowest R 0.242); above the rows M5 check 4 flagged
+MR_MIN_INFORMATIVE = 10
+MR_EXCESS = 0.5      # median of (V agreement length - ell-null length) over informative trajectories
 
 FAILS = []
 SKIPS = []
+NOT_TESTABLE = []
 NOTES = []
 
 
@@ -93,6 +118,11 @@ def report(name, ok, msg=''):
 def skip(name, why):
     print('  SKIP  ' + name + '   ' + why)
     SKIPS.append(name)
+
+
+def not_testable(name, why):
+    print('  NOT TESTABLE  ' + name + '   ' + why)
+    NOT_TESTABLE.append(name)
 
 
 def section(title):
@@ -140,6 +170,18 @@ def grid_for(tag):
     nR, rest = tag.split('x')
     nphi = rest.split('_')[0]
     return hji.make_grid(n_R=int(nR), n_phi=int(nphi))
+
+
+def load_field(tag):
+    """(grid, V(., tau) stack, taus, one-line description) for the field this run reads."""
+    if POLE:
+        import pole_source
+        grid, Vs, taus, info = pole_source.load(tag)
+        return grid, Vs, taus, ('pole single-target V_1 (%d mirror rows, first real row R = %.4f, '
+                                'dR = %.4f) in %s' % (info['n_mirror'], info['first_real_R'],
+                                                      info['dR'], info['dir']))
+    Vs, taus = load_snapshots(tag)
+    return grid_for(tag), Vs, taus, 'M3 snapshots on the R_min = 0.2 grid in %s' % M3
 
 
 # ---------------------------------------------------------------------------
@@ -230,14 +272,16 @@ def kink_crossing_tau(tr):
 # The scoped walk: how far does each trajectory stay on {V = 0}?
 # ---------------------------------------------------------------------------
 
-def sample_points(trs, per_traj=240):
-    """Every (trajectory, index) pair this suite will look at, inside the R mask."""
+def sample_points(trs, per_traj=PER_TRAJ, r_min=R_MARGIN, fams=FAMILIES):
+    """Every (trajectory, index) pair to look at: families `fams`, at R >= r_min."""
     pts = []
     for j, (fam, tr) in enumerate(trs):
+        if fam not in fams:
+            continue
         n = len(tr['tau'])
         step = max(1, n // per_traj)
         for i in range(0, n, step):
-            if tr['R'][i] < R_MARGIN:
+            if tr['R'][i] < r_min:
                 continue
             pts.append(((j, i), state(tr, i), float(tr['tau'][i])))
     return pts
@@ -252,7 +296,7 @@ def walk(j, tr, vals, tol):
     trajectory was never compared with anything and must not be counted as agreeing.
     """
     keep = []
-    dep_tau = dep_side = dep_state = dep_V = None
+    dep_tau = dep_side = dep_state = dep_V = dep_i = None
     n_tested = 0
     idx = sorted(i for (jj, i) in vals if jj == j)
     for i in idx:
@@ -267,10 +311,28 @@ def walk(j, tr, vals, tol):
             dep_side = 'inside' if v < 0 else 'outside'
             dep_state = state(tr, i)
             dep_V = v
+            dep_i = i
             break
     return dict(keep=keep, dep_tau=dep_tau, dep_side=dep_side, dep_state=dep_state,
-                dep_V=dep_V, tau_end=float(tr['tau'][-1]),
+                dep_V=dep_V, dep_i=dep_i, tau_end=float(tr['tau'][-1]),
                 tested=n_tested > 0, n_tested=n_tested)
+
+
+def length(w):
+    """Agreement length of one walk: its departure time, or the trajectory's end if it never left."""
+    return w['dep_tau'] if w['dep_tau'] is not None else w['tau_end']
+
+
+def departure_kind(w, j, lvals, tol):
+    """
+    never | outside | forced | own.  'forced': V < -tol where the grid's ell is also below -tol, so
+    the point is inside T_1 and V <= ell made the departure; 'own': V < -tol <= ell, the solve's own.
+    """
+    if w['dep_tau'] is None:
+        return 'never'
+    if w['dep_side'] == 'outside':
+        return 'outside'
+    return 'forced' if lvals[(j, w['dep_i'])][0] < -tol else 'own'
 
 
 def family_stats(walks, fam):
@@ -356,6 +418,24 @@ def maxrange_diagnostics(walks):
                      '(Overview/Layer1/Layer1_M4_Audit_2026-10-06.md item 4).'
                      % (len(gaps), len(rows), sum(1 for g in gaps if g > 0), np.median(gaps),
                         min(gaps), max(gaps)))
+
+
+def null_report(walks, nulls):
+    """Report only: the ell-null length beside V's, and what made each departure (criteria Sec. 4)."""
+    print()
+    print('   report only -- the ell null (V replaced by ell on this grid) and what made each departure')
+    print('   %-11s %7s   %-24s %-16s %s' % ('family', 'tested', 'ell-null length', 'V minus null',
+                                           'departures: inside forced / own, outside, never'))
+    for fam in FAMILIES:
+        sel = [(w, w0) for (f, tr, w), w0 in zip(walks, nulls) if f == fam and w['tested']]
+        if not sel:
+            continue
+        L = np.array([length(w) for w, _ in sel])
+        L0 = np.array([length(w0) for _, w0 in sel])
+        kinds = [w['kind'] for w, _ in sel]
+        print('   %-11s %7d   median %.3f (max %.2f)   median %+.3f    %3d / %3d, %3d, %3d'
+              % (fam, len(sel), np.median(L0), L0.max(), np.median(L - L0), kinds.count('forced'),
+                 kinds.count('own'), kinds.count('outside'), kinds.count('never')))
 
 
 # ---------------------------------------------------------------------------
@@ -451,6 +531,7 @@ def switch_rows(walks, fld):
         r['l0_post'] = l0_control(tr, r['i'] + 1)[p - 1]    # tau just above the switch
         r['gap'] = (w['dep_tau'] - r['tsw']) if w['dep_tau'] is not None else None
         r['dep_side'] = w['dep_side']
+        r['dep_kind'] = w['kind']
         r['seed_abs_phi2'] = round(abs(float(tr['phi2'][0])), 6)
     return rows
 
@@ -470,9 +551,10 @@ def print_switches(rows):
     sides = [r['dep_side'] for r in ret if r['dep_side']]
     nseed = len(set(r['seed_abs_phi2'] for r in ret))
     print('   retained switches: %d distinct |seed phi_2| (mirror images share one), '
-          'departure follows at gap median %s, max %s; sides %d inside / %d outside'
+          'departure follows at gap median %s, max %s; sides %d inside (%d forced) / %d outside'
           % (nseed, '%.3f' % np.median(gaps) if gaps else '-', '%.3f' % max(gaps) if gaps else '-',
-             sides.count('inside'), sides.count('outside')))
+             sides.count('inside'), sum(1 for r in ret if r['dep_kind'] == 'forced'),
+             sides.count('outside')))
     NOTES.append('Located switches inside retained segments: the grid matches barrier.py on the '
                  'pre-switch side at %d of %d and at the switch itself at %d of %d '
                  '(barrier_controls returns the post-switch control at a snapped zero). They come '
@@ -572,6 +654,79 @@ def negative_control(walks, vals, grid, Vconv):
 
 
 # ---------------------------------------------------------------------------
+# Min-range on the pole grid (criteria doc Sec. 5)
+# ---------------------------------------------------------------------------
+
+MR_CLASS = {'inside': 'enters T_1', 'outside': 'outward', None: 'within a cell'}
+
+
+def reexit_value(j, tr, idx, vals, lvals, w0, tol):
+    """V at the first sample after the null's inside departure where the grid's ell >= 2 tol, or None."""
+    if w0['dep_side'] != 'inside':
+        return None
+    for i in idx:
+        if tr['tau'][i] > w0['dep_tau'] and lvals[(j, i)][0] >= 2 * tol:
+            return vals[(j, i)][0]
+    return None
+
+
+def minrange_rows(trs, fld, tol):
+    """Each tested min-range trajectory at R >= R_MINRANGE: V's walk, the ell null's walk, its class."""
+    pts = sample_points(trs, r_min=R_MINRANGE, fams=('min-range',))
+    vals = fld.evaluate(pts)
+    lvals = fld.evaluate(pts, k=0)
+    rows = []
+    for j, (fam, tr) in enumerate(trs):
+        if fam != 'min-range':
+            continue
+        w, w0 = walk(j, tr, vals, tol), walk(j, tr, lvals, tol)
+        if not w['tested']:
+            continue
+        idx = sorted(i for (jj, i) in vals if jj == j)
+        rows.append(dict(j=j, w=w, w0=w0, cls=MR_CLASS[w0['dep_side']],
+                         kind=departure_kind(w, j, lvals, tol),
+                         after=reexit_value(j, tr, idx, vals, lvals, w0, tol)))
+    return rows
+
+
+def minrange_block(trs, fld, tol):
+    section('MR. Min-range on the pole grid  --  R >= %.2f, against the ell null (criteria doc Sec. 5)'
+            % R_MINRANGE)
+    rows = minrange_rows(trs, fld, tol)
+    print('   %d of %d min-range trajectories have a sample at R >= %.2f'
+          % (len(rows), sum(1 for f, _ in trs if f == 'min-range'), R_MINRANGE))
+    for cls in ('enters T_1', 'within a cell', 'outward'):
+        kinds = [r['kind'] for r in rows if r['cls'] == cls]
+        print('   %-14s %3d   V departs: inside forced %d / own %d, outside %d, never %d'
+              % (cls, len(kinds), kinds.count('forced'), kinds.count('own'), kinds.count('outside'),
+                 kinds.count('never')))
+    ent = [r for r in rows if r['cls'] == 'enters T_1']
+    early = sum(1 for r in ent if r['w']['dep_side'] == 'inside'
+                and r['w']['dep_tau'] <= r['w0']['dep_tau'] + 1e-9)
+    print('   enters T_1: V departs inside at or before the null in %d of %d (V <= ell: expected all)'
+          % (early, len(ent)))
+    after = np.array([r['after'] for r in ent if r['after'] is not None])
+    if after.size:
+        print('   enters T_1, then climbs to ell >= 2 tol: %d;  V at that first sample: %d within tol, '
+              '%d below -tol, %d above +tol  (report only)'
+              % (after.size, int((np.abs(after) <= tol).sum()), int((after < -tol).sum()),
+                 int((after > tol).sum())))
+    inf = [r for r in rows if r['cls'] == 'outward']
+    for r in inf:
+        tr = trs[r['j']][1]
+        print('     outward: seed phi_1 %+6.2f deg, phi_2 %+7.2f deg   V length %.3f   null %.3f   (%s)'
+              % (D * tr['phi1'][0], D * tr['phi2'][0], length(r['w']), length(r['w0']), r['kind']))
+    if len(inf) < MR_MIN_INFORMATIVE:
+        not_testable('min-range family (criteria doc Sec. 5)',
+                     '%d outward trajectories, %d needed; on the rest ell alone decides |V| <= tol'
+                     % (len(inf), MR_MIN_INFORMATIVE))
+        return
+    ex = float(np.median([length(r['w']) - length(r['w0']) for r in inf]))
+    report('min-range: V agrees beyond the ell null (median excess >= %.1f)' % MR_EXCESS,
+           ex >= MR_EXCESS, 'median excess %.3f over %d outward trajectories' % (ex, len(inf)))
+
+
+# ---------------------------------------------------------------------------
 # Test D
 # ---------------------------------------------------------------------------
 
@@ -644,7 +799,7 @@ def test_E(grid, Vs):
     section('E.  Singular structure  --  where V is non-differentiable')
     Rg = np.asarray(grid.coordinate_vectors[0])
     pg = np.asarray(grid.coordinate_vectors[1])
-    mask = np.broadcast_to((Rg >= R_MARGIN)[:, None, None], Vs[-1].shape)
+    mask = np.broadcast_to((Rg >= R_MARGIN)[:, None, None], tuple(grid.shape))
     nmask = int(mask.sum())
     out = {}
     for lab, V in (('ell (null)', Vs[0]), ('converged V', Vs[-1])):
@@ -660,16 +815,15 @@ def test_E(grid, Vs):
     print('   excess over the ell null: %.3f%% of masked nodes' % (100 * (frac - out['ell (null)'])))
     report('a non-differentiability locus exists and is localized, not diffuse',
            0 < frac < 0.05, '%.3f%% of masked nodes' % (100 * frac))
-    NOTES.append('Test E is only half-run, and the detector also flags smooth extrema and the '
-                 'kinks of ell itself (see the null line). Closing it means comparing the EXCESS '
-                 'locus against D&S Table 3, transcribed in layer0/table3.py.')
+    NOTES.append('The test E detector also flags smooth extrema and the kinks of ell itself (see the '
+                 'null line). Its comparison with D&S Table 3 is test_e_table3.py '
+                 '(Overview/Layer1/Layer1_TestE_Table3_2026-10-28.md).')
 
 
 # ---------------------------------------------------------------------------
 
 def main():
-    grid = grid_for(TAG)
-    Vs, taus = load_snapshots(TAG)
+    grid, Vs, taus, field = load_field(TAG)
     fld = Field(grid, Vs, taus, READ)
     own_cell = E.value_scale(grid)
     tol = float(os.environ['M4_TOL']) if 'M4_TOL' in os.environ else own_cell
@@ -678,10 +832,12 @@ def main():
     print('=' * 94)
     print('M4  acceptance against Layer 0   grid %s   ell scaling %s   read %s' % (TAG, E.SCALING, READ))
     print('=' * 94)
+    print('   field     = %s' % field)
     print('   tolerance = %.5f  (%s; this grid\'s own cell is %.5f)'
           % (tol, 'pinned via M4_TOL' if 'M4_TOL' in os.environ else 'one-cell value change', own_cell))
-    print('   R mask    = %.2f   (M3: the inner face leaks; results hold on the retained domain)'
-          % R_MARGIN)
+    print('   R mask    = %.2f   (%s)' % (R_MARGIN, 'as in the M3 run, so the gate reruns unchanged; '
+                                         'min-range block at R >= %.2f' % R_MINRANGE if POLE else
+                                         'M3: the inner face leaks; results hold on the retained domain'))
     print('   snapshots = %d, spacing %.2f to %.2f in retrograde time' % (len(taus), dt.min(), dt.max()))
     print()
 
@@ -698,13 +854,20 @@ def main():
     print('   evaluating V and grad V at %d trajectory points, one snapshot at a time ...'
           % len(pts), flush=True)
     vals = fld.evaluate(pts)
+    lvals = fld.evaluate(pts, k=0)                      # ell on this grid: the null for test A
     walks = [(fam, tr, walk(j, tr, vals, tol)) for j, (fam, tr) in enumerate(trs)]
+    nulls = [walk(j, tr, lvals, tol) for j, (fam, tr) in enumerate(trs)]
+    for j, (fam, tr, w) in enumerate(walks):
+        w['kind'] = departure_kind(w, j, lvals, tol)
 
     test_A(walks, fld, tol, own_cell)
+    null_report(walks, nulls)
     maxrange_diagnostics(walks)
     test_B(walks, vals, fld)
     test_C1(walks, vals, fld)
     negative_control(walks, vals, grid, Vs[-1])
+    if POLE:
+        minrange_block(trs, fld, tol)
     test_D(fld)
     test_E(grid, Vs)
 
@@ -714,11 +877,13 @@ def main():
             print(('   %d. ' % i if j == 0 else '      ') + line)
     print()
     print('=' * 94)
+    extra = (['%d SKIPPED: %s' % (len(SKIPS), ', '.join(SKIPS))] if SKIPS else []) + \
+            (['%d NOT TESTABLE: %s' % (len(NOT_TESTABLE), ', '.join(NOT_TESTABLE))] if NOT_TESTABLE else [])
     if FAILS:
-        print('M4: %d check(s) FAILED: %s' % (len(FAILS), ', '.join(FAILS)))
-    elif SKIPS:
-        print('M4 COMPLETE -- every asserted check passed; %d SKIPPED: %s'
-              % (len(SKIPS), ', '.join(SKIPS)))
+        print('M4: %d check(s) FAILED: %s' % (len(FAILS), ', '.join(FAILS))
+              + ''.join('; ' + e for e in extra))
+    elif extra:
+        print('M4 COMPLETE -- every asserted check passed; ' + '; '.join(extra))
     else:
         print('M4 COMPLETE -- all checks passed')
     print('=' * 94)

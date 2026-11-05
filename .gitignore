@@ -13,6 +13,10 @@ m3_out/
 m4_out/
 m5_out/
 
+# Solver arrays outside those folders (stray copies); none are tracked
+*.npy
+*.npz
+
 # Figures: the scripts write them. Figures committed before this rule stay tracked;
 # add a new one on purpose with git add -f.
 *.png

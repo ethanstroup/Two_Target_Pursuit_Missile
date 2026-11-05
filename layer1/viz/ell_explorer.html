@@ -49,6 +49,20 @@
   cancelled, and restore the view.  Record:
   Overview/Layer1/Layer1_Explorer_Redesign_2026-10-16.md.
 
+  SLICE AS REGIONS (added 2026-10-29).  The slice panel draws either the 3-D
+  plot's own dots within a slab, or "regions": every grid node on the plane as
+  a solid cell -- its M5 set under "Color by: partition" (as test_m5.partition
+  labels it), else its value band with the zero contour -- as in the M5 slides'
+  partition figures.  In regions the slice sits on a node plane; step buttons
+  move one plane.  Saved as layer1.ellExplorer.sliceStyle.v1.  Record:
+  Overview/Layer1/Layer1_Explorer_SliceMap_2026-10-29.md.
+  (Same day: the plan view's angle arcs hold their side within 1° of ±180°,
+  so they no longer flicker between +180° and -180°.  Player 1 gained the
+  reach-avoid adversary law, +sign dV_RA2/dphi_1 -- player 2's adversary law
+  mirrored under S -- and each player a Kill box: unticked, that player's
+  envelope is still drawn (dashed) but cannot end the run, in the replay and
+  in the outcome table.)
+
       ell(x) = max( |phi_1| - beta,  R_lo(phi_2) - R,  R - R_hi(phi_2) )
       R_lo(phi_2) = A1 + B1 cos(phi_2)              D&S Eq. (8)
       R_hi(phi_2) = Rbar_0 - |phi_2 + sin(phi_2)|   D&S Eq. (9)
@@ -59,7 +73,9 @@
              weights are strictly positive, so the sign and the zero level set
              are the same under all three.  ell has no tau.
     V (M2)   the frozen-evader value function (sigma_2 = 0), V(x, tau),
-             from m2_out/Vsnap_frozen_101x102_T6.npz (layer1/M2/solve_m2_snap.py).
+             from m2_out/Vsnap_frozen_101x102_T6_pole.npz (layer1/M2/solve_m2_snap.py
+             with LAYER1_POLE=1, on M5's pole grid; added 2026-11-02), or the
+             original R_min = 0.2 file m2_out/Vsnap_frozen_101x102_T6.npz.
     V (M3)   the two-player value function, V(x, tau), from
              m3_out/Vsnap_101x102_T6.npz (layer1/M3/solve_m3.py).
   Both V files are solved under 'sdist', so V(x, 0) = ell_sdist(x), not the
@@ -73,8 +89,9 @@
   V is a minimum of ell along a trajectory, so V >= min ell everywhere.  A node
   more than one grid cell below that is not a value: it is drawn grey, kept out
   of the color scale, and counted in the status line.  M2's frozen-evader
-  solve has such nodes from tau ~ 0.75 on (an instability growing from the
-  inner face R = 0.2, nose-on); M3 has none.  See layer1/solve_m2_snap.py.
+  solve on the R_min = 0.2 grid has such nodes from tau ~ 0.75 on (an
+  instability growing from the inner face R = 0.2, nose-on); the pole solve
+  and M3 have none.  See layer1/M2/solve_m2_snap.py.
 
   Loading the .npz files: a page opened from file:// cannot fetch files, so
   "load files" (or dropping them on the page) reads them in the browser --
@@ -339,6 +356,9 @@
   .card h2 button.move:hover, .card h2 button.move:focus-visible { border-color: var(--line); background: var(--accent-soft); color: var(--accent); }
   .scrollbody { flex: 1 1 auto; min-height: 0; overflow: auto; }
   .hint { font-size: 10.5px; color: var(--ink3); margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef1f4; flex: none; }
+  /* a short panel keeps its plot and drops the how-to line */
+  .dk-leaf > .card { container-type: size; }
+  @container (max-height: 340px) { .hint { display: none; } }
 
   .view { position: relative; flex: 1 1 auto; min-height: 0; touch-action: none; cursor: grab; user-select: none; }
   .view.dragging { cursor: grabbing; }
@@ -355,6 +375,8 @@
   .slicectl { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; margin-bottom: 6px; flex: none; }
   .slicectl input[type=range] { width: 150px; }
   .slicectl button { min-height: 26px; padding: 2px 9px; }
+  .slicectl .step { min-width: 28px; padding: 2px 6px; }
+  .slicectl .stepper { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 
   table.read { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   table.read td { padding: 3px 0; font-size: 12px; vertical-align: baseline; border-bottom: 1px solid #eef1f4; }
@@ -405,6 +427,7 @@
   .engctl button, .engctl select, .engctl input.num { min-height: 26px; }
   .engctl .who { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; max-width: 100%; }
   .engctl .who select { min-width: 0; }
+  .engctl label.kill { margin-left: 2px; color: var(--ink); }
   .engctl .who i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   .engctl .num { width: 58px; }
   .engctl label.chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
@@ -532,7 +555,7 @@
 <div class="workspace-nav">
   <nav class="lx-tabs" id="src" role="tablist" aria-label="Field">
     <button data-src="ell" class="on" role="tab" aria-selected="true" title="M1: ℓ(x), evaluated in this page"><span class="tab-number">M1</span>ℓ · target set</button>
-    <button data-src="m2" role="tab" aria-selected="false" title="load m2_out/Vsnap_frozen_101x102_T6.npz first"><span class="tab-number">M2</span>V · frozen evader</button>
+    <button data-src="m2" role="tab" aria-selected="false" title="load m2_out/Vsnap_frozen_101x102_T6_pole.npz first"><span class="tab-number">M2</span>V · frozen evader</button>
     <button data-src="m3" role="tab" aria-selected="false" title="load m3_out/Vsnap_101x102_T6.npz first"><span class="tab-number">M3</span>V · two-player</button>
     <button data-src="m5" role="tab" aria-selected="false" title="load M5/m5_out/m5_out_V1_pole/Vsnap_RA_101x102_T6_pole.npz first"><span class="tab-number">M5</span>Vᴿᴬ · reach-avoid</button>
   </nav>
@@ -632,7 +655,8 @@
         <input type="file" id="loadIn" accept=".npz,.json" multiple hidden>
         <ul class="note">
           <li><b>M3</b> <code>layer1/M3/m3_out/Vsnap_101x102_T6.npz</code>, with <code>m3_101x102_T6.json</code></li>
-          <li><b>M2</b> <code>layer1/M2/m2_out/Vsnap_frozen_101x102_T6.npz</code>, with its json</li>
+          <li><b>M2</b> <code>layer1/M2/m2_out/Vsnap_frozen_101x102_T6_pole.npz</code>, with its json
+            (or the R_min = 0.2 <code>Vsnap_frozen_101x102_T6.npz</code>)</li>
           <li><b>M5</b> from <code>layer1/M5/m5_out/m5_out_V1_pole/</code>: <code>Vsnap_RA_101x102_T6_pole.npz</code> and
             <code>Vsnap_RA_101x102_T6_single_pole.npz</code> (D and C), their <code>m5_*.json</code>, and
             <code>test_m5_T6_pole_fields.json</code></li>
@@ -802,12 +826,20 @@
           on M5 with <b>Color by: partition</b>, by the set they lie in. The slice shows the 3-D plot's own dots within a slab
           of a plane, flat, with the zero contour bold and T₁ dashed.</p>
         <p>τ is the time remaining (the horizon), not forward time; V only falls as τ grows, so {V ≤ 0} only grows.</p>
+        <h4>Slice: dots or regions</h4>
+        <p>The slice panel shows a plane at fixed φ₁, φ₂ or R in one of two styles. <b>dots</b> shows the 3-D plot's own
+          dots within a slab of the plane. <b>regions</b> shows every grid node on the plane as a solid cell, colored by its
+          set under <b>Color by: partition</b> (D near-white, the targets dark, as on the M5 slides) or by its value band
+          otherwise, with the shares of Ω on the plane above it. In regions the slice sits on a grid node plane;
+          ◀ ▶ step one plane at a time. Both styles keep the 3-D view's axes: φ₂ runs to the left.</p>
         <h4>Selecting and the engagement</h4>
         <p>Hover for a readout; click to select. The selection stays when the cursor leaves; Esc or <b>clear</b> drops it.
           The selected state is flown forward as a 1v1 engagement under the chosen laws, drawn in the engagement panel and as
           a path in the 3-D view and on the slice. The readout tabulates the outcome for every pair of laws; click a cell to play it.
           To type a start state, change the horizon T or (on M5) pick a random start in W₁, C, W₂ or D, open
-          <b>Start state</b> in the engagement panel.</p>
+          <b>Start state</b> in the engagement panel. Untick a player's <b>Kill</b> box to let the run fly on through
+          that player's envelope (still drawn, dashed): the replay and the outcome table then show what happens
+          when only the other player can end the fight.</p>
         <h4>Controls</h4>
         <ul>
           <li>3-D view: drag rotates, Shift-drag or wheel-drag pans, the wheel zooms about the cursor, double-click resets.</li>
@@ -861,10 +893,18 @@
         <button data-axis="R">R =</button>
       </div>
       <input type="range" id="slicePos" min="0" max="1000" step="1" value="500">
-      <input type="text" class="num" id="sliceNum" value="0" style="width:74px"
-             title="type a value; angles also take pi, π, pi/4, -pi/2 …">
-      <span class="muted" id="sliceUnit">rad</span>
-      <span class="ctl" title="a plane has no thickness: the slice shows the 3-D plot's dots within this distance of it, as a fraction of the axis">
+      <span class="stepper">
+        <button type="button" class="step" id="slicePrev" title="the previous grid node plane" aria-label="previous node plane">◀</button>
+        <button type="button" class="step" id="sliceNext" title="the next grid node plane" aria-label="next node plane">▶</button>
+        <input type="text" class="num" id="sliceNum" value="0" style="width:74px"
+               title="type a value; angles also take pi, π, pi/4, -pi/2 …">
+        <span class="muted" id="sliceUnit">rad</span>
+      </span>
+      <div class="seg" id="sliceStyle" title="dots: the 3-D plot's own dots within a slab of the plane. regions: every grid node on the plane as a solid cell, colored by its set under Color by: partition (as on the M5 slides), else by its value band">
+        <button data-style="dots" class="on">dots</button>
+        <button data-style="filled">regions</button>
+      </div>
+      <span class="ctl" id="slabCtl" title="a plane has no thickness: the slice shows the 3-D plot's dots within this distance of it, as a fraction of the axis">
         <label for="slab">slab</label>
         <input type="range" id="slab" min="2" max="100" step="1" value="25" style="width:90px">
         <output id="slabOut" style="min-width:5.5em">±0.157 rad</output>
@@ -874,9 +914,11 @@
       <canvas id="sc"></canvas>
       <canvas id="sco"></canvas>
     </div>
-    <div class="hint">dots: the 3-D plot's own dots within the slab, same color and opacity as there · bold: <span class="sym">ℓ</span> = 0 on the plane ·
+    <div class="hint"><span class="dotshint">dots: the 3-D plot's own dots within the slab, same color and opacity as there · bold: <span class="sym">ℓ</span> = 0 on the plane ·
       dashed: T₁ from the closed form<span class="t2only" hidden>, dotted: T₂</span> · hover a dot to find it in 3-D · click a dot,
-      or anywhere on the plane, to select that state</div>
+      or anywhere on the plane, to select that state</span><span class="fillhint" hidden>regions: every grid node on the plane as a solid
+      cell, by set under Color by: partition, else by value band with <span class="sym">ℓ</span> = 0 bold · the slice sits on the nearest
+      node plane; ◀ ▶ step one plane · hover a cell to read its node, click to select it and play its engagement</span></div>
   </div>
 
   <div class="card" data-panel="readout">
@@ -888,9 +930,11 @@
     <h2 title="drag to move this panel"><span class="grip">⠿</span><span class="ttl" id="engTitle">1v1 engagement</span><span class="info" id="engInfo"></span><button type="button" class="move" title="move this panel next to another one">Move</button></h2>
     <div class="engctl">
       <span class="who"><i style="background:#1f5fa8"></i><label for="engL1">player 1</label>
-        <select id="engL1" title="player 1's control law. The value-based laws read the loaded Vsnap at the remaining horizon T − t (capped at its last snapshot), as sim_m5 does"></select></span>
+        <select id="engL1" title="player 1's control law. The value-based laws read the loaded Vsnap at the remaining horizon T − t (capped at its last snapshot), as sim_m5 does"></select>
+        <label class="chk kill" title="player 1 can kill: player 2 inside player 1's envelope ends the run. Untick to keep the envelope drawn but let the run fly on"><input type="checkbox" id="engK1" checked><span>Kill</span></label></span>
       <span class="who"><i style="background:#d4600f"></i><label for="engL2">player 2</label>
-        <select id="engL2" title="player 2's control law"></select></span>
+        <select id="engL2" title="player 2's control law"></select>
+        <label class="chk kill" title="player 2 can kill: player 1 inside player 2's envelope ends the run. Untick to keep the envelope drawn but let the run fly on"><input type="checkbox" id="engK2" checked><span>Kill</span></label></span>
     </div>
     <div class="engctl">
       <button id="engPlay" type="button" title="play the engagement from where the time slider is">▶ play</button>
@@ -2322,9 +2366,10 @@ function negIntervals(f, lo, hi, n) {
 /* T1 in the slice, straight from Eqs. (8)-(9) and the boresight limit, as
    polylines in (horizontal, vertical) data coordinates.  Independent of the
    field, so for M3's V it stays the tau = 0 reference. */
-function t1SlicePaths(axis) {
-  var c = S.slice.pos, b = CONST.P.beta, out = [], qs = [], i;
+function t1SlicePaths(axis, c) {
+  var b = CONST.P.beta, out = [], qs = [], i;
   axis = axis || S.slice.axis;
+  if (c === undefined) c = S.slice.pos;
   for (i = 0; i <= 720; i++) qs.push(-PI + TWO_PI * i / 720);
   if (axis === 'p1') {
     if (Math.abs(c) <= b) {
@@ -2346,10 +2391,11 @@ function t1SlicePaths(axis) {
 /* T2->1 = S(T1) in the slice.  On a phi_1 slice it is T1's phi_2 slice at the
    same value (both put the free angle across and R up), and vice versa; on an
    R slice (phi_2 across, phi_1 up) it is T1's with the two coordinates swapped. */
-function t2SlicePaths() {
-  var ax = S.slice.axis;
-  if (ax === 'R') return t1SlicePaths('R').map(function (poly) { return poly.map(function (q) { return [q[1], q[0]]; }); });
-  return t1SlicePaths(ax === 'p1' ? 'p2' : 'p1');
+function t2SlicePaths(ax, c) {
+  ax = ax || S.slice.axis;
+  if (c === undefined) c = S.slice.pos;
+  if (ax === 'R') return t1SlicePaths('R', c).map(function (poly) { return poly.map(function (q) { return [q[1], q[0]]; }); });
+  return t1SlicePaths(ax === 'p1' ? 'p2' : 'p1', c);
 }
 
 function slicePanelRect(W, H) {
@@ -2429,7 +2475,11 @@ function drawSlicePanelOn(g, D, rc) {
     g.setLineDash([]);
   }
   g.restore();
-  // frame, ticks, names
+  drawSliceFrame(g, D, rc);
+}
+/* The frame, ticks and axis names of the slice panel (both styles). */
+function drawSliceFrame(g, D, rc) {
+  var C = sliceCfg(), M = sliceMap(D, rc), ts = S.UI.text, lw = SIZES.line * S.UI.line;
   var tickF = '600 ' + (SIZES.tick * ts) + 'px ' + FONT, nameF = '600 ' + (SIZES.axis * ts) + 'px ' + FONT;
   g.strokeStyle = AX_LINE; g.lineWidth = lw * 0.8;
   g.strokeRect(rc.x, rc.y, rc.w, rc.h);
@@ -2468,6 +2518,7 @@ function refreshSlicePanel() {
   var rc = slicePanelRect(SV.W, SV.H);
   var g0 = sc.getContext('2d');
   g0.setTransform(PX, 0, 0, PX, 0, 0);
+  if (sliceFilled()) { drawSlicePanel(); return; }            // regions: built at draw time, on the node plane
   if (rc.w < 60 || rc.h < 40) {                 // squeezed: say so instead of drawing
     S.sliceData = null;
     g0.fillStyle = '#ffffff'; g0.fillRect(0, 0, SV.W, SV.H);
@@ -2486,9 +2537,19 @@ function refreshSlicePanel() {
    (colors, opacity, filter, mode, slab width). */
 function drawSlicePanel() {
   var D = S.sliceData;
-  if (!S.slice.on || !D || !S.field) return;
+  if (!S.slice.on || !S.field) return;
   var g = sc.getContext('2d');
   g.setTransform(PX, 0, 0, PX, 0, 0);
+  if (sliceFilled()) {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, SV.W, SV.H);
+    drawSliceFilled(g);
+    drawSliceOverlay();
+    var C0 = sliceCfg();
+    document.getElementById('sliceInfo').textContent = (S.field.kind === 'grid' ? 'regions on the nearest node plane' : 'regions on the exact plane') +
+      ' · showing (' + C0.hName.replace(' [rad]', '') + ', ' + C0.vName.replace(' [rad]', '') + ')';
+    return;
+  }
+  if (!D || D.fill) { if (D && D.fill) refreshSlicePanel(); return; }    // back from regions: rebuild the dots
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, SV.W, SV.H);
   drawSlicePanelOn(g, D, D.rc);
   drawSliceOverlay();
@@ -2500,7 +2561,15 @@ function slabLabel() {
   return '±' + (+slabHalf().toFixed(3)) + (sliceCfg().fix === 0 ? '' : ' rad');
 }
 
-function onSlice(h) { return slabDist([h.R, h.p1, h.p2]) <= slabHalf() * (1 + 1e-9); }
+function onSlice(h) {
+  var D = S.sliceData;
+  if (D && D.fill) {                       // regions: within half a node plane
+    var M = D.fill, d = [h.R, h.p1, h.p2][M.C.fix] - M.plane;
+    if (M.C.fix !== 0) d = wrapA(d);
+    return Math.abs(d) <= 0.5 * M.df * (1 + 1e-9);
+  }
+  return slabDist([h.R, h.p1, h.p2]) <= slabHalf() * (1 + 1e-9);
+}
 function drawSliceOverlay() {
   var g = sco.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -2561,7 +2630,7 @@ function drawSliceOutline(g) {
   var half = slabHalf(), fr = axisRange(C.fix);
   g.strokeStyle = 'rgba(95,103,112,0.55)'; g.lineWidth = SIZES.line * S.UI.line * 0.6;
   g.setLineDash([4 * S.UI.line, 4 * S.UI.line]);
-  [-half, half].forEach(function (o) {
+  (sliceFilled() ? [] : [-half, half]).forEach(function (o) {
     var at = S.slice.pos + o;
     if (C.fix === 0 && (at < fr[0] || at > fr[1])) return;
     if (C.fix !== 0) at = ((at + PI) % TWO_PI + TWO_PI) % TWO_PI - PI;
@@ -2618,6 +2687,11 @@ function syncSliceControls() {
     b.classList.toggle('on', b.dataset.axis === S.slice.axis);
   });
   document.getElementById('slicePos').value = Math.round((S.slice.pos - r[0]) / (r[1] - r[0]) * 1000);
+  var filled = sliceFilled();
+  document.querySelectorAll('#sliceStyle button').forEach(function (b) { b.classList.toggle('on', b.dataset.style === S.slice.style); });
+  document.getElementById('slabCtl').hidden = filled;
+  document.querySelector('#kSlice .dotshint').hidden = filled;
+  document.querySelector('#kSlice .fillhint').hidden = !filled;
   document.getElementById('sliceNum').value = C.fix === 0 ? S.slice.pos.toFixed(2) : (+S.slice.pos.toFixed(4)).toString();
   document.getElementById('sliceUnit').textContent = C.fix === 0 ? '' : 'rad';
   document.getElementById('slabOut').textContent = slabLabel();
@@ -2641,12 +2715,14 @@ function setSliceAxis(axis, keepPos) {
   var r = axisRange(sliceCfg().fix);
   var v = keepPos ? S.slice.pos : SLICE_DEFAULT[axis];
   S.slice.pos = Math.min(r[1], Math.max(r[0], v));
+  if (sliceFilled()) S.slice.pos = sliceNodeValue(S.slice.pos);   // regions sit on a node plane
   refreshSlice();
 }
 function setSlicePos(v, snap) {
   var C = sliceCfg(), r = axisRange(C.fix);
   v = Math.min(r[1], Math.max(r[0], v));
-  if (snap) {
+  if (sliceFilled()) v = sliceNodeValue(v);                         // regions sit on a node plane
+  else if (snap) {
     if (C.fix === 0) v = Math.round(v * 100) / 100;
     else { var k = Math.round(v / (PI / 8)); if (Math.abs(v - k * PI / 8) < 0.0035) v = k * PI / 8; }
   }
@@ -2665,6 +2741,264 @@ function parseValue(t) {
   if (m[4]) v /= parseFloat(m[4]);
   return m[1] === '-' ? -v : v;
 }
+
+// ===========================================================================
+// SLICE AS REGIONS.  The slice panel's second style: every grid node on the
+// plane drawn as a solid cell centered on it -- its M5 set under "Color by:
+// partition" (exactly as test_m5.partition labels it), else its value band with
+// the zero contour -- as in the M5 slides' partition figures.  A grid field is
+// read on its own nodes, so in this style the slice sits on a node plane (the
+// slider, the box and the step buttons snap to one).  M1's analytic ell is
+// evaluated on a lattice (180 per angle, 150 in R) at the slice's exact value.
+// Same axes as the dots: the panel keeps the 3-D view's orientation.
+// ===========================================================================
+/* The sets keep the 3-D view's W1 / W2 / C colors.  D is near-white and the
+   targets dark, as on the slides, so the small sets stand out; the tie is gold.
+   W1, W2, C, the target gray and the tie gold pass the all-pairs CVD (>= 10)
+   and normal-vision (>= 19) checks of the dataviz validator. */
+var MAP_HEX = { W1: '#1f5fa8', W2: '#d4600f', C: '#13936a', TIE: '#e3b505', D: '#f4f5f7',
+                T: '#33383e', M: '#dfe3e7', U: '#c3c9d0' };
+var MAP_LABEL = { W1: 'W₁: player 1 wins alone', W2: 'W₂: player 2 wins alone', C: 'C: contested',
+                  D: 'D: guaranteed draw', TIE: 'W₁ ∩ W₂: a tie', T: 'inside a target set',
+                  M: 'R < 0.45: outside Ω', U: 'D or C (load the single-target V₁ to tell them apart)' };
+var SLICE_STYLE_KEY = 'layer1.ellExplorer.sliceStyle.v1';
+var _mapRGB = null;
+function mapRGB() {                      // per class index (CLS_KEYS order), 0..255
+  return _mapRGB || (_mapRGB = CLS_KEYS.map(function (k) {
+    var n = parseInt(MAP_HEX[k].slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }));
+}
+function sliceFilled() { return S.slice.style === 'filled'; }
+
+/* The nodes a filled slice reads: a grid field's own, or a lattice for analytic ell. */
+function mapNodes(F) {
+  if (F.kind === 'grid') return { ax: [F.R, F.p1, F.p2], grid: true };
+  if (!F._mapNodes) {
+    var n = 180, a = new Float64Array(n), d = F.domain.R;
+    for (var j = 0; j < n; j++) a[j] = -PI + j * TWO_PI / n;
+    F._mapNodes = { ax: [linspace(d[0], d[1], 150), a, a], grid: false };
+  }
+  return F._mapNodes;
+}
+function nodeStep(nodes, periodic) {
+  var n = nodes.length;
+  return periodic ? TWO_PI / n : (nodes[n - 1] - nodes[0]) / (n - 1);
+}
+function nearestNode(nodes, periodic, x) {
+  var n = nodes.length;
+  if (periodic) { var i = Math.round((wrapA(x) - nodes[0]) / (TWO_PI / n)); return ((i % n) + n) % n; }
+  var lo = 0, hi = n - 1;
+  if (x <= nodes[0]) return 0;
+  if (x >= nodes[hi]) return hi;
+  while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (nodes[mid] <= x) lo = mid; else hi = mid; }
+  return x - nodes[lo] <= nodes[hi] - x ? lo : hi;
+}
+/* The node plane a filled slice at v sits on (a grid field), or v itself. */
+function sliceNodeValue(v) {
+  var F = S.field;
+  if (!F || F.kind !== 'grid') return v;
+  var C = sliceCfg(), nodes = mapNodes(F).ax[C.fix];
+  return nodes[nearestNode(nodes, C.fix !== 0, v)];
+}
+
+/* One plane's values (and sets) on a lattice whose row 0 is the TOP.  A
+   periodic axis gets its first node again at +2 pi, so the fill and the
+   contours close across the seam.  C: { fix, h, v } as in SLICE_AXES. */
+function buildMap(F, k, C, pos, part) {
+  var N = mapNodes(F), hN = N.ax[C.h], vN = N.ax[C.v], fN = N.ax[C.fix];
+  var hPer = C.h !== 0, vPer = C.v !== 0, fPer = C.fix !== 0, dom = F.domain.R;
+  if (!fPer) pos = Math.min(dom[1], Math.max(dom[0], pos));
+  var fi = nearestNode(fN, fPer, pos), plane = N.grid ? fN[fi] : (fPer ? wrapA(pos) : pos);
+  var nh = hN.length, nv = vN.length, NH = nh + (hPer ? 1 : 0), NV = nv + (vPer ? 1 : 0);
+  var hIdx = new Int32Array(NH), vIdx = new Int32Array(NV), c, r;
+  for (c = 0; c < NH; c++) hIdx[c] = c < nh ? c : 0;
+  for (r = 0; r < NV; r++) vIdx[r] = vPer ? (r === 0 ? 0 : nv - r) : nv - 1 - r;
+  var vals = new Float64Array(NH * NV), cls = part ? new Uint8Array(NH * NV) : null;
+  var n1 = N.ax[1].length, n2 = N.ax[2].length, A = N.grid ? F.data[k] : null, CL = part ? m5Classes(F, k).cls : null;
+  var idx = [0, 0, 0], t = [0, 0, 0];
+  for (r = 0; r < NV; r++) for (c = 0; c < NH; c++) {
+    var q = r * NH + c;
+    idx[C.fix] = fi; idx[C.h] = hIdx[c]; idx[C.v] = vIdx[r];
+    if (N.grid) {
+      var m = (idx[0] * n1 + idx[1]) * n2 + idx[2];
+      vals[q] = A[m];
+      if (cls) cls[q] = CL[m];
+    } else {
+      t[C.fix] = plane; t[C.h] = hN[idx[C.h]]; t[C.v] = vN[idx[C.v]];
+      vals[q] = F.fn(t[0], t[1], t[2]);
+    }
+  }
+  return { C: C, pos: pos, plane: plane, df: nodeStep(fN, fPer), grid: N.grid,
+           hN: hN, vN: vN, nh: nh, nv: nv, NH: NH, NV: NV, hPer: hPer, vPer: vPer,
+           h0: hN[0], dh: nodeStep(hN, hPer), vTop: vPer ? vN[0] + TWO_PI : vN[nv - 1], dv: nodeStep(vN, vPer),
+           vals: vals, cls: cls };
+}
+/* Shares over the plane's own nodes (the seam copies left out). */
+function mapShares(M) {
+  var by = new Float64Array(CLS_KEYS.length), tot = 0, neg = 0;
+  for (var r = M.vPer ? 1 : 0; r < M.NV; r++) for (var c = 0; c < M.nh; c++) {
+    var q = r * M.NH + c;
+    tot++;
+    if (M.cls) by[M.cls[q]]++;
+    else if (M.vals[q] <= 0) neg++;
+  }
+  return { by: by, tot: tot, neg: neg };
+}
+function mapShareText(M, F) {
+  var sh = mapShares(M);
+  if (!M.cls) return (F.kind === 'analytic' ? 'inside T₁ ' : '{' + F.symbol + ' ≤ 0} ') + (100 * sh.neg / sh.tot).toFixed(1) + ' % of the plane';
+  var b = sh.by, om = b[CLS.W1] + b[CLS.W2] + b[CLS.C] + b[CLS.D] + b[CLS.TIE] + b[CLS.U];
+  if (!om) return 'no Ω nodes on this plane';
+  function p(x) { return (100 * x / om).toFixed(1) + ' %'; }
+  var t = 'of Ω on this plane: W₁ ' + p(b[CLS.W1] + b[CLS.TIE]) + ' · W₂ ' + p(b[CLS.W2] + b[CLS.TIE]);
+  return t + (b[CLS.U] ? ' · D or C ' + p(b[CLS.U]) : ' · C ' + p(b[CLS.C]) + ' · D ' + p(b[CLS.D]));
+}
+/* One pixel per lattice cell; flip: the horizontal axis runs right to left. */
+function mapImage(M, F, flip) {
+  var cv = document.createElement('canvas');
+  cv.width = M.NH; cv.height = M.NV;
+  var g = cv.getContext('2d'), im = g.createImageData(M.NH, M.NV), d = im.data;
+  var B = M.cls ? null : bands(), rgb = M.cls ? mapRGB() : null;
+  for (var r = 0; r < M.NV; r++) for (var c = 0; c < M.NH; c++) {
+    var q = r * M.NH + c, o = 4 * (r * M.NH + (flip ? M.NH - 1 - c : c)), col;
+    if (M.cls) col = rgb[M.cls[q]];
+    else {
+      var v = M.vals[q], f = !isFinite(v) || belowFloor(F, v) ? INVALID_RGB : bandColor(v, B);
+      col = [Math.round(f[0] * 255), Math.round(f[1] * 255), Math.round(f[2] * 255)];
+    }
+    d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return cv;
+}
+/* The legend under a filled partition: the sets present on the plane. */
+function fillLegendItems(M, F) {
+  var seen = {};
+  for (var q = 0; q < M.cls.length; q++) seen[M.cls[q]] = true;
+  var keys = m5V1(F) ? ['W1', 'W2', 'C', 'D'] : ['W1', 'W2', 'U'];
+  ['TIE', 'T', 'M'].forEach(function (k) { if (seen[CLS[k]]) keys.push(k); });
+  return keys.map(function (k) { return { hex: MAP_HEX[k], outline: k === 'D', text: MAP_LABEL[k] }; });
+}
+function legendLayout(g, items, W, fontPx) {
+  var sw = Math.round(fontPx * 1.05), rows = [[]], x = 0, gapI = Math.round(fontPx * 1.6), avail = W - 16;
+  g.font = '500 ' + fontPx + 'px ' + FONT;
+  items.forEach(function (it) {
+    it.w = sw + 6 + g.measureText(it.text).width;
+    var row = rows[rows.length - 1];
+    if (row.length && x + gapI + it.w > avail) { rows.push([it]); x = it.w; }
+    else { x += (row.length ? gapI : 0) + it.w; row.push(it); }
+  });
+  return { rows: rows, sw: sw, gapI: gapI, lineH: Math.round(fontPx * 1.7) };
+}
+function drawFillLegend(g, LG, y, W, fontPx) {
+  g.font = '500 ' + fontPx + 'px ' + FONT; g.textBaseline = 'middle'; g.textAlign = 'left';
+  LG.rows.forEach(function (row) {
+    var tot = row.reduce(function (a, it) { return a + it.w; }, 0) + LG.gapI * (row.length - 1), x = (W - tot) / 2;
+    var cy = y + LG.lineH / 2;
+    row.forEach(function (it) {
+      g.fillStyle = it.hex; g.fillRect(x, cy - LG.sw / 2, LG.sw, LG.sw);
+      if (it.outline) { g.strokeStyle = '#8f969e'; g.lineWidth = 1; g.strokeRect(x + 0.5, cy - LG.sw / 2 + 0.5, LG.sw - 1, LG.sw - 1); }
+      g.fillStyle = '#4a5058'; g.fillText(it.text, x + LG.sw + 6, cy);
+      x += it.w + LG.gapI;
+    });
+    y += LG.lineH;
+  });
+}
+
+/* Draw the filled slice: the cells, then in value mode the zero contour and the
+   T1 / T2 edges, all at the node plane; the frame and ticks as for the dots. */
+function drawSliceFilled(g) {
+  var F = S.field, C = sliceCfg(), part = m5PartOn(), ts = S.UI.text, fontPx = SIZES.tick * ts;
+  var M = buildMap(F, S.k, C, S.slice.pos, part);
+  var rc = slicePanelRect(SV.W, SV.H), topH = Math.round(fontPx * 1.5), LG = null, legendH = 0;
+  if (M.cls) { LG = legendLayout(g, fillLegendItems(M, F), SV.W, fontPx); legendH = LG.rows.length * LG.lineH + 4; }
+  rc.y += topH; rc.h -= topH + legendH;
+  var D = { hr: axisRange(C.h), vr: axisRange(C.v), nh: 2, nv: 2, rc: rc, fill: M, members: null };
+  S.sliceData = D;
+  if (rc.w < 60 || rc.h < 40) {
+    g.fillStyle = '#838b95'; g.font = '12px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('enlarge this panel to see the slice', SV.W / 2, SV.H / 2);
+    S.sliceData = null;
+    return;
+  }
+  var Mp = sliceMap(D, rc), lw = SIZES.line * S.UI.line;
+  g.save();
+  g.beginPath(); g.rect(rc.x, rc.y, rc.w, rc.h); g.clip();
+  var xa = Mp.X(M.h0 - M.dh / 2), xb = Mp.X(M.h0 + (M.NH - 0.5) * M.dh);
+  var ya = Mp.Y(M.vTop + M.dv / 2), yb = Mp.Y(M.vTop - (M.NV - 0.5) * M.dv);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(mapImage(M, F, C.hFlip), Math.min(xa, xb), Math.min(ya, yb), Math.abs(xb - xa), Math.abs(yb - ya));
+  g.imageSmoothingEnabled = true;
+  if (!M.cls) {
+    var z = contourSegments(M.vals, M.NH, M.NV, 0);
+    g.lineCap = 'round'; g.strokeStyle = '#17191c'; g.lineWidth = lw * 1.4;
+    g.beginPath();
+    for (var k = 0; k < z.length; k += 4) {
+      g.moveTo(Mp.X(M.h0 + z[k] * M.dh), Mp.Y(M.vTop - z[k + 1] * M.dv));
+      g.lineTo(Mp.X(M.h0 + z[k + 2] * M.dh), Mp.Y(M.vTop - z[k + 3] * M.dv));
+    }
+    g.stroke();
+    if (S.edges) {
+      var edge = function (polys) {
+        polys.forEach(function (poly) {
+          g.beginPath();
+          poly.forEach(function (q, j) { if (j) g.lineTo(Mp.X(q[0]), Mp.Y(q[1])); else g.moveTo(Mp.X(q[0]), Mp.Y(q[1])); });
+          g.stroke();
+        });
+      };
+      g.strokeStyle = T1_DASH; g.lineWidth = lw * 0.95; g.setLineDash([6 * S.UI.line, 4 * S.UI.line]);
+      edge(t1SlicePaths(S.slice.axis, M.plane));
+      if (showT2()) { g.setLineDash([1.5 * S.UI.line, 3 * S.UI.line]); g.lineWidth = lw * 1.25; edge(t2SlicePaths(S.slice.axis, M.plane)); }
+      g.setLineDash([]);
+    }
+  }
+  g.restore();
+  drawSliceFrame(g, D, rc);
+  // above: the shares on the plane; below: the sets' legend
+  var s2 = mapShareText(M, F), cut;
+  g.font = '500 ' + (fontPx * 0.95) + 'px ' + FONT; g.fillStyle = '#5b6570'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+  while (g.measureText(s2).width > rc.w + 20 && (cut = s2.replace(/\s·[^·]*$/, '')) !== s2) s2 = cut;
+  if (g.measureText(s2).width <= rc.w + 20) g.fillText(s2, rc.x + rc.w / 2, rc.y - 4);
+  if (LG) drawFillLegend(g, LG, SV.H - legendH, SV.W, fontPx);
+}
+
+/* The node under (x, y) on the filled slice -- snapped, so the readout and the
+   cell's color agree -- or the exact state for analytic ell. */
+function sliceCellAt(x, y) {
+  var D = S.sliceData;
+  if (!D || !D.fill) return null;
+  var rc = D.rc, M = D.fill, C = M.C;
+  if (x < rc.x || x > rc.x + rc.w || y < rc.y || y > rc.y + rc.h) return null;
+  var Mp = sliceMap(D, rc), h = Mp.invH(x), v = Mp.invV(y), t = [0, 0, 0];
+  t[C.fix] = M.plane;
+  if (M.grid) { t[C.h] = M.hN[nearestNode(M.hN, M.hPer, h)]; t[C.v] = M.vN[nearestNode(M.vN, M.vPer, v)]; }
+  else { t[C.h] = M.hPer ? wrapA(h) : h; t[C.v] = M.vPer ? wrapA(v) : v; }
+  return { src: M.grid ? 'cell' : 'slice', R: t[0], p1: t[1], p2: t[2] };
+}
+/* One node plane along the slice's axis (the angles wrap); for analytic ell,
+   0.1 in R or 5 degrees. */
+function stepSlice(dir) {
+  var F = S.field;
+  if (!F) return;
+  var C = sliceCfg(), per = C.fix !== 0, N = mapNodes(F);
+  if (!N.grid) { setSlicePos(S.slice.pos + dir * (per ? PI / 36 : 0.1), false); return; }
+  var nodes = N.ax[C.fix], n = nodes.length, i = nearestNode(nodes, per, S.slice.pos) + dir;
+  setSlicePos(nodes[per ? (i + n) % n : Math.max(0, Math.min(n - 1, i))], false);
+}
+function setSliceStyle(style) {
+  S.slice.style = style === 'filled' ? 'filled' : 'dots';
+  try { localStorage.setItem(SLICE_STYLE_KEY, S.slice.style); } catch (e) { /* this visit only */ }
+  if (S.hover && (S.hover.src === 'slice' || S.hover.src === 'cell')) S.hover = null;
+  if (sliceFilled() && S.field) setSlicePos(S.slice.pos, false);      // onto a node plane
+  else refreshSlice();
+  showReadout();
+}
+
+S.slice.style = (function () {
+  try { localStorage.removeItem('layer1.ellExplorer.sliceMap.v1'); } catch (e) { /* the separate map of 2026-10-29 */ }
+  try { return localStorage.getItem(SLICE_STYLE_KEY) === 'filled' ? 'filled' : 'dots'; } catch (e) { return 'dots'; }
+})();
 
 // ===========================================================================
 // hover readout
@@ -2745,6 +3079,7 @@ function deg(v) { return fmt(v * 180 / PI, 2) + '°'; }
    selection when it leaves, so a clicked state can be read at leisure. */
 var SRC_NAMES = { point: 'grid node', surface: 'on the shaded surface', dot: 'dot: a zero crossing on a grid edge',
                   slice: 'a state on the slice plane', table2: 'D&S Table 2 point', typed: 'typed start',
+                  cell: 'grid node on the slice',
                   random: 'random node' };
 function showReadout() {
   var hov = S.hover && !(S.sel && sameState(S.hover, S.sel)) ? S.hover : null;
@@ -3062,11 +3397,18 @@ var PAGE_TEXT = {
   m2: {
     title: 'Layer 1 — M2: V(x, τ) against a frozen evader (σ₂ = 0)',
     sub: function () {
-      return 'Player 1 turns optimally; player 2 flies straight. <b>V(x, τ)</b> is the deepest penetration of T₁ that ' +
+      var head = 'Player 1 turns optimally; player 2 flies straight. <b>V(x, τ)</b> is the deepest penetration of T₁ that ' +
         'player 1 can reach within a horizon τ, so <b>{V ≤ 0}</b> is where it can force T₁ within τ. V can only fall ' +
         'as τ grows. Nothing stops this zone: its outer edge advances at the maximum closing speed 2 and meets the ' +
         'domain\'s outer face R = 12 near τ ≈ 2.9, after which the values near that face depend on its boundary ' +
-        'condition (M2 itself stopped at τ = 3). <b>Not valid everywhere:</b> from τ ≈ 0.75 the solve breaks the ' +
+        'condition (M2 itself stopped at τ = 3). ';
+      if (SRC.m2.field && SRC.m2.field.pole)
+        return head + '<b>Pole grid</b> (real rows at (i + ½) dR, so R reaches dR/2): a pass through R = 0 continues ' +
+          'through the mirror identity instead of leaving through an inner face, and the R = 0.2 breakdown of the old ' +
+          'solve is gone (a node more than a cell below min ℓ would be grey). Solved by <code>solve_m2_snap.py</code> ' +
+          'with <code>LAYER1_POLE=1</code> on M5\'s 101×102×102 pole grid under sdist, so each node matches M5\'s ' +
+          'single-target V₁; M3\'s values in the readout are interpolated from its R_min = 0.2 grid.';
+      return head + '<b>Not valid everywhere:</b> from τ ≈ 0.75 the solve breaks the ' +
         'bound V ≥ min ℓ, starting at the inner face R = 0.2 nose-on and spreading outward at about the closing ' +
         'speed; those nodes are grey. M2\'s own 101³ solve does the same, and none of its tests can see it ' +
         '(see <code>solve_m2_snap.py</code>). Solved by that script on M3\'s 101×102×102 grid under sdist, so ' +
@@ -3100,7 +3442,7 @@ var PAGE_TEXT = {
 };
 
 var TAB_NAMES = { ell: 'M1 · ℓ', m2: 'M2 · V, frozen evader', m3: 'M3 · V, two-player', m5: 'M5 · Vᴿᴬ, reach-avoid' };
-var LOAD_HINT = { m2: 'm2_out/Vsnap_frozen_101x102_T6.npz', m3: 'm3_out/Vsnap_101x102_T6.npz',
+var LOAD_HINT = { m2: 'm2_out/Vsnap_frozen_101x102_T6_pole.npz', m3: 'm3_out/Vsnap_101x102_T6.npz',
                   m5: 'M5/m5_out/m5_out_V1_pole/Vsnap_RA_101x102_T6_pole.npz' };
 var TAB_KEY = 'layer1.ellExplorer.tab.v1';
 /* The field tabs.  A tab whose file is not loaded stays clickable: it opens the
@@ -3540,7 +3882,9 @@ async function storeGetAll() {
 /* On opening: served over http(s), fetch the files beside the repo;
    otherwise restore what this browser kept.  Never switches away from ℓ. */
 var AUTO_FILES = ['../M3/m3_out/Vsnap_101x102_T6.npz', '../M3/m3_out/m3_101x102_T6.json',
-                  '../M2/m2_out/Vsnap_frozen_101x102_T6.npz', '../M2/m2_out/m2_frozen_101x102_T6.json'];
+                  '../M2/m2_out/Vsnap_frozen_101x102_T6.npz', '../M2/m2_out/m2_frozen_101x102_T6.json',
+                  // the pole files come last, so when both are on disk they hold the M2 slot
+                  '../M2/m2_out/Vsnap_frozen_101x102_T6_pole.npz', '../M2/m2_out/m2_frozen_101x102_T6_pole.json'];
 ['../M5/m5_out/m5_out_V1_pole/', '../M5/m5_out/'].forEach(function (d) {
   AUTO_FILES.push(d + 'Vsnap_RA_101x102_T6_pole.npz', d + 'm5_101x102_T6_pole.json',
                   d + 'Vsnap_RA_101x102_T6_single_pole.npz', d + 'm5_101x102_T6_single_pole.json',
@@ -3936,7 +4280,8 @@ var OUT_NAME = ['no kill by T', 'player 1 wins alone', 'player 2 kills', 'mutual
 var OUT_SHORT = ['no kill', '1 wins', '2 kills', 'mutual', 'R = 12'];
 var OUT_CSS = ['oc-none', 'oc-win', 'oc-loss', 'oc-mut', 'oc-exit'];
 var ENG = { l1: 'ra', l2: 'ra_adv', userSet: false, T: 6, run: null, t: 0, playing: false, speed: 1,
-            frame: 'world', auto: true, last: 0, mx: null, mxToken: 0 };
+            frame: 'world', auto: true, last: 0, mx: null, mxToken: 0,
+            kill1: true, kill2: true };          // a player whose Kill box is off cannot end the run
 
 /* Angular partials of a GridField's snapshot, read as sim_m5 reads them. */
 function gradSampler(F) {
@@ -3988,6 +4333,10 @@ function lawCtx() {
 var LAWS1 = [
   { id: 'ra', need: 'ra', short: 'reach-avoid', name: 'reach-avoid  −sign ∂Vᴿᴬ₁/∂φ₁',
     f: function (x, t, c) { var F = c.ra; return signMin(gradSampler(F).at(snapAt(F, c.T, t), x[0], x[1], x[2], 1)); } },
+  // player 2's reach-avoid game, player 1 the maximizer: the mirror image (under S) of player 2's
+  // "reach-avoid adversary"; V_RA2 = V_RA1 o S, so dV_RA2/dphi_1 is dV_RA1/dphi_2 read at S x
+  { id: 'ra_adv', need: 'ra', short: 'RA adv.', name: 'reach-avoid adversary  +sign ∂Vᴿᴬ₂/∂φ₁',
+    f: function (x, t, c) { var F = c.ra; return signMax(gradSampler(F).at(snapAt(F, c.T, t), x[0], x[2], x[1], 2)); } },
   { id: 'single', need: 'v1', short: 'single-tgt', name: 'single-target pursuit  −sign ∂V₁/∂φ₁',
     f: function (x, t, c) { var F = c.v1; return signMin(gradSampler(F).at(snapAt(F, c.T, t), x[0], x[1], x[2], 1)); } },
   { id: 'retreat', need: 'v1', short: 'retreat', name: 'retreat (evade player 2)  +sign ∂V₂/∂φ₁',
@@ -4056,14 +4405,17 @@ function crossing(w, s1, s2, h, efun) {
   }
   return hi;
 }
-/* One rollout from reduced state x0.  store: keep every step for the replay. */
-function rollout(x0, law1, law2, T, ctx, store) {
+/* One rollout from reduced state x0.  store: keep every step for the replay.
+   kills: { k1, k2 } (default both): a player with its kill off cannot end the
+   run -- its envelope still exists, the run just flies on through it. */
+function rollout(x0, law1, law2, T, ctx, store, kills) {
+  var k1 = !kills || kills.k1 !== false, k2 = !kills || kills.k2 !== false;
   var w = worldFromReduced(x0[0], x0[1], x0[2]), wn = new Array(6), x = [0, 0, 0], xn = [0, 0, 0];
   reducedOf(w, x);
-  var run = { x0: x0.slice(), T: T, outcome: OUT.NONE, tEnd: T, rmin: x[0] };
+  var run = { x0: x0.slice(), T: T, outcome: OUT.NONE, tEnd: T, rmin: x[0], kills: { k1: k1, k2: k2 } };
   var ts = [], ws = [], xs = [], s1s = [], s2s = [];
   function rec(t, ww, xx, a, b) { if (!store) return; ts.push(t); ws.push.apply(ws, ww); xs.push(xx[0], xx[1], xx[2]); s1s.push(a); s2s.push(b); }
-  var pre1 = ell1x(x) <= 0, pre2 = ell2x(x) <= 0;
+  var pre1 = k1 && ell1x(x) <= 0, pre2 = k2 && ell2x(x) <= 0;
   if (pre1 || pre2) {
     run.outcome = pre1 && pre2 ? OUT.MUTUAL : pre1 ? OUT.WIN : OUT.LOSS; run.tEnd = 0;
     rec(0, w, x, 0, 0);
@@ -4076,7 +4428,7 @@ function rollout(x0, law1, law2, T, ctx, store) {
       rec(t, w, x, s1, s2);
       arcStep(w, s1, s2, SIM_DT, wn); reducedOf(wn, xn);
       if (xn[0] < run.rmin) run.rmin = xn[0];
-      var h1 = ell1x(xn) <= 0, h2 = ell2x(xn) <= 0;
+      var h1 = k1 && ell1x(xn) <= 0, h2 = k2 && ell2x(xn) <= 0;
       if (h1 || h2) {
         var c1 = h1 ? crossing(w, s1, s2, SIM_DT, ell1x) : Infinity, c2 = h2 ? crossing(w, s1, s2, SIM_DT, ell2x) : Infinity;
         run.outcome = isFinite(c1) && isFinite(c2) && Math.abs(c1 - c2) <= TIE_EPS ? OUT.MUTUAL : c1 < c2 ? OUT.WIN : OUT.LOSS;
@@ -4113,6 +4465,10 @@ function runSeries(run, ctx) {
   run.l1 = l1; run.l2 = l2; run.va = va;
 }
 
+function engKills() { return { k1: ENG.kill1, k2: ENG.kill2 }; }
+function killNote(kills) {
+  return kills.k1 && kills.k2 ? '' : !kills.k1 && !kills.k2 ? 'kills off' : kills.k1 ? 'player 2 kill off' : 'player 1 kill off';
+}
 function engStart(fresh) {
   engStop();
   if (!S.sel) { ENG.run = null; engDraw(); return; }
@@ -4120,7 +4476,7 @@ function engStart(fresh) {
   syncLawOptions();
   var L1 = lawById(LAWS1, ENG.l1), L2 = lawById(LAWS2, ENG.l2);
   var x0 = [S.sel.R, S.sel.p1, S.sel.p2];
-  var run = rollout(x0, L1.f, L2.f, ENG.T, c, true);
+  var run = rollout(x0, L1.f, L2.f, ENG.T, c, true, engKills());
   runSeries(run, c);
   run.L1 = L1; run.L2 = L2; run.sel = S.sel;
   ENG.run = run; ENG.t = 0;
@@ -4135,19 +4491,19 @@ function engStart(fresh) {
 /* Every pair of available laws from the selected state, a slice of time at a
    time so the page stays responsive.  Rebuilt when the selection or T changes. */
 function computeMatrix() {
-  var token = ++ENG.mxToken, sel = S.sel, T = ENG.T, c = simCtx(T);
+  var token = ++ENG.mxToken, sel = S.sel, T = ENG.T, c = simCtx(T), kills = engKills();
   if (!sel) { ENG.mx = null; return; }
   var rows = LAWS1.filter(function (L) { return lawAvail(L, c); }), cols = LAWS2.filter(function (L) { return lawAvail(L, c); });
   var jobs = [];
   rows.forEach(function (a) { cols.forEach(function (b) { jobs.push([a, b]); }); });
-  ENG.mx = { sel: sel, T: T, rows: rows, cols: cols, cells: {}, done: false };
+  ENG.mx = { sel: sel, T: T, rows: rows, cols: cols, cells: {}, done: false, kills: kills };
   var x0 = [sel.R, sel.p1, sel.p2];
   (function step() {
     if (token !== ENG.mxToken) return;
     var t0 = performance.now();
     while (jobs.length && performance.now() - t0 < 25) {
       var jb = jobs.shift();
-      ENG.mx.cells[jb[0].id + '|' + jb[1].id] = rollout(x0, jb[0].f, jb[1].f, T, c, false);
+      ENG.mx.cells[jb[0].id + '|' + jb[1].id] = rollout(x0, jb[0].f, jb[1].f, T, c, false, kills);
     }
     ENG.mx.done = !jobs.length;
     if (!S.hover) showReadout();
@@ -4158,7 +4514,8 @@ function matrixHtml() {
   var M = ENG.mx;
   if (!M || M.sel !== S.sel) return '';
   var h = '<div style="margin-top:10px;font-size:12px;color:var(--ink)"><b>Outcome from this state</b> ' +
-          '<span class="muted">(T = ' + M.T + '; rows: player 1\'s law, columns: player 2\'s; time of the kill; ' +
+          '<span class="muted">(T = ' + M.T + (killNote(M.kills) ? '; <b>' + killNote(M.kills) + '</b>' : '') +
+          '; rows: player 1\'s law, columns: player 2\'s; time of the kill; ' +
           'click a cell to play it' + (M.done ? '' : ' — running…') + ')</span></div>';
   h += '<table class="mx"><thead><tr><th></th>';
   M.cols.forEach(function (b) { h += '<th title="' + b.name + '">' + b.short + '</th>'; });
@@ -4340,7 +4697,8 @@ function engTitleText() {
   if (!run) return '1v1 engagement';
   var x = run.x0;
   return '1v1 engagement from R = ' + (+x[0].toFixed(3)) + ', φ₁ = ' + fmt(x[1] * 180 / PI, 1) + '°, φ₂ = ' +
-         fmt(x[2] * 180 / PI, 1) + '°: ' + run.L1.short + ' vs ' + run.L2.short + ', t = ' + ENG.t.toFixed(2);
+         fmt(x[2] * 180 / PI, 1) + '°: ' + run.L1.short + ' vs ' + run.L2.short + (killNote(run.kills) ? ' (' + killNote(run.kills) + ')' : '') +
+         ', t = ' + ENG.t.toFixed(2);
 }
 function stateAt(run, i) {
   return { w: Array.prototype.slice.call(run.w, 6 * i, 6 * i + 6), x: Array.prototype.slice.call(run.x, 3 * i, 3 * i + 3),
@@ -4397,7 +4755,9 @@ function engDraw() {
       if (cur && g.measureText(next).width > EV.W - 32) { lines.push(cur); cur = w; } else cur = next;
     });
     if (cur) lines.push(cur);
-    lines.forEach(function (t, i) { g.fillText(t, EV.W / 2, EV.H / 2 + (i - (lines.length - 1) / 2) * 18 * S.UI.text); });
+    var lh = 18 * S.UI.text, fit = Math.max(0, Math.floor((EV.H - 8) / lh));
+    if (fit < lines.length) lines = fit ? ['Click a state to fly it as a 1v1 engagement.'].slice(0, fit) : [];
+    lines.forEach(function (t, i) { g.fillText(t, EV.W / 2, EV.H / 2 + (i - (lines.length - 1) / 2) * lh); });
     ttl.textContent = '';
     return;
   }
@@ -4432,6 +4792,18 @@ function arcPts(g, cx, cy, rpx, a0, a1, move) {     // world angles; screen y is
     if (k === 0 && move) g.moveTo(px, py); else g.lineTo(px, py);
   }
 }
+/* Near ±180° an angle flips sign from one step to the next, and its arc would
+   jump to the other side.  An arc keeps the side it was drawn on until the
+   angle is back inside ±179° (1° of hysteresis), so it sweeps on past 180°
+   (up to 181°) instead of flickering.  The readouts keep (-180°, 180°]. */
+var ARC_HYST = PI / 180;
+function steadyAngle(slot, a) {
+  var st = ENG.arcSide || (ENG.arcSide = {}), side = st[slot];
+  if (!side || Math.abs(a) < PI - ARC_HYST) { st[slot] = a >= 0 ? 1 : -1; return a; }
+  if (side > 0 && a < 0) return a + TWO_PI;
+  if (side < 0 && a > 0) return a - TWO_PI;
+  return a;
+}
 function drawPlan(g, rc, run, i) {
   var frame = ENG.frame, cam = planCamera(run, frame), ts = S.UI.text, lw = S.UI.line;
   var hud = planHud(g, rc, run, i), top = hud.h, pad = 10;
@@ -4452,18 +4824,20 @@ function drawPlan(g, rc, run, i) {
   var q = planPoint(run, i, frame), x = run.x.subarray(3 * i, 3 * i + 3), beta = CONST.P.beta;
   var hot1 = ell1x(x) <= 0, hot2 = ell2x(x) <= 0;
   // weapon envelopes: each shooter's radii come from the TARGET's aspect angle (Eqs. 8-9)
-  function sector(p, th, rlo, rhi, col, hot) {
+  function sector(p, th, rlo, rhi, col, hot, live) {
     var px = X(p[0]), py = Y(p[1]);
     g.beginPath();
     arcPts(g, px, py, rhi * k, th - beta, th + beta, true);
     arcPts(g, px, py, Math.max(0, rlo) * k, th + beta, th - beta, false);
     g.closePath();
     g.globalAlpha = hot ? 0.24 : 0.08; g.fillStyle = col; g.fill();
-    g.globalAlpha = hot ? 0.9 : 0.45; g.strokeStyle = col; g.lineWidth = (hot ? 1.6 : 1) * lw; g.stroke();
+    g.globalAlpha = hot ? 0.9 : 0.45; g.strokeStyle = col; g.lineWidth = (hot ? 1.6 : 1) * lw;
+    if (!live) g.setLineDash([5 * lw, 4 * lw]);                // kill off: the envelope is drawn, dashed
+    g.stroke(); g.setLineDash([]);
     g.globalAlpha = 1;
   }
-  sector(q.p1, q.th1, Rlo(x[2]), Rhi(x[2]), P1_COL, hot1);
-  sector(q.p2, q.th2, Rlo(x[1]), Rhi(x[1]), P2_COL, hot2);
+  sector(q.p1, q.th1, Rlo(x[2]), Rhi(x[2]), P1_COL, hot1, run.kills.k1);
+  sector(q.p2, q.th2, Rlo(x[1]), Rhi(x[1]), P2_COL, hot2, run.kills.k2);
   // paths: all of it faint, flown so far solid
   var step = Math.max(1, Math.floor(run.n / 1200));
   function trail(which, upto, col, width, alpha) {
@@ -4508,8 +4882,11 @@ function drawPlan(g, rc, run, i) {
     g.beginPath(); g.moveTo(h[0][0], h[0][1]); g.lineTo(h[0][0] + 30 * lw * Math.cos(h[1]), h[0][1] - 30 * lw * Math.sin(h[1])); g.stroke();
     g.globalAlpha = 1;
   });
-  angleArc(a1, q.th1, wrapA(psi - q.th1), P1_COL, 'φ₁ ' + fmt(x[1] * 180 / PI, 0) + '°');
-  angleArc(a2, q.th2, wrapA(psi + PI - q.th2), P2_COL, 'φ₂ ' + fmt(x[2] * 180 / PI, 0) + '°');
+  if (ENG.arcRun !== run) { ENG.arcRun = run; ENG.arcSide = {}; }       // a new run starts fresh
+  var d1 = steadyAngle('p1', wrapA(psi - q.th1)), d2 = steadyAngle('p2', wrapA(psi + PI - q.th2));
+  ENG.arcLast = [d1, d2];
+  angleArc(a1, q.th1, d1, P1_COL, 'φ₁ ' + fmt(d1 * 180 / PI, 0) + '°');
+  angleArc(a2, q.th2, d2, P2_COL, 'φ₂ ' + fmt(d2 * 180 / PI, 0) + '°');
   // the aircraft
   function plane(c, th, col, label) {
     var L = 12 * lw, pts = [[L, 0], [-0.85 * L * 0.83, 0.85 * L * 0.56], [-0.28 * L, 0], [-0.85 * L * 0.83, -0.85 * L * 0.56]];
@@ -4561,7 +4938,9 @@ function planHud(g, rc, run, i) {
     { font: '600 ' + (12 * ts) + 'px ' + FONT, color: '#17191c',
       parts: ['t = ' + ENG.t.toFixed(3), 'R = ' + x[0].toFixed(3), 'φ₁ = ' + fmt(x[1] * 180 / PI, 1) + '°', 'φ₂ = ' + fmt(x[2] * 180 / PI, 1) + '°'] },
     { font: '500 ' + (11.5 * ts) + 'px ' + FONT, color: '#4a5058',
-      parts: ['σ₁ ' + sig(run.s1[j]), 'σ₂ ' + sig(run.s2[j])].concat(hot1 ? ['1 can fire'] : [], hot2 ? ['2 can fire'] : [],
+      parts: ['σ₁ ' + sig(run.s1[j]), 'σ₂ ' + sig(run.s2[j])].concat(
+             hot1 ? [run.kills.k1 ? '1 can fire' : '2 in 1\'s envelope (kill off)'] : [],
+             hot2 ? [run.kills.k2 ? '2 can fire' : '1 in 2\'s envelope (kill off)'] : [],
              [frame0()]) },
     { font: (done ? '700 ' : '500 ') + (12 * ts) + 'px ' + FONT, color: '#17191c',
       parts: [(done ? '' : 'ends: ') + OUT_NAME[run.outcome] + (kill ? ' at t = ' + run.tEnd.toFixed(3) : '')] }
@@ -4730,6 +5109,11 @@ document.querySelectorAll('#sliceAxis button').forEach(function (b) {
     requestAnimationFrame(function () { if (pending !== null) { var v = pending; pending = null; setSlicePos(v, true); } });
   });
 })();
+document.getElementById('slicePrev').onclick = function () { stepSlice(-1); };
+document.getElementById('sliceNext').onclick = function () { stepSlice(1); };
+document.querySelectorAll('#sliceStyle button').forEach(function (b) {
+  b.onclick = function () { if (!CAP.busy) setSliceStyle(b.dataset.style); };
+});
 document.getElementById('sliceNum').addEventListener('change', function () {
   var v = parseValue(this.value);
   if (isFinite(v)) setSlicePos(v, false); else syncSliceControls();
@@ -4875,6 +5259,12 @@ document.querySelectorAll('#m5Rand button').forEach(function (b) {
   b.onclick = function () { m5RandomStart(b.dataset.c); };
 });
 // engagement controls
+['engK1', 'engK2'].forEach(function (id, i) {
+  document.getElementById(id).addEventListener('change', function () {
+    ENG['kill' + (i + 1)] = this.checked;
+    if (S.sel) { engStart(true); showReadout(); }
+  });
+});
 document.getElementById('engL1').addEventListener('change', function () {
   ENG.l1 = this.value; ENG.userSet = true; engStart(false); showReadout();
 });
@@ -5074,8 +5464,8 @@ function pickSliceDot(D, x, y) {
     requestAnimationFrame(function () {
       q = false;
       var D = S.sliceData;
-      if (!D || !D.members) return;
-      S.hover = pickSliceDot(D, hx, hy);
+      if (!D || !(D.members || D.fill)) return;
+      S.hover = D.fill ? sliceCellAt(hx, hy) : pickSliceDot(D, hx, hy);
       showReadout(); drawSliceOverlay(); requestRender();
     });
   });
@@ -5088,9 +5478,10 @@ function pickSliceDot(D, x, y) {
   sliceViewEl.addEventListener('pointerup', function (e) {
     if (e.button !== 0 || Math.abs(e.clientX - cx) + Math.abs(e.clientY - cy) > 4 || CAP.busy) return;
     var D = S.sliceData;
-    if (!D || !D.members) return;
+    if (!D || !(D.members || D.fill)) return;
     var r = sliceViewEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    var hit = pickSliceDot(D, x, y);
+    var hit = D.fill ? sliceCellAt(x, y) : pickSliceDot(D, x, y);
+    if (!hit && D.fill) return;
     if (!hit) {
       var rc = D.rc;
       if (x < rc.x || x > rc.x + rc.w || y < rc.y || y > rc.y + rc.h) return;
@@ -5835,9 +6226,11 @@ function saveLayout() {
 function loadLayout() {
   var st = null, t = null;
   try { st = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { st = null; }
-  if (st && st.version === 3 && st.tree && validLayout(st.tree)) {
+  // a layout saved with the separate slice map of 2026-10-29: the map is now the slice's regions style
+  var tr = st && st.version === 3 && st.tree ? removePanel(st.tree, 'maps') : null;
+  if (tr && validLayout(tr)) {
     DOCK.height = isFinite(st.height) && st.height >= MIN_DOCK_H && st.height <= MAX_DOCK_H ? st.height : null;
-    return normalizeTree(st.tree);
+    return normalizeTree(tr);
   }
   try { t = JSON.parse(localStorage.getItem(LAYOUT_OLD) || 'null'); } catch (e) { t = null; }
   if (t && wellFormedOld(t)) {
@@ -5852,10 +6245,16 @@ function wellFormedOld(n) {
     return (n.t === 'row' || n.t === 'col') && Array.isArray(n.c) && n.c.length === n.s.length && n.c.every(wellFormedOld);
   } catch (e) { return false; }
 }
+/* The preset a tree is, sizes to 1e-6 (a migrated layout's sizes differ in the
+   last digits), or 'custom'. */
+function sameTree(a, b) {
+  if (a.p || b.p) return a.p === b.p;
+  return a.t === b.t && a.c.length === b.c.length &&
+         a.c.every(function (k, i) { return Math.abs(a.s[i] - b.s[i]) < 1e-6 && sameTree(k, b.c[i]); });
+}
 function presetOf(tree) {
-  var shape = JSON.stringify(tree);
   return Object.keys(LAYOUT_PRESETS).filter(function (k) {
-    return JSON.stringify(normalizeTree(cloneTree(LAYOUT_PRESETS[k]))) === shape;
+    return sameTree(normalizeTree(cloneTree(LAYOUT_PRESETS[k])), tree);
   })[0] || 'custom';
 }
 function syncPresetSelect() { document.getElementById('dockPreset').value = presetOf(DOCK.tree); }
@@ -5869,6 +6268,10 @@ function setPreset(name) {
 
 function isHidden(id) { return id === 'slice' && !S.slice.on; }
 
+/* Sizes as flex-grow, times 1000: CSS gives a set of items whose grow factors
+   sum below 1 only that fraction of the space, so a split with a hidden member
+   (the slice turned off) would not fill. */
+function flexOf(s) { return (s * 1000).toFixed(4) + ' 1 0px'; }
 function renderDock() {
   var hold = document.getElementById('panelHold');
   PANEL_IDS.forEach(function (id) { hold.appendChild(DOCK.panels[id]); });   // park them
@@ -5900,7 +6303,7 @@ function buildDockNode(n) {
       bindGutter(g, n, i - 1); el.appendChild(g);
     }
     var ke = buildDockNode(k);
-    ke.style.flex = n.s[i] + ' 1 0px';
+    ke.style.flex = flexOf(n.s[i]);
     el.appendChild(ke);
   });
   return el;
@@ -5933,8 +6336,8 @@ function bindGutter(g, n, k) {
     return { kids: kids, a: a, b: k + 1 };
   }
   function setFlex(N) {
-    N.kids[N.a].style.flex = n.s[N.a] + ' 1 0px';
-    N.kids[N.b].style.flex = n.s[N.b] + ' 1 0px';
+    N.kids[N.a].style.flex = flexOf(n.s[N.a]);
+    N.kids[N.b].style.flex = flexOf(n.s[N.b]);
   }
   /* Move the boundary so that child a is `pa` px, within MIN_PANEL of each side. */
   function resizeTo(N, pa, tot, ssum) {
@@ -6277,6 +6680,8 @@ window.EllExplorer = {
   ellRaw: ellRaw, ellTerms: ellTerms, constants: CONST,
   marchingCubes: marchingCubes, renderGrid: renderGrid, worldMap: worldMap, t1Volume: t1Volume,
   project: projData, state: S, bands: bands, bandColor: bandColor, dock: DOCK,
+  sliceFill: { setStyle: setSliceStyle, step: stepSlice, cellAt: sliceCellAt, build: buildMap, shares: mapShares,
+               mapOf: function () { var D = S.sliceData; return D ? sliceMap(D, D.rc) : null; } },
   dockOps: { normalizeTree: normalizeTree, dockBeside: dockBeside, removePanel: removePanel,
              swapPanels: swapPanels, dockAtEdge: dockAtEdge, validLayout: validLayout, applyDrop: applyDrop,
              setPreset: setPreset, presetOf: presetOf, presets: LAYOUT_PRESETS, openMove: openMove, sizeDock: sizeDock },
@@ -6286,7 +6691,8 @@ window.EllExplorer = {
   m5: { classes: m5Classes, V1: m5V1, partitionCheck: m5PartitionCheck, settings: M5, refresh: m5Refresh, table2: TABLE2 },
   engage: { state: ENG, rollout: rollout, simCtx: simCtx, laws1: LAWS1, laws2: LAWS2, lawById: lawById,
             gradSampler: gradSampler, worldFromReduced: worldFromReduced, reducedOf: reducedOf, arcStep: arcStep,
-            start: engStart, setTime: engSetTime, play: engPlay, stop: engStop, OUT: OUT }
+            start: engStart, setTime: engSetTime, play: engPlay, stop: engStop, OUT: OUT,
+            ell1x: ell1x, ell2x: ell2x, steadyAngle: steadyAngle }
 };
 })();
 </script>

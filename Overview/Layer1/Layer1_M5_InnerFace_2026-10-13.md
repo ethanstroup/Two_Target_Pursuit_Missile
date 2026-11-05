@@ -53,7 +53,7 @@ $R_{\min}$, and `hj_reachability` filled values below it by linear extrapolation
 ### 2.1 Moving the face to $R_{\min}=0.1$ (tried 2026-10-12, Ethan's machine)
 
 Everything was switched to 0.1 (`hji.R_MIN_DEFAULT`, `sim_m5.R_LO_DOM`). The logs are in
-`layer1/m5_out/rmin0.1/`.
+`layer1/M5/m5_out/rmin0.1/`.
 
 | check 3, $61\times62^2$ | $R_{\min}=0.2$ | $R_{\min}=0.1$ |
 |---|---|---|
@@ -111,7 +111,7 @@ the relative residual is $7.7\times10^{-15}$ (`pole.dynamics_equivariance`).
 - **The mirror is index-exact.** Ghost row $k$ mirrors real row $5-k$ with both angles shifted by
   $n_\phi/2$ indices. $n_\phi$ = 62, 102 and 204 are all even.
 
-**The implementation.** `layer1/pole.py`.
+**The implementation.** `layer1/M5/pole.py`.
 - **Why not a boundary function.** `hj_reachability` applies boundary conditions to one 1-D slice
   at a time, so a boundary function cannot fetch the opposite angles.
 - **What is done instead.**
@@ -523,8 +523,9 @@ so its error is about 4 times the pole grids' worst.
 
 ## 9. Rerunning M5 on the pole grids (set up 2026-10-13)
 
-**What runs.** `python run_m5_pole.py` from `layer1/` runs the whole M5 sequence on pole grids,
-unattended. It writes one log per step to `m5_out/pole_run/`, and if it is stopped, starting it
+**What runs.** `python run_m5_pole.py` from `layer1/M5/` runs the whole M5 sequence on pole grids,
+unattended. It writes one log per step to `m5_out/pole_run/` (the run of record now sits in
+`m5_out/m5_out_V1_pole/pole_run/`), and if it is stopped, starting it
 again resumes.
 
 | step | what | needed for |
@@ -576,31 +577,31 @@ container, numpy about 2× slower):
 ## 10. Files and reproducing
 
 ```
-layer1/pole.py                  the pole grid, mirror fill, solver settings, simulator stepper
-layer1/inertial.py              exact inertial kinematics, conversions, inertial rollouts (V1, V2, D1)
-layer1/verify_pole.py           V1-V4:  python verify_pole.py v1|v2|v3|v4 [n_R n_phi]
-layer1/diag_pole_check3.py      check 3 on the pole grid:  python diag_pole_check3.py [T]
-layer1/diag_pole_oldfails.py    D1: the 12 old check 3 failures on the pole grid
-layer1/diag_pole_check8.py      D2: check 8's flips on the pole grid; near-face W_1 shares
-layer1/diag_check8_interp.py    Sec. 8: check 8 with interpolated vs exact fine values (old grids)
-layer1/run_m5_pole.py           Sec. 9: the M5 rerun on pole grids; logs in m5_out/pole_run/
-layer1/diag_check3_rmin.py      check 3 at a chosen R_min (Sec. 2.1)
-layer1/sim_m5.py                rollout() takes a stepper and an inner exit radius; f() guards R = 0
-layer1/reach_avoid.py           LAYER1_POLE=1 solves on the pole grid; outputs tagged _pole
-layer1/m5_out/rmin0.1/          Ethan's R_min = 0.1 smoke and diagnostic logs (Sec. 2.1)
-layer1/m5_out/pole/             every log and json named in this record
-layer1/m5_out/m5_<grid>_T6[_single]_pole_fields.npz, m5_<grid>_T6[_single]_pole.json
-                                the pole fields (float32) and solve diagnostics
-layer1/m5_out/Vsnap_RA_<grid>_T6[_single]_pole.npz
-                                for visualization (added 2026-10-13, after the tests):
-                                V(., tau) every 0.5, real rows only, with R, phi1, phi2
+layer1/M5/pole.py                     the pole grid, mirror fill, solver settings, simulator stepper
+layer1/M5/inertial.py                 exact inertial kinematics, conversions, inertial rollouts (V1, V2, D1)
+layer1/M5/verify_pole.py              V1-V4:  python verify_pole.py v1|v2|v3|v4 [n_R n_phi]
+layer1/M5/diag/diag_pole_check3.py    check 3 on the pole grid:  python diag/diag_pole_check3.py [T]
+layer1/M5/diag/diag_pole_oldfails.py  D1: the 12 old check 3 failures on the pole grid
+layer1/M5/diag/diag_pole_check8.py    D2: check 8's flips on the pole grid; near-face W_1 shares
+layer1/M5/diag/diag_check8_interp.py  Sec. 8: check 8 with interpolated vs exact fine values (old grids)
+layer1/M5/run_m5_pole.py              Sec. 9: the M5 rerun on pole grids; logs in m5_out/pole_run/
+layer1/M5/diag/diag_check3_rmin.py    check 3 at a chosen R_min (Sec. 2.1)
+layer1/M5/sim_m5.py                   rollout() takes a stepper and an inner exit radius; f() guards R = 0
+layer1/M5/reach_avoid.py              LAYER1_POLE=1 solves on the pole grid; outputs tagged _pole
+layer1/M5/m5_out/rmin0.1/             Ethan's R_min = 0.1 smoke and diagnostic logs (Sec. 2.1)
+layer1/M5/m5_out/pole/                every log and json named in this record
+layer1/M5/m5_out/m5_out_V0/m5_<grid>_T6[_single]_pole_fields.npz, m5_<grid>_T6[_single]_pole.json
+                                      the pole fields (float32) and solve diagnostics
+layer1/M5/m5_out/m5_out_V0/Vsnap_RA_<grid>_T6[_single]_pole.npz
+                                      for visualization (added 2026-10-13, after the tests):
+                                      V(., tau) every 0.5, real rows only, with R, phi1, phi2
 ```
 
-Run from `layer1/`. Times are for the 2-core container.
+Run from `layer1/M5/`; the diagnostics as `python3 diag/<name>.py`. Times are for the 2-core container.
 
 ```
-python3 diag_pole_check3.py 4                                    # check 3, pole (~3 min)
-python3 diag_pole_check3.py 6                                    # (~4 min)
+python3 diag/diag_pole_check3.py 4                               # check 3, pole (~3 min)
+python3 diag/diag_pole_check3.py 6                               # (~4 min)
 LAYER1_POLE=1 python3 reach_avoid.py 101 102 6 game              # coarse V_RA, pole (~1.5 h)
 LAYER1_POLE=1 python3 reach_avoid.py 101 102 6 single            # coarse V_1, pole (~1.4 h)
 LAYER1_POLE=1 python3 reach_avoid.py 51 52 6 game                # third grid, pole (~3 min)
@@ -608,8 +609,8 @@ python3 verify_pole.py v1                                        # (~45 min)
 python3 verify_pole.py v2                                        # (~3 min)
 python3 verify_pole.py v3                                        # (~1 min)
 python3 verify_pole.py v4                                        # (~3 min)
-python3 diag_pole_oldfails.py                                    # D1 (~6 min)
-python3 diag_pole_check8.py                                      # D2 (~1 min)
+python3 diag/diag_pole_oldfails.py                               # D1 (~6 min)
+python3 diag/diag_pole_check8.py                                 # D2 (~1 min)
 ```
 
 The pole snapshot stacks (108 MB each at $101\times102^2$) stay in the session workspace. Rerunning
